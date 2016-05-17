@@ -1,4 +1,4 @@
-package com.researchworx.cresco.plugins.skeleton;
+package com.researchworx.cresco.plugins.gobjectIngestion;
 
 import com.google.auto.service.AutoService;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
