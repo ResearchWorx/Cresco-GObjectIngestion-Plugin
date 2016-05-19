@@ -88,7 +88,7 @@
 				<configuration>
 					<archive>
 						<manifestEntries>
-							<artifactId>cresco-skeleton-plugin</artifactId>
+							<artifactId>cresco-gobjectIngestion-plugin</artifactId>
 							<Implementation-Version>${project.version}.${buildNumber}.${maven.build.timestamp}</Implementation-Version>
 						</manifestEntries>
 					</archive>
