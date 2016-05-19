@@ -20,7 +20,6 @@ public class Plugin extends CPlugin {
     public static ConcurrentLinkedQueue<Path> pathQueue;
     public static boolean PathProcessorActive = false;
 
-
     public void setExecutor() {
         setExec(new Executor(this));
     }
