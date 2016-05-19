@@ -32,6 +32,10 @@ public class Plugin extends CPlugin {
         Thread ppThread = null;
 
         logger.trace("Grabbing [pathstage] from config");
+        if(getConfig().getStringParam("pathstage") == null) {
+            logger.error("Pathstage config not found exiting!");
+            System.exit(0);
+        }
         int pathStage = getConfig().getIntegerParam("pathstage");
         logger.debug("[pathStage] == {}", pathStage);
         logger.info("Building Stage [{}]", pathStage);
