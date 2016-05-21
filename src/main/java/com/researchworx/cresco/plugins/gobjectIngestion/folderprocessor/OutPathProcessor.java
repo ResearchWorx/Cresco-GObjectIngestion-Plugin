@@ -1,5 +1,6 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor;
 
+import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ public class OutPathProcessor implements Runnable {
     private final String outgoing_directory;
     private final String bucket_name;
     private Plugin plugin;
+    private MsgEvent me;
 
     public OutPathProcessor(Plugin plugin) {
         this.plugin = plugin;
@@ -35,6 +37,13 @@ public class OutPathProcessor implements Runnable {
         logger.debug("\"pathstage4\" --> \"outgoing_directory\" from config [{}]", outgoing_directory);
         bucket_name = plugin.getConfig().getStringParam("bucket");
         logger.debug("\"pathstage4\" --> \"bucket\" from config [{}]", bucket_name);
+
+        me = plugin.genGMessage(MsgEvent.Type.INFO,"OutPathPreProcessor Instantiated");
+        me.setParam("transfer_watch_file",transfer_watch_file);
+        me.setParam("transfer_status_file", transfer_status_file);
+        me.setParam("bucket_name",bucket_name);
+        me.setParam("pathstage",String.valueOf(plugin.pathStage));
+        me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
     }
 
     @Override
@@ -46,6 +55,14 @@ public class OutPathProcessor implements Runnable {
             ObjectEngine oe = null;
             logger.trace("Entering while-loop");
             while (plugin.PathProcessorActive) {
+                //msg start scan
+                me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Object Scan");
+                me.setParam("transfer_watch_file",transfer_watch_file);
+                me.setParam("transfer_status_file", transfer_status_file);
+                me.setParam("bucket_name",bucket_name);
+                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                plugin.sendMsgEvent(me);
                 try {
                     oe = new ObjectEngine(plugin);
                     //oe.deleteBucketContents(bucket_name);
@@ -77,10 +94,35 @@ public class OutPathProcessor implements Runnable {
                     Thread.sleep(30000);
                 } catch (Exception ex) {
                     logger.error("run : while {}", ex.getMessage());
+                    logger.error("run : while {}", ex.getMessage());
+                    me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error during Object scan");
+                    me.setParam("transfer_watch_file",transfer_watch_file);
+                    me.setParam("transfer_status_file", transfer_status_file);
+                    me.setParam("bucket_name",bucket_name);
+                    me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                    me.setParam("error_message",ex.getMessage());
+                    plugin.sendMsgEvent(me);
                 }
+                //message end of scan
+                me = plugin.genGMessage(MsgEvent.Type.INFO,"End Object Scan");
+                me.setParam("transfer_watch_file",transfer_watch_file);
+                me.setParam("transfer_status_file", transfer_status_file);
+                me.setParam("bucket_name",bucket_name);
+                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                plugin.sendMsgEvent(me);
             }
         } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
+            me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            me.setParam("pathstage",String.valueOf(plugin.pathStage));
+            me.setParam("error_message",ex.getMessage());
+            plugin.sendMsgEvent(me);
         }
     }
 
@@ -109,6 +151,15 @@ public class OutPathProcessor implements Runnable {
                 setTransferFileMD5(inDir + transfer_status_file, md5map);
                 //process sample directories
                 processDirectories(inDir,remoteDir);
+                me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
+                me.setParam("indir", inDir);
+                me.setParam("outdir", remoteDir);
+                me.setParam("transfer_watch_file",transfer_watch_file);
+                me.setParam("transfer_status_file", transfer_status_file);
+                me.setParam("bucket_name",bucket_name);
+                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                plugin.sendMsgEvent(me);
             }
 
         }
