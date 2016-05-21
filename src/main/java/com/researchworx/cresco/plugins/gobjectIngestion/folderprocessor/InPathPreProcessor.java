@@ -88,7 +88,7 @@ public class InPathPreProcessor implements Runnable {
                     plugin.sendMsgEvent(me);
 
                 }
-                //message start of scan
+                //message end of scan
                 me = plugin.genGMessage(MsgEvent.Type.INFO,"End Filesystem Scan");
                 me.setParam("transfer_watch_file",transfer_watch_file);
                 me.setParam("transfer_status_file", transfer_status_file);
