@@ -1,5 +1,6 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor;
 
+import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
@@ -23,6 +24,7 @@ public class InPathPreProcessor implements Runnable {
     private final String transfer_status_file;
     private final String bucket_name;
     private Plugin plugin;
+    private MsgEvent me;
 
     public InPathPreProcessor(Plugin plugin) {
         this.plugin = plugin;
@@ -33,6 +35,12 @@ public class InPathPreProcessor implements Runnable {
         logger.debug("\"pathstage1\" --> \"transfer_status_file\" from config [{}]", transfer_status_file);
         bucket_name = plugin.getConfig().getStringParam("bucket");
         logger.debug("\"pathstage1\" --> \"bucket_name\" from config [{}]", bucket_name);
+        me = plugin.genGMessage(MsgEvent.Type.INFO,"InPathPreProcessor instantiated");
+        me.setParam("transfer_watch_file",transfer_watch_file);
+        me.setParam("transfer_status_file", transfer_status_file);
+        me.setParam("bucket_name",bucket_name);
+        me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+        plugin.sendMsgEvent(me);
     }
 
     @Override
@@ -46,6 +54,15 @@ public class InPathPreProcessor implements Runnable {
             oe.createBucket(bucket_name);
             logger.trace("Entering while-loop");
             while (Plugin.PathProcessorActive) {
+                //message start of scan
+                me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Filesystem Scan");
+                me.setParam("transfer_watch_file",transfer_watch_file);
+                me.setParam("transfer_status_file", transfer_status_file);
+                me.setParam("bucket_name",bucket_name);
+                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                me.setParam("pathphase", "pathstage1");
+                plugin.sendMsgEvent(me);
+
                 try {
                     Path dir = Plugin.pathQueue.poll();
                     if (dir != null) {
@@ -60,10 +77,37 @@ public class InPathPreProcessor implements Runnable {
                     }
                 } catch (Exception ex) {
                     logger.error("run : while {}", ex.getMessage());
+                    //message start of scan
+                    me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error during Filesystem scan");
+                    me.setParam("transfer_watch_file",transfer_watch_file);
+                    me.setParam("transfer_status_file", transfer_status_file);
+                    me.setParam("bucket_name",bucket_name);
+                    me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    me.setParam("pathphase", "pathstage1");
+                    me.setParam("error_message",ex.getMessage());
+                    plugin.sendMsgEvent(me);
+
                 }
+                //message start of scan
+                me = plugin.genGMessage(MsgEvent.Type.INFO,"End Filesystem Scan");
+                me.setParam("transfer_watch_file",transfer_watch_file);
+                me.setParam("transfer_status_file", transfer_status_file);
+                me.setParam("bucket_name",bucket_name);
+                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                me.setParam("pathphase", "pathstage1");
+                plugin.sendMsgEvent(me);
             }
         } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
+            me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            me.setParam("pathphase", "pathstage1");
+            me.setParam("error_message",ex.getMessage());
+            plugin.sendMsgEvent(me);
+
         }
     }
 
@@ -156,8 +200,27 @@ public class InPathPreProcessor implements Runnable {
             if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
                 if (setTransferFile(dir)) {
                     logger.debug("Directory Transfered [inDir = {}, outDir = {}]", inDir, outDir);
+                    me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
+                    me.setParam("indir", inDir);
+                    me.setParam("outdir", outDir);
+                    me.setParam("transfer_watch_file",transfer_watch_file);
+                    me.setParam("transfer_status_file", transfer_status_file);
+                    me.setParam("bucket_name",bucket_name);
+                    me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    me.setParam("pathphase", "pathstage1");
+                    plugin.sendMsgEvent(me);
+
                 } else {
                     logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
+                    me = plugin.genGMessage(MsgEvent.Type.ERROR,"Failed Directory Transfer");
+                    me.setParam("indir", inDir);
+                    me.setParam("outdir", outDir);
+                    me.setParam("transfer_watch_file",transfer_watch_file);
+                    me.setParam("transfer_status_file", transfer_status_file);
+                    me.setParam("bucket_name",bucket_name);
+                    me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    me.setParam("pathphase", "pathstage1");
+                    plugin.sendMsgEvent(me);
                 }
             }
         } else if (status.equals("yes")) {

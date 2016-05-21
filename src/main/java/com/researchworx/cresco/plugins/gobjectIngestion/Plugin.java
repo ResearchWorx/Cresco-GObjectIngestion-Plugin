@@ -1,6 +1,7 @@
 package com.researchworx.cresco.plugins.gobjectIngestion;
 
 import com.google.auto.service.AutoService;
+import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.*;
 import org.slf4j.Logger;
@@ -8,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @AutoService(CPlugin.class)
@@ -19,6 +21,11 @@ public class Plugin extends CPlugin {
 
     public static ConcurrentLinkedQueue<Path> pathQueue;
     public static boolean PathProcessorActive = false;
+
+    public static int pathStage;
+    public static String genomicControllerRegion;
+    public static String genomicControllerAgent;
+    public static String genomicControllerPlugin;
 
     public void setExecutor() {
         setExec(new Executor(this));
@@ -36,7 +43,12 @@ public class Plugin extends CPlugin {
             logger.error("Pathstage config not found exiting!");
             System.exit(0);
         }
-        int pathStage = getConfig().getIntegerParam("pathstage");
+        pathStage = getConfig().getIntegerParam("pathstage");
+        genomicControllerRegion = getConfig().getStringParam("genomic_controller_region");
+        genomicControllerAgent = getConfig().getStringParam("genomic_controller_agent");
+        genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
+
+
         logger.debug("[pathStage] == {}", pathStage);
         logger.info("Building Stage [{}]", pathStage);
         switch (pathStage) {
@@ -103,6 +115,25 @@ public class Plugin extends CPlugin {
             logger.trace("Starting Directory Watcher");
             wd.processEvents();
         }
+    }
+
+    public MsgEvent genGMessage(MsgEvent.Type met,String msgBody) {
+        MsgEvent me = null;
+        try {
+            //MsgEvent.Type
+            me = new MsgEvent(met,getRegion(),getAgent(),getPluginID(),msgBody);
+            me.setParam("src_region",getRegion());
+            me.setParam("src_agent",getAgent());
+            me.setParam("src_plugin",getPluginID());
+            me.setParam("dst_region",genomicControllerRegion);
+            me.setParam("dst_agent", genomicControllerAgent);
+            me.setParam("dst_plugin", genomicControllerPlugin);
+
+        }
+        catch(Exception ex) {
+            logger.error(ex.getMessage());
+        }
+        return me;
     }
 
     @Override
