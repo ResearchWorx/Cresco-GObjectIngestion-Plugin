@@ -36,6 +36,7 @@ public class InPathProcessor implements Runnable {
         me.setParam("transfer_status_file", transfer_status_file);
         me.setParam("bucket_name",bucket_name);
         me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+        me.setParam("pathstage",String.valueOf(plugin.pathStage));
         plugin.sendMsgEvent(me);
     }
 
@@ -55,7 +56,7 @@ public class InPathProcessor implements Runnable {
                 me.setParam("transfer_status_file", transfer_status_file);
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathphase", "pathstage1");
+                me.setParam("pathstage",String.valueOf(plugin.pathStage));
                 plugin.sendMsgEvent(me);
 
                 try {
@@ -78,7 +79,7 @@ public class InPathProcessor implements Runnable {
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathphase", "pathstage1");
+                    me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     me.setParam("error_message",ex.getMessage());
                     plugin.sendMsgEvent(me);
                 }
@@ -88,7 +89,7 @@ public class InPathProcessor implements Runnable {
                 me.setParam("transfer_status_file", transfer_status_file);
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathphase", "pathstage1");
+                me.setParam("pathstage",String.valueOf(plugin.pathStage));
                 plugin.sendMsgEvent(me);
             }
         } catch (Exception ex) {
@@ -98,7 +99,7 @@ public class InPathProcessor implements Runnable {
             me.setParam("transfer_status_file", transfer_status_file);
             me.setParam("bucket_name",bucket_name);
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathphase", "pathstage1");
+            me.setParam("pathstage",String.valueOf(plugin.pathStage));
             me.setParam("error_message",ex.getMessage());
             plugin.sendMsgEvent(me);
         }
@@ -218,7 +219,7 @@ public class InPathProcessor implements Runnable {
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathphase", "pathstage1");
+                    me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     plugin.sendMsgEvent(me);
                 } else {
                     logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
@@ -229,7 +230,7 @@ public class InPathProcessor implements Runnable {
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathphase", "pathstage1");
+                    me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     plugin.sendMsgEvent(me);
                 }
             }

@@ -28,6 +28,7 @@ public class InPathPreProcessor implements Runnable {
 
     public InPathPreProcessor(Plugin plugin) {
         this.plugin = plugin;
+
         logger.trace("InPathPreProcessor instantiated");
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage1\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
@@ -40,6 +41,7 @@ public class InPathPreProcessor implements Runnable {
         me.setParam("transfer_status_file", transfer_status_file);
         me.setParam("bucket_name",bucket_name);
         me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+        me.setParam("pathstage",String.valueOf(plugin.pathStage));
         plugin.sendMsgEvent(me);
     }
 
@@ -60,7 +62,7 @@ public class InPathPreProcessor implements Runnable {
                 me.setParam("transfer_status_file", transfer_status_file);
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathphase", "pathstage1");
+                me.setParam("pathstage",String.valueOf(plugin.pathStage));
                 plugin.sendMsgEvent(me);
 
                 try {
@@ -83,7 +85,7 @@ public class InPathPreProcessor implements Runnable {
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathphase", "pathstage1");
+                    me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     me.setParam("error_message",ex.getMessage());
                     plugin.sendMsgEvent(me);
 
@@ -94,7 +96,7 @@ public class InPathPreProcessor implements Runnable {
                 me.setParam("transfer_status_file", transfer_status_file);
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathphase", "pathstage1");
+                me.setParam("pathstage",String.valueOf(plugin.pathStage));
                 plugin.sendMsgEvent(me);
             }
         } catch (Exception ex) {
@@ -104,7 +106,7 @@ public class InPathPreProcessor implements Runnable {
             me.setParam("transfer_status_file", transfer_status_file);
             me.setParam("bucket_name",bucket_name);
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathphase", "pathstage1");
+            me.setParam("pathstage",String.valueOf(plugin.pathStage));
             me.setParam("error_message",ex.getMessage());
             plugin.sendMsgEvent(me);
 
@@ -207,7 +209,7 @@ public class InPathPreProcessor implements Runnable {
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathphase", "pathstage1");
+                    me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     plugin.sendMsgEvent(me);
 
                 } else {
@@ -219,7 +221,7 @@ public class InPathPreProcessor implements Runnable {
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathphase", "pathstage1");
+                    me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     plugin.sendMsgEvent(me);
                 }
             }

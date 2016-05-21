@@ -22,10 +22,10 @@ public class Plugin extends CPlugin {
     public static ConcurrentLinkedQueue<Path> pathQueue;
     public static boolean PathProcessorActive = false;
 
-    public static int pathStage;
-    public static String genomicControllerRegion;
-    public static String genomicControllerAgent;
-    public static String genomicControllerPlugin;
+    public int pathStage;
+    public String genomicControllerRegion;
+    public String genomicControllerAgent;
+    public String genomicControllerPlugin;
 
     public void setExecutor() {
         setExec(new Executor(this));
