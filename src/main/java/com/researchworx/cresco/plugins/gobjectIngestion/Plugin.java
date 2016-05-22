@@ -128,6 +128,7 @@ public class Plugin extends CPlugin {
             me.setParam("dst_region",genomicControllerRegion);
             me.setParam("dst_agent", genomicControllerAgent);
             me.setParam("dst_plugin", genomicControllerPlugin);
+            me.setParam("gmsg_type",met.name());
 
         }
         catch(Exception ex) {
