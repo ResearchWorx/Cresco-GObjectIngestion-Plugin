@@ -198,6 +198,7 @@ public class InPathPreProcessor implements Runnable {
         logger.trace("Adding [transfer_status_file] to [filterList]");
         filterList.add(transfer_status_file);
 
+
         if (status.equals("no")) {
             logger.debug("[status = \"no\"]");
             Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
