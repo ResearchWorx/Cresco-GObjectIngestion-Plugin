@@ -117,11 +117,11 @@ public class Plugin extends CPlugin {
         }
     }
 
-    public MsgEvent genGMessage(MsgEvent.Type met,String msgBody) {
+    public MsgEvent genGMessage(MsgEvent.Type met, String msgBody) {
         MsgEvent me = null;
         try {
             //MsgEvent.Type
-            me = new MsgEvent(met,getRegion(),getAgent(),getPluginID(),msgBody);
+            me = new MsgEvent(MsgEvent.Type.EXEC,getRegion(),getAgent(),getPluginID(),msgBody);
             me.setParam("src_region",getRegion());
             me.setParam("src_agent",getAgent());
             me.setParam("src_plugin",getPluginID());
