@@ -1,2 +1,2 @@
-# Cresco-Skeleton-Plugin
-A basic skeleton to implement for Cresco plugins
+# Cresco-GObjectIngestion-Plugin
+Genomic Processing Framework
