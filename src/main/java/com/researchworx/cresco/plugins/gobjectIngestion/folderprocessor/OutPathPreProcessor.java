@@ -41,7 +41,8 @@ public class OutPathPreProcessor implements Runnable {
         me.setParam("bucket_name",bucket_name);
         me.setParam("pathstage",String.valueOf(plugin.pathStage));
         me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-
+        me.setParam("pstep","");
+        plugin.sendMsgEvent(me);
     }
 
     @Override
@@ -59,6 +60,7 @@ public class OutPathPreProcessor implements Runnable {
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                me.setParam("pstep","2");
                 plugin.sendMsgEvent(me);
 
                 try {
@@ -91,6 +93,7 @@ public class OutPathPreProcessor implements Runnable {
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     me.setParam("error_message",ex.getMessage());
+                    me.setParam("pstep","2");
                     plugin.sendMsgEvent(me);
                 }
                 //message end of scan
@@ -100,6 +103,7 @@ public class OutPathPreProcessor implements Runnable {
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                me.setParam("pstep","3");
                 plugin.sendMsgEvent(me);
 
             }
@@ -112,6 +116,7 @@ public class OutPathPreProcessor implements Runnable {
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             me.setParam("pathstage",String.valueOf(plugin.pathStage));
             me.setParam("error_message",ex.getMessage());
+            me.setParam("pstep","2");
             plugin.sendMsgEvent(me);
         }
     }
@@ -147,6 +152,7 @@ public class OutPathPreProcessor implements Runnable {
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                me.setParam("pstep","4");
                 plugin.sendMsgEvent(me);
             }
         }

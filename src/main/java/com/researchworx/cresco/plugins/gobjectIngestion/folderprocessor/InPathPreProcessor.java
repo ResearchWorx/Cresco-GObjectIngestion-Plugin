@@ -42,6 +42,7 @@ public class InPathPreProcessor implements Runnable {
         me.setParam("bucket_name",bucket_name);
         me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
         me.setParam("pathstage",String.valueOf(plugin.pathStage));
+        me.setParam("pstep","1");
         plugin.sendMsgEvent(me);
     }
 
@@ -63,6 +64,7 @@ public class InPathPreProcessor implements Runnable {
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                me.setParam("pstep","2");
                 plugin.sendMsgEvent(me);
 
                 try {
@@ -87,6 +89,7 @@ public class InPathPreProcessor implements Runnable {
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
                     me.setParam("error_message",ex.getMessage());
+                    me.setParam("pstep","2");
                     plugin.sendMsgEvent(me);
 
                 }
@@ -97,6 +100,7 @@ public class InPathPreProcessor implements Runnable {
                 me.setParam("bucket_name",bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                me.setParam("pstep","3");
                 plugin.sendMsgEvent(me);
             }
         } catch (Exception ex) {
@@ -108,6 +112,7 @@ public class InPathPreProcessor implements Runnable {
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             me.setParam("pathstage",String.valueOf(plugin.pathStage));
             me.setParam("error_message",ex.getMessage());
+            me.setParam("pstep","2");
             plugin.sendMsgEvent(me);
 
         }
@@ -210,6 +215,7 @@ public class InPathPreProcessor implements Runnable {
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                    me.setParam("pstep","4");
                     plugin.sendMsgEvent(me);
 
                 } else {
@@ -222,6 +228,7 @@ public class InPathPreProcessor implements Runnable {
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
+                    me.setParam("pstep","4");
                     plugin.sendMsgEvent(me);
                 }
             }
