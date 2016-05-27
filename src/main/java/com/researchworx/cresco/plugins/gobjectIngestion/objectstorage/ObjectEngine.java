@@ -434,7 +434,7 @@ public class ObjectEngine {
                 logger.debug("Created bucket [{}] on [{}]", bucket, mybucket.getCreationDate().toString());
             }
         } catch (Exception ex) {
-            logger.error("createBucket {}", ex.toString());
+            logger.error("createBucket {}", ex.getMessage());
         }
 
     }

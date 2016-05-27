@@ -26,7 +26,7 @@ public class InPathPreProcessor implements Runnable {
 
     public InPathPreProcessor(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
 
         logger.trace("InPathPreProcessor instantiated");
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
