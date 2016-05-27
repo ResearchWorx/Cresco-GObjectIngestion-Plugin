@@ -132,7 +132,7 @@ public class Plugin extends CPlugin {
             me.setParam("dst_agent", genomicControllerAgent);
             me.setParam("dst_plugin", genomicControllerPlugin);
             me.setParam("gmsg_type",met.name());
-
+            logger.trace(me.getParams().toString());
 
         }
         catch(Exception ex) {
