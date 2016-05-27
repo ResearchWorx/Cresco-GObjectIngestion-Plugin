@@ -189,7 +189,7 @@ public class InPathPreProcessor implements Runnable {
 
         String outDir = inDir;
         outDir = outDir.substring(outDir.lastIndexOf("/") + 1, outDir.length());
-        String seqDir = outDir;
+        String seqId = outDir;
         logger.debug("[outDir = {}]", outDir);
 
         logger.info("Start processing directory {}", outDir);
@@ -206,7 +206,7 @@ public class InPathPreProcessor implements Runnable {
             me = plugin.genGMessage(MsgEvent.Type.INFO,"Start transfer directory " + outDir);
             me.setParam("indir", inDir);
             me.setParam("outdir", outDir);
-            me.setParam("seq_id", seqDir);
+            me.setParam("seq_id", seqId);
             me.setParam("transfer_watch_file",transfer_watch_file);
             me.setParam("transfer_status_file", transfer_status_file);
             me.setParam("bucket_name",bucket_name);
@@ -227,7 +227,7 @@ public class InPathPreProcessor implements Runnable {
                     me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
-                    me.setParam("seq_id", seqDir);
+                    me.setParam("seq_id", seqId);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
@@ -241,7 +241,7 @@ public class InPathPreProcessor implements Runnable {
                     me = plugin.genGMessage(MsgEvent.Type.ERROR,"Failed Directory Transfer");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
-                    me.setParam("seq_id", seqDir);
+                    me.setParam("seq_id", seqId);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
