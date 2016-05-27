@@ -33,8 +33,8 @@ public class Plugin extends CPlugin {
     }
 
     public void start() {
-        this.logger = new CLogger(getMsgOutQueue(), getRegion(), getAgent(), getPluginID(), CLogger.Level.Trace);
-
+        //this.logger = new CLogger(getMsgOutQueue(), getRegion(), getAgent(), getPluginID(), CLogger.Level.Trace);
+        logger.setLogLevel(CLogger.Level.Trace);
         logger.trace("Building new ConcurrentLinkedQueue");
         pathQueue = new ConcurrentLinkedQueue<>();
 
