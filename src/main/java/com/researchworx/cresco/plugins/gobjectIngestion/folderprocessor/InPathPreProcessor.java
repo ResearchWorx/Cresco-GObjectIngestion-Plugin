@@ -44,7 +44,6 @@ public class InPathPreProcessor implements Runnable {
         me.setParam("pathstage",String.valueOf(plugin.pathStage));
         me.setParam("pstep","1");
 
-
         plugin.sendMsgEvent(me);
     }
 
@@ -190,6 +189,7 @@ public class InPathPreProcessor implements Runnable {
 
         String outDir = inDir;
         outDir = outDir.substring(outDir.lastIndexOf("/") + 1, outDir.length());
+        String seqDir = outDir;
         logger.debug("[outDir = {}]", outDir);
 
         logger.info("Start processing directory {}", outDir);
@@ -202,6 +202,20 @@ public class InPathPreProcessor implements Runnable {
 
 
         if (status.equals("no")) {
+
+            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start transfer directory " + outDir);
+            me.setParam("indir", inDir);
+            me.setParam("outdir", outDir);
+            me.setParam("seq_id", seqDir);
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            me.setParam("pathstage",String.valueOf(plugin.pathStage));
+            me.setParam("sstep","1");
+            plugin.sendMsgEvent(me);
+
+
             logger.debug("[status = \"no\"]");
             Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
             logger.trace("Setting MD5 hash");
@@ -213,12 +227,13 @@ public class InPathPreProcessor implements Runnable {
                     me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqDir);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
-                    me.setParam("pstep","4");
+                    me.setParam("sstep","2");
                     plugin.sendMsgEvent(me);
 
                 } else {
@@ -226,12 +241,13 @@ public class InPathPreProcessor implements Runnable {
                     me = plugin.genGMessage(MsgEvent.Type.ERROR,"Failed Directory Transfer");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqDir);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
-                    me.setParam("pstep","4");
+                    me.setParam("sstep","2");
                     plugin.sendMsgEvent(me);
                 }
             }
