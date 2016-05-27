@@ -195,6 +195,7 @@ public class InPathProcessor implements Runnable {
 
         String outDir = inDir;
         outDir = outDir.substring(outDir.lastIndexOf("/") + 1, outDir.length());
+        String seqId = outDir;
         logger.debug("[outDir = {}]", outDir);
 
         logger.info("Start processing directory {}", outDir);
@@ -208,6 +209,18 @@ public class InPathProcessor implements Runnable {
         if (status.equals("no")) {
             logger.debug("[status = \"no\"]");
 
+            me = plugin.genGMessage(MsgEvent.Type.INFO,"Transfering Directory");
+            me.setParam("indir", inDir);
+            me.setParam("outdir", outDir);
+            me.setParam("seq_id", seqId);
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            me.setParam("pathstage",String.valueOf(plugin.pathStage));
+            me.setParam("sstep","1");
+            plugin.sendMsgEvent(me);
+
             //generate watchfiles
 
             Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
@@ -220,24 +233,26 @@ public class InPathProcessor implements Runnable {
                     me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqId);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
-                    me.setParam("pstep","4");
+                    me.setParam("sstep","2");
                     plugin.sendMsgEvent(me);
                 } else {
                     logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
                     me = plugin.genGMessage(MsgEvent.Type.ERROR,"Failed Directory Transfer");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqId);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
-                    me.setParam("pstep","4");
+                    me.setParam("sstep","3");
                     plugin.sendMsgEvent(me);
                 }
             }
