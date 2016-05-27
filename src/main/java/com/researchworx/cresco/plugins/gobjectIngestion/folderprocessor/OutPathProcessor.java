@@ -1,10 +1,9 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor;
 
 import com.researchworx.cresco.library.messaging.MsgEvent;
+import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -14,18 +13,19 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class OutPathProcessor implements Runnable {
-    private static final Logger logger = LoggerFactory.getLogger(OutPathProcessor.class);
-
     private final String transfer_watch_file;
     private final String transfer_status_file;
     private final String incoming_directory;
     private final String outgoing_directory;
     private final String bucket_name;
     private Plugin plugin;
+    private static CLogger logger;
     private MsgEvent me;
 
     public OutPathProcessor(Plugin plugin) {
         this.plugin = plugin;
+        if (logger == null)
+            logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
         logger.debug("OutPathPreProcessor Instantiated");
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage4\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
@@ -363,7 +363,7 @@ public class OutPathProcessor implements Runnable {
     }
 
     private void setTransferFileMD5(String dir, Map<String, String> md5map) {
-        logger.debug("Call to setTransferFileMD5 [dir = {}, md5map = {}]", dir, md5map);
+        logger.debug("Call to setTransferFileMD5 [dir = {}]", dir);
         try {
             PrintWriter out = null;
             try {
