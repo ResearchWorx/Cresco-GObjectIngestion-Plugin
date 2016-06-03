@@ -17,6 +17,7 @@ import java.util.Map;
 
 public class FSToObject implements Runnable {
 
+    //
     private final String transfer_watch_file;
     private final String transfer_status_file;
     private final String bucket_name;
@@ -24,6 +25,10 @@ public class FSToObject implements Runnable {
     private CLogger logger;
     private MsgEvent me;
     private String pathStage;
+    private String d;
+    //
+
+
 
     public FSToObject(Plugin plugin) {
         this.plugin = plugin;
