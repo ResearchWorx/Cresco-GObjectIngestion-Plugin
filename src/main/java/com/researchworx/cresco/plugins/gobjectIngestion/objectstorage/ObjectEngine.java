@@ -319,8 +319,7 @@ public class ObjectEngine {
         }
             else{
                 logger.warn("Bucket :" + bucket + " does not exist!");
-                logger.warn("Creating Bucket :" + bucket);
-                createBucket(bucket);
+
             }
         } catch (Exception ex) {
             logger.error("isSyncDir {}", ex.getMessage());
