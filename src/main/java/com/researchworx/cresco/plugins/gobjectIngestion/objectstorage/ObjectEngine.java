@@ -270,6 +270,8 @@ public class ObjectEngine {
             if (!s3Dir.endsWith("/")) {
                 s3Dir = s3Dir + "/";
             }
+            //check if bucket exist
+            if(doesBucketExist(bucket)) {
             logger.trace("Grabbing [objects] from [bucket] [s3Dir]");
             ObjectListing objects = conn.listObjects(bucket, s3Dir);
             do {
@@ -312,6 +314,11 @@ public class ObjectEngine {
                         isSync = false;
                     }
                 }
+            }
+
+        }
+            else{
+                logger.error("Bucket :" + bucket + " does not exist!");
             }
         } catch (Exception ex) {
             logger.error("isSyncDir {}", ex.getMessage());
