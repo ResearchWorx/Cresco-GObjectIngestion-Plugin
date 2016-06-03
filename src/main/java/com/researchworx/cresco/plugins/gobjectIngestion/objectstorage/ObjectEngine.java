@@ -318,7 +318,9 @@ public class ObjectEngine {
 
         }
             else{
-                logger.error("Bucket :" + bucket + " does not exist!");
+                logger.warn("Bucket :" + bucket + " does not exist!");
+                logger.warn("Creating Bucket :" + bucket);
+                createBucket(bucket);
             }
         } catch (Exception ex) {
             logger.error("isSyncDir {}", ex.getMessage());
@@ -357,6 +359,7 @@ public class ObjectEngine {
         logger.debug("Call to listBucketContents [bucket = {}]", bucket);
         Map<String, String> fileMap = new HashMap<>();
         try {
+            if(doesBucketExist(bucket)) {
             logger.trace("Grabbing [objects] list from [bucket]");
             ObjectListing objects = conn.listObjects(bucket);
             do {
@@ -370,6 +373,10 @@ public class ObjectEngine {
                 logger.trace("Grabbing next batch of [objects]");
                 objects = conn.listNextBatchOfObjects(objects);
             } while (objects.isTruncated());
+        }
+            else {
+                logger.warn("Bucket :" + bucket + " does not exist!");
+            }
         } catch (Exception ex) {
             logger.error("listBucketContents {}", ex.getMessage());
             fileMap = null;
