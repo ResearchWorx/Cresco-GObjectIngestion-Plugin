@@ -15,9 +15,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class FSToObject implements Runnable {
+public class FSObject implements Runnable {
 
-    //
     private final String transfer_watch_file;
     private final String transfer_status_file;
     private final String bucket_name;
@@ -25,12 +24,9 @@ public class FSToObject implements Runnable {
     private CLogger logger;
     private MsgEvent me;
     private String pathStage;
-    private String d;
-    //
 
 
-
-    public FSToObject(Plugin plugin) {
+    public FSObject(Plugin plugin) {
         this.plugin = plugin;
         this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
@@ -343,6 +339,4 @@ public class FSToObject implements Runnable {
         return isSet;
     }
 }
-
-
 
