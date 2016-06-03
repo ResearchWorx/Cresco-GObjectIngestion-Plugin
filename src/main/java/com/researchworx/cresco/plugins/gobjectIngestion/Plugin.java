@@ -58,10 +58,12 @@ public class Plugin extends CPlugin {
             case 1:
                 logger.trace("Grabbing [pathstage1 --> watchdirectory] string and setting to [watchDirectoryName]");
                 watchDirectoryName = getConfig().getStringParam("watchdirectory");
-                logger.debug("Generating new [InPathPreProcessor] runnable");
-                InPathPreProcessor ippp = new InPathPreProcessor(this);
-                logger.trace("Building ppThread around new [InPathPreProcessor] runnable");
-                ppThread = new Thread(ippp);
+                logger.debug("Generating new [FStoObject] runnable");
+                //InPathPreProcessor ippp = new InPathPreProcessor(this);
+                FStoObject fStoObject = new FStoObject(this);
+                logger.trace("Building Thread around new [FStoObject] runnable");
+                //ppThread = new Thread(ippp);
+                ppThread = new Thread(fStoObject);
                 break;
             case 2:
                 logger.debug("Generating new [OutPathPreProcessor] runnable");
