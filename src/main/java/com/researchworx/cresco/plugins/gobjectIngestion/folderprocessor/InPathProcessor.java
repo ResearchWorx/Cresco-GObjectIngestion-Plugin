@@ -24,7 +24,9 @@ public class InPathProcessor implements Runnable {
 
     public InPathProcessor(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
+        //this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+
         logger.trace("InPathProcessor instantiated");
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage3\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);

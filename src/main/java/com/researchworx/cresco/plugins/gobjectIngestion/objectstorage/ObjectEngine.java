@@ -42,7 +42,8 @@ public class ObjectEngine {
     private int partSize;
 
     public ObjectEngine(Plugin plugin) {
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        //this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
 
         //logger.trace("ObjectEngine instantiated [group = {}]", group);
         String accessKey = plugin.getConfig().getStringParam("accesskey");
