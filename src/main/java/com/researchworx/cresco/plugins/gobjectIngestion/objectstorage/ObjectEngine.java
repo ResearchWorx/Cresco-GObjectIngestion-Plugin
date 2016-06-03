@@ -18,6 +18,7 @@ import com.amazonaws.services.s3.transfer.MultipleFileUpload;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.util.StringUtils;
+import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,14 +34,16 @@ import java.util.Map;
 //import com.amazonaws.services.s3.model.PutObjectRequest;
 
 public class ObjectEngine {
-    private static final Logger logger = LoggerFactory.getLogger(ObjectEngine.class);
-
+    //private static final Logger logger = LoggerFactory.getLogger(ObjectEngine.class);
+    private CLogger logger;
     private static AmazonS3 conn;
     //private final static String FOLDER_SUFFIX = "/";
     private MD5Tools md5t;
     private int partSize;
 
     public ObjectEngine(Plugin plugin) {
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+
         //logger.trace("ObjectEngine instantiated [group = {}]", group);
         String accessKey = plugin.getConfig().getStringParam("accesskey");
         logger.debug("\"accesskey\" from config [{}]", accessKey);
