@@ -78,7 +78,9 @@ public class OutPathPreProcessor implements Runnable {
 
                     List<String> newDirs = new ArrayList<>();
                     for (String remoteDir : remoteDirs) {
+                        logger.trace("Checking for existance of RemoteDir [" + remoteDir + "] locally");
                         if (!localDirs.contains(remoteDir)) {
+                            logger.trace("RemoteDir [" + remoteDir + "] does not exist locally");
                             if (oe.doesObjectExist(bucket_name, remoteDir + transfer_watch_file)) {
                                 logger.debug("Adding [remoteDir = {}] to [newDirs]", remoteDir);
                                 newDirs.add(remoteDir);
