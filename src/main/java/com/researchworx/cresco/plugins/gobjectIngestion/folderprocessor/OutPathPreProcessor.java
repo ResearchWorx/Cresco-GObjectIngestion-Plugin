@@ -24,7 +24,8 @@ public class OutPathPreProcessor implements Runnable {
 
     public OutPathPreProcessor(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+
         logger.debug("OutPathPreProcessor Instantiated");
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage2\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
