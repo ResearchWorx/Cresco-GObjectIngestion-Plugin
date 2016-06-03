@@ -8,9 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -159,6 +162,27 @@ public class InPathProcessor implements Runnable {
         boolean isTransfer = false;
         try {
             logger.trace("Building file path");
+            String tmpPath = dir.toString().replace(transfer_watch_file, transfer_status_file);
+            logger.trace("Building lines array");
+            List<String> lines = Arrays.asList("TRANSFER_READY_STATUS=YES", "TRANSFER_COMPLETE_STATUS=NO");
+            logger.debug("[tmpPath = {}]", tmpPath);
+            Path file = Paths.get(tmpPath);
+            logger.trace("Writing lines to file at [tmpPath]");
+            Files.write(file, lines, Charset.forName("UTF-8"));
+            logger.trace("Completed writing to file");
+            isTransfer = true;
+        } catch (Exception ex) {
+            logger.error("createTransferFile Error : {}", ex.getMessage());
+        }
+        return isTransfer;
+    }
+
+    /*
+    private boolean createTransferFile(Path dir) {
+        logger.debug("Call to createTransferFile [dir = {}]", dir.toString());
+        boolean isTransfer = false;
+        try {
+            logger.trace("Building file path");
 
 
             String inDir = dir.toString();
@@ -167,16 +191,6 @@ public class InPathProcessor implements Runnable {
             String[] inDirs = inDir.split("/");
             inDir = inDir + "/" + inDirs[inDirs.length - 1] + "/" + transfer_status_file;
 
-            /*
-            //String tmpPath = dir.toString().replace(transfer_watch_file, transfer_status_file);
-            logger.trace("Building lines array");
-            List<String> lines = Arrays.asList("TRANSFER_READY_STATUS=YES", "TRANSFER_COMPLETE_STATUS=NO");
-            logger.debug("[tmpPath = {}]", inDir);
-            Path file = Paths.get(inDir);
-            logger.trace("Writing lines to file at [tmpPath]");
-            Files.write(file, lines, Charset.forName("UTF-8"));
-            logger.trace("Completed writing to file");
-            */
             logger.trace("Copy " + dir.toString() + " to " + inDir);
             Files.copy(dir, new File(inDir).toPath());
             isTransfer = true;
@@ -185,6 +199,8 @@ public class InPathProcessor implements Runnable {
         }
         return isTransfer;
     }
+*/
+
 
     private void processDir(Path dir) {
         logger.debug("Call to processDir [dir = {}]", dir.toString());
