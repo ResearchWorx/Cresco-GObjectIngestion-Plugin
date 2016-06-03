@@ -1,6 +1,7 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor;
 
 import com.researchworx.cresco.library.messaging.MsgEvent;
+import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
 import org.slf4j.Logger;
@@ -14,16 +15,16 @@ import java.util.List;
 import java.util.Map;
 
 public class InPathProcessor implements Runnable {
-    private static final Logger logger = LoggerFactory.getLogger(InPathProcessor.class);
-
     private final String transfer_watch_file;
     private final String transfer_status_file;
     private final String bucket_name;
     private Plugin plugin;
+    private CLogger logger;
     private MsgEvent me;
 
     public InPathProcessor(Plugin plugin) {
         this.plugin = plugin;
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
         logger.trace("InPathProcessor instantiated");
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage3\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
@@ -65,7 +66,7 @@ public class InPathProcessor implements Runnable {
                     Path dir = plugin.pathQueue.poll();
                     //logger.info("Dir Name: " + dir.toString());
                     if (dir != null) {
-                        logger.info("Processing folder [{}]", dir);
+                        logger.info("Processing folder [{}]", dir.toString());
                         String status = transferStatus(dir, "transfer_ready_status");
                         if (status != null && status.equals("yes")) {
                             logger.trace("Transfer file exists, processing");
@@ -111,7 +112,7 @@ public class InPathProcessor implements Runnable {
     }
 
     private String transferStatus(Path dir, String statusString) {
-        logger.debug("Call to transferStatus [dir = {}, statusString = {}]", dir, statusString);
+        logger.debug("Call to transferStatus [dir = {}, statusString = {}]", dir.toString(), statusString);
         String status = "no";
         try {
             if (dir.toString().toLowerCase().endsWith(transfer_watch_file.toLowerCase())) {
@@ -152,7 +153,7 @@ public class InPathProcessor implements Runnable {
     }
 
     private boolean createTransferFile(Path dir) {
-        logger.debug("Call to createTransferFile [dir = {}]", dir);
+        logger.debug("Call to createTransferFile [dir = {}]", dir.toString());
         boolean isTransfer = false;
         try {
             logger.trace("Building file path");
@@ -184,7 +185,7 @@ public class InPathProcessor implements Runnable {
     }
 
     private void processDir(Path dir) {
-        logger.debug("Call to processDir [dir = {}]", dir);
+        logger.debug("Call to processDir [dir = {}]", dir.toString());
 
         String inDir = dir.toString();
         inDir = inDir.substring(0, inDir.length() - transfer_status_file.length() - 1);
@@ -195,6 +196,7 @@ public class InPathProcessor implements Runnable {
 
         String outDir = inDir;
         outDir = outDir.substring(outDir.lastIndexOf("/") + 1, outDir.length());
+        String seqId = outDir;
         logger.debug("[outDir = {}]", outDir);
 
         logger.info("Start processing directory {}", outDir);
@@ -208,6 +210,18 @@ public class InPathProcessor implements Runnable {
         if (status.equals("no")) {
             logger.debug("[status = \"no\"]");
 
+            me = plugin.genGMessage(MsgEvent.Type.INFO,"Transfering Directory");
+            me.setParam("indir", inDir);
+            me.setParam("outdir", outDir);
+            me.setParam("seq_id", seqId);
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            me.setParam("pathstage",String.valueOf(plugin.pathStage));
+            me.setParam("sstep","1");
+            plugin.sendMsgEvent(me);
+
             //generate watchfiles
 
             Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
@@ -220,24 +234,26 @@ public class InPathProcessor implements Runnable {
                     me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqId);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
-                    me.setParam("pstep","4");
+                    me.setParam("sstep","2");
                     plugin.sendMsgEvent(me);
                 } else {
                     logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
                     me = plugin.genGMessage(MsgEvent.Type.ERROR,"Failed Directory Transfer");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqId);
                     me.setParam("transfer_watch_file",transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",String.valueOf(plugin.pathStage));
-                    me.setParam("pstep","4");
+                    me.setParam("sstep","3");
                     plugin.sendMsgEvent(me);
                 }
             }
@@ -250,7 +266,7 @@ public class InPathProcessor implements Runnable {
     }
 
     private void setTransferFileMD5(Path dir, Map<String, String> md5map) {
-        logger.debug("Call to setTransferFileMD5 [dir = {}, md5map = {}", dir, md5map.toString());
+        logger.debug("Call to setTransferFileMD5 [dir = {}, md5map = {}", dir.toString(), md5map.toString());
         try {
             String watchDirectoryName = plugin.getConfig().getStringParam("watchdirectory");
             logger.debug("Grabbing [pathstage3 --> watchdirectory] from config [{}]", watchDirectoryName);

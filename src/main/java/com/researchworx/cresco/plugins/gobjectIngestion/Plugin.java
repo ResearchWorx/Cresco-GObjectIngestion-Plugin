@@ -3,6 +3,7 @@ package com.researchworx.cresco.plugins.gobjectIngestion;
 import com.google.auto.service.AutoService;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
+import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class Plugin extends CPlugin {
 
 
-    private static final Logger logger = LoggerFactory.getLogger(Plugin.class);
+    //private static final Logger logger = LoggerFactory.getLogger(Plugin.class);
     private static String watchDirectoryName;
 
     public static ConcurrentLinkedQueue<Path> pathQueue;
@@ -32,6 +33,8 @@ public class Plugin extends CPlugin {
     }
 
     public void start() {
+        //this.logger = new CLogger(getMsgOutQueue(), getRegion(), getAgent(), getPluginID(), CLogger.Level.Trace);
+        logger.setLogLevel(CLogger.Level.Debug);
         logger.trace("Building new ConcurrentLinkedQueue");
         pathQueue = new ConcurrentLinkedQueue<>();
 
@@ -49,8 +52,8 @@ public class Plugin extends CPlugin {
         genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
 
 
-        logger.debug("[pathStage] == {}", pathStage);
-        logger.info("Building Stage [{}]", pathStage);
+        logger.debug("[pathStage] == {}", String.valueOf(pathStage));
+        logger.info("Building Stage [{}]", String.valueOf(pathStage));
         switch (pathStage) {
             case 1:
                 logger.trace("Grabbing [pathstage1 --> watchdirectory] string and setting to [watchDirectoryName]");
@@ -129,6 +132,7 @@ public class Plugin extends CPlugin {
             me.setParam("dst_agent", genomicControllerAgent);
             me.setParam("dst_plugin", genomicControllerPlugin);
             me.setParam("gmsg_type",met.name());
+            logger.trace(me.getParams().toString());
 
         }
         catch(Exception ex) {
