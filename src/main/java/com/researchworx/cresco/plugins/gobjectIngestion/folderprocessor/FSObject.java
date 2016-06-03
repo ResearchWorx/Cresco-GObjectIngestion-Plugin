@@ -10,10 +10,8 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.StandardOpenOption;
+import java.util.*;
 
 public class FSObject implements Runnable {
 
@@ -182,6 +180,47 @@ public class FSObject implements Runnable {
         return isTransfer;
     }
 
+    private String getSampleList(Path dir) {
+        String sampleList = null;
+        try {
+            ArrayList<String> samples = new ArrayList();
+            logger.trace("Processing Sequence Directory : " + dir);
+            File file = dir.toFile();
+            String[] directories = file.list(new FilenameFilter() {
+                @Override
+                public boolean accept(File current, String name) {
+                    return new File(current, name).isDirectory();
+                }
+            });
+
+            for (String subDir : directories) {
+                logger.trace("Processing Sample SubDirectory : " + subDir);
+                String commands_main_filename = dir + subDir + "/commands_main.sh";
+                String config_files_directoryname = dir + subDir + "/config_files";
+                File commands_main = new File(commands_main_filename);
+                File config_files = new File(config_files_directoryname);
+
+                if (commands_main.exists() && !commands_main.isDirectory() && config_files.exists() && config_files.isDirectory()) {
+                    // do something
+                    samples.add(subDir);
+                    logger.trace("Found Sample: " + commands_main_filename + " and " + config_files_directoryname);
+                }
+            }
+            //build list
+            if(!samples.isEmpty()) {
+                sampleList = "";
+                for(String tSample : samples) {
+                    sampleList += tSample + ",";
+                }
+                sampleList = sampleList.substring(0,sampleList.length() - 1);
+            }
+        }
+        catch(Exception ex) {
+            logger.error("getSameplList : " + ex.getMessage());
+        }
+        return sampleList;
+    }
+
     private void processDir(Path dir) {
         logger.debug("Call to processDir [dir = {}]", dir.toString());
 
@@ -225,6 +264,7 @@ public class FSObject implements Runnable {
             logger.trace("Transferring directory");
             if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
                 if (setTransferFile(dir)) {
+
                     logger.debug("Directory Transfered [inDir = {}, outDir = {}]", inDir, outDir);
                     me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
                     me.setParam("indir", inDir);
@@ -235,9 +275,20 @@ public class FSObject implements Runnable {
                     me.setParam("bucket_name",bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",pathStage);
+                    //if pathstage 3 we need to submit jobs for processing
+                    if(pathStage.equals("3")) {
+                        String sampleList = getSampleList(dir);
+                        if(sampleList != null) {
+                            me.setParam("sample_list",getSampleList(dir));
+                        }
+                        else {
+                            me.setParam("sample_list","");
+                        }
+                    }
                     me.setParam("sstep","2");
                     plugin.sendMsgEvent(me);
 
+                    //end
                 } else {
                     logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
                     me = plugin.genGMessage(MsgEvent.Type.ERROR,"Failed Directory Transfer");

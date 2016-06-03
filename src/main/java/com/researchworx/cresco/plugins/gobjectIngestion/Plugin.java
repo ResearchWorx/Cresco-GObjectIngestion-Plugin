@@ -65,9 +65,9 @@ public class Plugin extends CPlugin {
             case 2:
                 logger.debug("Generating new [OutPathPreProcessor] runnable");
                 //OutPathPreProcessor oppp = new OutPathPreProcessor(this);
-                ObjectFS objectToFS = new ObjectFS(this);
+                ObjectFS objectToFSpp = new ObjectFS(this);
                 logger.trace("Building ppThread around new [OutPathPreProcessor] runnable");
-                ppThread = new Thread(objectToFS);
+                ppThread = new Thread(objectToFSpp);
                 break;
             case 3:
                 logger.info("Grabbing [pathstage3 --> watchdirectory] string and setting to [watchDirectoryName]");
@@ -81,9 +81,10 @@ public class Plugin extends CPlugin {
                 break;
             case 4:
                 logger.debug("Generating new [OutPathProcessor] runnable");
-                OutPathProcessor opp = new OutPathProcessor(this);
+                //OutPathProcessor opp = new OutPathProcessor(this);
+                ObjectFS objectToFSp = new ObjectFS(this);
                 logger.trace("Building pThread around new [OutPathProcessor] runnable");
-                ppThread = new Thread(opp);
+                ppThread = new Thread(objectToFSp);
                 break;
             case 5:
                 //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
