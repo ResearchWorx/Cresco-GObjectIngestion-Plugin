@@ -57,7 +57,7 @@ public class Plugin extends CPlugin {
                 watchDirectoryName = getConfig().getStringParam("watchdirectory");
                 logger.debug("Generating new [FStoObject] runnable");
                 //InPathPreProcessor ippp = new InPathPreProcessor(this);
-                FStoObject fStoObject = new FStoObject(this);
+                FSObject fStoObject = new FSObject(this);
                 logger.trace("Building Thread around new [FStoObject] runnable");
                 //ppThread = new Thread(ippp);
                 ppThread = new Thread(fStoObject);
@@ -65,7 +65,7 @@ public class Plugin extends CPlugin {
             case 2:
                 logger.debug("Generating new [OutPathPreProcessor] runnable");
                 //OutPathPreProcessor oppp = new OutPathPreProcessor(this);
-                ObjectToFS objectToFS = new ObjectToFS(this);
+                ObjectFS objectToFS = new ObjectFS(this);
                 logger.trace("Building ppThread around new [OutPathPreProcessor] runnable");
                 ppThread = new Thread(objectToFS);
                 break;

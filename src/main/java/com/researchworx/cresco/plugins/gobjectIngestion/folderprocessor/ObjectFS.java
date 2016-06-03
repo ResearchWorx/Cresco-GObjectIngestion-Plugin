@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class ObjectToFS implements Runnable {
+public class ObjectFS implements Runnable {
     private final String transfer_watch_file;
     private final String transfer_status_file;
     private final String incoming_directory;
@@ -23,7 +23,7 @@ public class ObjectToFS implements Runnable {
     private MsgEvent me;
     private String pathStage;
 
-    public ObjectToFS(Plugin plugin) {
+    public ObjectFS(Plugin plugin) {
         this.plugin = plugin;
         this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
