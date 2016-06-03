@@ -435,10 +435,7 @@ public class ObjectEngine {
         try {
             if (!conn.doesBucketExist(bucket)) {
                 Bucket mybucket = conn.createBucket(bucket);
-                while(!conn.doesBucketExist(bucket)) {
-                    Thread.sleep(1000);
-                }
-                logger.debug("Created bucket [{}] on [{}]", bucket, mybucket.getCreationDate().toString());
+                logger.debug("Created bucket [{}] ", bucket);
             }
         } catch (Exception ex) {
             logger.error("createBucket {}", ex.getMessage());
