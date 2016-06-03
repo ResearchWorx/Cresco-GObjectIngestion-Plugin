@@ -388,12 +388,14 @@ public class ObjectEngine {
         logger.debug("Call to listBucketDirs [bucket = {}", bucket);
         List<String> dirList = new ArrayList<>();
         try {
+            if(doesBucketExist(bucket)) {
             logger.trace("Instantiating new ListObjectsRequest");
             ListObjectsRequest lor = new ListObjectsRequest();
             lor.setBucketName(bucket);
             lor.setDelimiter("/");
 
             logger.trace("Grabbing [objects] list from [lor]");
+            //if(doesBucketExist(bucket))
             ObjectListing objects = conn.listObjects(lor);
             do {
                 List<String> sublist = objects.getCommonPrefixes();
@@ -402,6 +404,10 @@ public class ObjectEngine {
                 logger.trace("Grabbing next batch of [objects]");
                 objects = conn.listNextBatchOfObjects(objects);
             } while (objects.isTruncated());
+        }
+            else {
+                logger.warn("Bucket :" + bucket + " does not exist!");
+            }
         } catch (Exception ex) {
             logger.error("listBucketDirs {}", ex.getMessage());
             dirList = null;
@@ -413,6 +419,7 @@ public class ObjectEngine {
         logger.debug("Call to listBucketContents [bucket = {}, searchName = {}]", bucket, searchName);
         Map<String, String> fileMap = new HashMap<>();
         try {
+            if(doesBucketExist(bucket)) {
             logger.trace("Grabbing [objects] list from [bucket]");
             ObjectListing objects = conn.listObjects(bucket);
             do {
@@ -427,6 +434,10 @@ public class ObjectEngine {
                 }
                 objects = conn.listNextBatchOfObjects(objects);
             } while (objects.isTruncated());
+        }
+            else{
+                logger.warn("Bucket :" + bucket + " does not exist!");
+            }
         } catch (Exception ex) {
             logger.error("listBucketContents {}", ex.getMessage());
             fileMap = null;
