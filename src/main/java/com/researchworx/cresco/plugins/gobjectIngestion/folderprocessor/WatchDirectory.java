@@ -31,6 +31,7 @@ package com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 
 import java.io.File;
@@ -47,13 +48,14 @@ import static java.nio.file.StandardWatchEventKinds.*;
  * Example to watch a directory (or tree) for changes to files.
  */
 
-public class WatchDirectory {
+public class WatchDirectory implements Runnable {
 
     private final WatchService watcher;
     private final Map<WatchKey, Path> keys;
     private final boolean recursive;
     private boolean trace = false;
     private Plugin plugin;
+    private CLogger logger;
 
     @SuppressWarnings("unchecked")
     private static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -93,15 +95,25 @@ public class WatchDirectory {
             }
         });
     }
+    @Override
+    public void run() {
+        try {
+                processEvents();
 
-    /**
-     * Creates a WatchService and registers the given directory
-     */
+        } catch (Exception ex) {
+
+        }
+    }
+            /**
+             * Creates a WatchService and registers the given directory
+             */
     public WatchDirectory(Path dir, boolean recursive, Plugin plugin) throws IOException {
         this.watcher = FileSystems.getDefault().newWatchService();
         this.keys = new HashMap<>();
         this.recursive = recursive;
         this.plugin = plugin;
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+
         //process existing files before registering
         walkPath(dir.toString());
 

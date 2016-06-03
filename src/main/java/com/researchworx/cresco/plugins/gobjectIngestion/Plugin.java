@@ -112,13 +112,13 @@ public class Plugin extends CPlugin {
             WatchDirectory wd = null;
             try {
                 wd = new WatchDirectory(dir, true, this);
+                Thread wdt = new Thread(wd);
+                wdt.start();
             }
             catch (Exception ex) {
                 logger.error(ex.getMessage());
             }
 
-            logger.trace("Starting Directory Watcher");
-            wd.processEvents();
         }
     }
 
