@@ -5,12 +5,9 @@ import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @AutoService(CPlugin.class)
@@ -60,16 +57,17 @@ public class Plugin extends CPlugin {
                 watchDirectoryName = getConfig().getStringParam("watchdirectory");
                 logger.debug("Generating new [FStoObject] runnable");
                 //InPathPreProcessor ippp = new InPathPreProcessor(this);
-                FStoObject fStoObject = new FStoObject(this);
+                FSToObject fStoObject = new FSToObject(this);
                 logger.trace("Building Thread around new [FStoObject] runnable");
                 //ppThread = new Thread(ippp);
                 ppThread = new Thread(fStoObject);
                 break;
             case 2:
                 logger.debug("Generating new [OutPathPreProcessor] runnable");
-                OutPathPreProcessor oppp = new OutPathPreProcessor(this);
+                //OutPathPreProcessor oppp = new OutPathPreProcessor(this);
+                ObjectToFS objectToFS = new ObjectToFS(this);
                 logger.trace("Building ppThread around new [OutPathPreProcessor] runnable");
-                ppThread = new Thread(oppp);
+                ppThread = new Thread(objectToFS);
                 break;
             case 3:
                 logger.info("Grabbing [pathstage3 --> watchdirectory] string and setting to [watchDirectoryName]");

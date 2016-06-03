@@ -384,7 +384,7 @@ public class ObjectEngine {
     }
 
     public List<String> listBucketDirs(String bucket) {
-        logger.debug("Call to listBucketDirs [bucket = {}", bucket);
+        logger.debug("Call to listBucketDirs [bucket = {}]", bucket);
         List<String> dirList = new ArrayList<>();
         try {
             if(doesBucketExist(bucket)) {

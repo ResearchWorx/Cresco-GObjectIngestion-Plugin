@@ -15,7 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class FStoObject implements Runnable {
+public class FSToObject implements Runnable {
 
     private final String transfer_watch_file;
     private final String transfer_status_file;
@@ -25,7 +25,7 @@ public class FStoObject implements Runnable {
     private MsgEvent me;
     private String pathStage;
 
-    public FStoObject(Plugin plugin) {
+    public FSToObject(Plugin plugin) {
         this.plugin = plugin;
         this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
