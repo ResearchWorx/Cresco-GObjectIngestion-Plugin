@@ -78,7 +78,7 @@ public class FSObject implements Runnable {
                             processDir(dir);
                         }
                     } else {
-                        Thread.sleep(1000);
+                        Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
                     }
                 } catch (Exception ex) {
                     logger.error("run : while {}", ex.getMessage());
