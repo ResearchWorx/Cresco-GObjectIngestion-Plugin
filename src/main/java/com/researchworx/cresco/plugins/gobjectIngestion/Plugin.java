@@ -122,6 +122,7 @@ public class Plugin extends CPlugin {
         }
     }
 
+
     public MsgEvent genGMessage(MsgEvent.Type met, String msgBody) {
         MsgEvent me = null;
         try {
@@ -145,8 +146,9 @@ public class Plugin extends CPlugin {
 
     @Override
     public void cleanUp() {
-        /*
-         *  Insert your shutdown / clean up code here
-         */
+        MsgEvent me = genGMessage(MsgEvent.Type.INFO, "Shutdown");
+        me.setParam("pathstage", String.valueOf(pathStage));
+        me.setParam("pstep","0");
+        sendMsgEvent(me);
     }
 }
