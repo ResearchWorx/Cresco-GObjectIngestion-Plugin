@@ -10,7 +10,6 @@ public class Executor extends CExecutor {
     private CLogger logger;
     public Executor(Plugin plugin) {
         super(plugin);
-        this.mainPlugin = mainPlugin;
         logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
     }
 
@@ -116,7 +115,7 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                        mainPlugin.objectToFSp.processSequence(pme.getParam("seq_id"));
+                            Plugin.objectToFSp.processSequence(pme.getParam("seq_id"));
                         break;
                     case 3:
                         break;

@@ -24,8 +24,8 @@ public class Plugin extends CPlugin {
     public String genomicControllerRegion;
     public String genomicControllerAgent;
     public String genomicControllerPlugin;
-    public ObjectFS objectToFSp;
-    public FSObject fStoObjectp;
+    public static ObjectFS objectToFSp;
+    public static FSObject fStoObjectp;
 
 
     public void setExecutor() {
