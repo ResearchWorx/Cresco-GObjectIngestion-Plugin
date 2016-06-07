@@ -15,7 +15,7 @@ import java.util.Map;
 
 public class ObjectFS implements Runnable {
 
-    //private final String transfer_watch_file;
+    private final String transfer_watch_file;
     private final String transfer_status_file;
 
     private String bucket_name;
@@ -36,19 +36,19 @@ public class ObjectFS implements Runnable {
         logger.debug("\"pathstage" + pathStage + "\" --> \"incoming_directory\" from config [{}]", incoming_directory);
         transfer_status_file = plugin.getConfig().getStringParam("transfer_status_file");
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_status_file\" from config [{}]", transfer_status_file);
-        /*
+
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
-        */
+
         bucket_name = plugin.getConfig().getStringParam("bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"bucket\" from config [{}]", bucket_name);
 
         me = plugin.genGMessage(MsgEvent.Type.INFO,"InPathPreProcessor instantiated");
-        //me.setParam("transfer_watch_file",transfer_watch_file);
-        //me.setParam("transfer_status_file", transfer_status_file);
-        //me.setParam("bucket_name",bucket_name);
+        me.setParam("transfer_watch_file",transfer_watch_file);
+        me.setParam("transfer_status_file", transfer_status_file);
+        me.setParam("bucket_name",bucket_name);
         me.setParam("pathstage",pathStage);
-        //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+        me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
         me.setParam("pstep",String.valueOf(pstep));
         plugin.sendMsgEvent(me);
 
@@ -65,10 +65,10 @@ public class ObjectFS implements Runnable {
             logger.trace("Entering while-loop");
             while (plugin.PathProcessorActive) {
                 me = plugin.genGMessage(MsgEvent.Type.INFO, "Idle");
-                //me.setParam("transfer_watch_file", transfer_watch_file);
-                //me.setParam("transfer_status_file", transfer_status_file);
-                //me.setParam("bucket_name", bucket_name);
-                //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                me.setParam("transfer_watch_file", transfer_watch_file);
+                me.setParam("transfer_status_file", transfer_status_file);
+                me.setParam("bucket_name", bucket_name);
+                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 me.setParam("pathstage", pathStage);
                 me.setParam("pstep",String.valueOf(pstep));
                 plugin.sendMsgEvent(me);
@@ -77,10 +77,10 @@ public class ObjectFS implements Runnable {
         } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
             me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            //me.setParam("transfer_watch_file",transfer_watch_file);
-            //me.setParam("transfer_status_file", transfer_status_file);
-            //me.setParam("bucket_name",bucket_name);
-            //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             me.setParam("pathstage",pathStage);
             me.setParam("error_message",ex.getMessage());
             me.setParam("pstep",String.valueOf(pstep));
@@ -137,10 +137,10 @@ public class ObjectFS implements Runnable {
         catch(Exception ex) {
             logger.error("run {}", ex.getMessage());
             pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            //me.setParam("transfer_watch_file",transfer_watch_file);
-            //me.setParam("transfer_status_file", transfer_status_file);
-            //me.setParam("bucket_name",bucket_name);
-            //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage",pathStage);
             pse.setParam("error_message",ex.getMessage());
             pse.setParam("sstep","1");
