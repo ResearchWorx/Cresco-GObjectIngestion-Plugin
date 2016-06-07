@@ -24,6 +24,9 @@ public class Plugin extends CPlugin {
     public String genomicControllerRegion;
     public String genomicControllerAgent;
     public String genomicControllerPlugin;
+    public ObjectFS objectToFSp;
+    public FSObject fStoObjectp;
+
 
     public void setExecutor() {
         setExec(new Executor(this));
@@ -58,17 +61,18 @@ public class Plugin extends CPlugin {
                 watchDirectoryName = getConfig().getStringParam("watchdirectory");
                 logger.debug("Generating new [FStoObject] runnable");
                 //InPathPreProcessor ippp = new InPathPreProcessor(this);
-                FSObject fStoObjectpp = new FSObject(this);
+                //FSObject fStoObjectpp = new FSObject(this);
+                fStoObjectp = new FSObject(this);
                 logger.trace("Building Thread around new [FStoObject] runnable");
                 //ppThread = new Thread(ippp);
-                ppThread = new Thread(fStoObjectpp);
+                ppThread = new Thread(fStoObjectp);
                 break;
             case 2:
                 logger.debug("Generating new [OutPathPreProcessor] runnable");
                 //OutPathPreProcessor oppp = new OutPathPreProcessor(this);
-                ObjectFS objectToFSpp = new ObjectFS(this);
+                objectToFSp = new ObjectFS(this);
                 logger.trace("Building ppThread around new [OutPathPreProcessor] runnable");
-                ppThread = new Thread(objectToFSpp);
+                ppThread = new Thread(objectToFSp);
                 break;
             case 3:
                 logger.info("Grabbing [pathstage3 --> watchdirectory] string and setting to [watchDirectoryName]");
@@ -76,14 +80,14 @@ public class Plugin extends CPlugin {
                 logger.info("WatchDirectoryName=" + watchDirectoryName);
                 logger.info("Generating new [InPathProcessor] runnable");
                 //InPathProcessor pp = new InPathProcessor(this);
-                FSObject fStoObjectp = new FSObject(this);
+                fStoObjectp = new FSObject(this);
                 logger.info("Building ppThread around new [InPathProcessor] runnable");
                 ppThread = new Thread(fStoObjectp);
                 break;
             case 4:
                 logger.debug("Generating new [OutPathProcessor] runnable");
                 //OutPathProcessor opp = new OutPathProcessor(this);
-                ObjectFS objectToFSp = new ObjectFS(this);
+                objectToFSp = new ObjectFS(this);
                 logger.trace("Building pThread around new [OutPathProcessor] runnable");
                 ppThread = new Thread(objectToFSp);
                 break;

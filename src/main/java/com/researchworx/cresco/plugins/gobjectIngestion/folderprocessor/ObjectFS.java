@@ -88,7 +88,7 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    private void processSequence(String seqId) {
+    public void processSequence(String seqId) {
         MsgEvent pse = null;
         try {
             pstep = 3;

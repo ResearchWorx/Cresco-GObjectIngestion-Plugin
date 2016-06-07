@@ -6,9 +6,11 @@ import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
 
 public class Executor extends CExecutor {
+    private Plugin mainPlugin;
     private CLogger logger;
-    public Executor(CPlugin plugin) {
+    public Executor(Plugin plugin) {
         super(plugin);
+        this.mainPlugin = mainPlugin;
         logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
     }
 
@@ -109,11 +111,12 @@ public class Executor extends CExecutor {
 
 
             if(eventType.equals(MsgEvent.Type.INFO)) {
-                int pStep = Integer.parseInt(pme.getParam("pstep"));
-                switch (pStep) {
+                int sStep = Integer.parseInt(pme.getParam("sstep"));
+                switch (sStep) {
                     case 1:
                         break;
                     case 2:
+                        mainPlugin.objectToFSp.processSequence(pme.getParam("seq_id"));
                         break;
                     case 3:
                         break;
