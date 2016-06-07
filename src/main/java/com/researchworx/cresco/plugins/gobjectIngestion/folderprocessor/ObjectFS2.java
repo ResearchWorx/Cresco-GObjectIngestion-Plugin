@@ -13,142 +13,41 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class ObjectFS implements Runnable {
-
-    //private final String transfer_watch_file;
+public class ObjectFS2 implements Runnable {
+    private final String transfer_watch_file;
     private final String transfer_status_file;
-
-    private String bucket_name;
-    private String incoming_directory;
+    private final String incoming_directory;
+    private final String bucket_name;
     private Plugin plugin;
     private CLogger logger;
     private MsgEvent me;
     private String pathStage;
-    private int pstep;
 
-    public ObjectFS(Plugin plugin) {
-        this.pstep = 1;
+    public ObjectFS2(Plugin plugin) {
         this.plugin = plugin;
         this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
         logger.debug("OutPathPreProcessor Instantiated");
-        incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
-        logger.debug("\"pathstage" + pathStage + "\" --> \"incoming_directory\" from config [{}]", incoming_directory);
-        transfer_status_file = plugin.getConfig().getStringParam("transfer_status_file");
-        logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_status_file\" from config [{}]", transfer_status_file);
-        /*
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
-        */
+        transfer_status_file = plugin.getConfig().getStringParam("transfer_status_file");
+        logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_status_file\" from config [{}]", transfer_status_file);
+        incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
+        logger.debug("\"pathstage" + pathStage + "\" --> \"incoming_directory\" from config [{}]", incoming_directory);
         bucket_name = plugin.getConfig().getStringParam("bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"bucket\" from config [{}]", bucket_name);
-
         me = plugin.genGMessage(MsgEvent.Type.INFO,"InPathPreProcessor instantiated");
-        //me.setParam("transfer_watch_file",transfer_watch_file);
-        //me.setParam("transfer_status_file", transfer_status_file);
-        //me.setParam("bucket_name",bucket_name);
+        me.setParam("transfer_watch_file",transfer_watch_file);
+        me.setParam("transfer_status_file", transfer_status_file);
+        me.setParam("bucket_name",bucket_name);
         me.setParam("pathstage",pathStage);
-        //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-        me.setParam("pstep",String.valueOf(pstep));
+        me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+        me.setParam("pstep","1");
         plugin.sendMsgEvent(me);
     }
 
     @Override
     public void run() {
-        try {
-            pstep = 2;
-            logger.trace("Setting [PathProcessorActive] to true");
-            plugin.PathProcessorActive = true;
-            ObjectEngine oe = new ObjectEngine(plugin);
-            logger.trace("Entering while-loop");
-            while (plugin.PathProcessorActive) {
-                me = plugin.genGMessage(MsgEvent.Type.INFO, "Idle");
-                //me.setParam("transfer_watch_file", transfer_watch_file);
-                //me.setParam("transfer_status_file", transfer_status_file);
-                //me.setParam("bucket_name", bucket_name);
-                //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage", pathStage);
-                me.setParam("pstep",String.valueOf(pstep));
-                plugin.sendMsgEvent(me);
-                Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
-            }
-        } catch (Exception ex) {
-            logger.error("run {}", ex.getMessage());
-            me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            //me.setParam("transfer_watch_file",transfer_watch_file);
-            //me.setParam("transfer_status_file", transfer_status_file);
-            //me.setParam("bucket_name",bucket_name);
-            //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathstage",pathStage);
-            me.setParam("error_message",ex.getMessage());
-            me.setParam("pstep",String.valueOf(pstep));
-            plugin.sendMsgEvent(me);
-        }
-    }
-
-    private void processSequence(String seqId) {
-        MsgEvent pse = null;
-        try {
-            pstep = 3;
-            logger.debug("Call to processSequence seq_id: " + seqId);
-            ObjectEngine oe = new ObjectEngine(plugin);
-
-
-            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfering");
-            //me.setParam("inDir", remoteDir);
-            //me.setParam("outDir", incoming_directory);
-            pse.setParam("seq_id", seqId);
-            pse.setParam("transfer_status_file", transfer_status_file);
-            pse.setParam("bucket_name", bucket_name);
-            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            pse.setParam("pathstage", pathStage);
-            pse.setParam("sstep", "1");
-            plugin.sendMsgEvent(pse);
-
-            oe.downloadDirectory(bucket_name, seqId, incoming_directory);
-
-            List<String> filterList = new ArrayList<>();
-            logger.trace("Add [transfer_status_file] to [filterList]");
-            filterList.add(transfer_status_file);
-            String inDir = incoming_directory;
-            if (!inDir.endsWith("/")) {
-                inDir = inDir + "/";
-            }
-            logger.debug("[inDir = {}]", inDir);
-            oe = new ObjectEngine(plugin);
-            if (oe.isSyncDir(bucket_name, seqId, inDir, filterList)) {
-                logger.debug("Directory Sycned [inDir = {}]", inDir);
-                Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
-                logger.trace("Set MD5 hash");
-                setTransferFileMD5(inDir + transfer_status_file, md5map);
-                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
-                pse.setParam("indir", inDir);
-                pse.setParam("seq_id", seqId);
-                pse.setParam("transfer_status_file", transfer_status_file);
-                pse.setParam("bucket_name", bucket_name);
-                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                pse.setParam("pathstage", pathStage);
-                pse.setParam("sstep", "2");
-                plugin.sendMsgEvent(pse);
-            }
-        }
-        catch(Exception ex) {
-            logger.error("run {}", ex.getMessage());
-            pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            //me.setParam("transfer_watch_file",transfer_watch_file);
-            //me.setParam("transfer_status_file", transfer_status_file);
-            //me.setParam("bucket_name",bucket_name);
-            //me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            pse.setParam("pathstage",pathStage);
-            pse.setParam("error_message",ex.getMessage());
-            pse.setParam("sstep","1");
-            plugin.sendMsgEvent(me);
-        }
-        pstep = 2;
-    }
-
-/*
-    private void legacy() {
         logger.trace("Thread starting");
         try {
             logger.trace("Setting [PathProcessorActive] to true");
@@ -229,8 +128,8 @@ public class ObjectFS implements Runnable {
             me.setParam("pstep","2");
             plugin.sendMsgEvent(me);
         }
-
     }
+
     private void processBucket(List<String> newDirs) {
         logger.debug("Call to processBucket [newDir = {}]", newDirs.toString());
         ObjectEngine oe = new ObjectEngine(plugin);
@@ -282,9 +181,8 @@ public class ObjectFS implements Runnable {
                 plugin.sendMsgEvent(me);
             }
         }
-
     }
-*/
+
     private void setTransferFileMD5(String dir, Map<String, String> md5map) {
         logger.debug("Call to setTransferFileMD5 [dir = {}]", dir);
         try {
