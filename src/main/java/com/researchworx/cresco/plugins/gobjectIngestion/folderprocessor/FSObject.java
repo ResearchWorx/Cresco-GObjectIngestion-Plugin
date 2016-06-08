@@ -199,6 +199,8 @@ public class FSObject implements Runnable {
                 String config_files_directoryname = inDir + subDir + "/config_files";
                 File commands_main = new File(commands_main_filename);
                 File config_files = new File(config_files_directoryname);
+                logger.trace("commands_main " + commands_main_filename  + " exist : " + commands_main.exists());
+                logger.trace("config_files " + config_files_directoryname + " exist : " + config_files.exists());
 
                 if (commands_main.exists() && !commands_main.isDirectory() && config_files.exists() && config_files.isDirectory()) {
                     // do something
