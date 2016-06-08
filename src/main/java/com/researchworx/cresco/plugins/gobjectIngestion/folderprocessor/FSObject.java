@@ -180,12 +180,12 @@ public class FSObject implements Runnable {
         return isTransfer;
     }
 
-    private String getSampleList(Path dir) {
+    private String getSampleList(String inDir) {
         String sampleList = null;
         try {
             ArrayList<String> samples = new ArrayList();
-            logger.trace("Processing Sequence Directory : " + dir);
-            File file = dir.toFile();
+            logger.trace("Processing Sequence Directory : " + inDir);
+            File file = new File(inDir);
             String[] directories = file.list(new FilenameFilter() {
                 @Override
                 public boolean accept(File current, String name) {
@@ -195,8 +195,8 @@ public class FSObject implements Runnable {
 
             for (String subDir : directories) {
                 logger.trace("Processing Sample SubDirectory : " + subDir);
-                String commands_main_filename = dir + subDir + "/commands_main.sh";
-                String config_files_directoryname = dir + subDir + "/config_files";
+                String commands_main_filename = inDir + subDir + "/commands_main.sh";
+                String config_files_directoryname = inDir + subDir + "/config_files";
                 File commands_main = new File(commands_main_filename);
                 File config_files = new File(config_files_directoryname);
 
@@ -278,8 +278,8 @@ public class FSObject implements Runnable {
                     //if pathstage 3 we need to submit jobs for processing
                     logger.trace("pathStage = " + pathStage);
                     if(pathStage.equals("3")) {
-                        logger.trace("Sample Directory: " + dir);
-                        String sampleList = getSampleList(dir);
+                        logger.trace("Sample Directory: " + inDir);
+                        String sampleList = getSampleList(inDir);
 
                         if(sampleList != null) {
                             logger.trace("Samples : " + sampleList);
