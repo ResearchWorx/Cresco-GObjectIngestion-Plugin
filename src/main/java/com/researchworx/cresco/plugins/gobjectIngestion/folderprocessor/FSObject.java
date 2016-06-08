@@ -77,8 +77,6 @@ public class FSObject implements Runnable {
                             logger.trace("Transfer file exists, processing");
                             processDir(dir);
                         }
-                    } else {
-                        Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
                     }
                 } catch (Exception ex) {
                     logger.error("run : while {}", ex.getMessage());
@@ -103,6 +101,8 @@ public class FSObject implements Runnable {
                 me.setParam("pathstage",pathStage);
                 me.setParam("pstep","3");
                 plugin.sendMsgEvent(me);
+
+                Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
             }
         } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
