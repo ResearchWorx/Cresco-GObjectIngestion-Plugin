@@ -153,12 +153,35 @@ public class ObjectFS implements Runnable {
         pstep = 2;
     }
 
+    private boolean deleteDirectory(File path) {
+        if( path.exists() ) {
+            File[] files = path.listFiles();
+            for(int i=0; i<files.length; i++) {
+                if(files[i].isDirectory()) {
+                    deleteDirectory(files[i]);
+                }
+                else {
+                    files[i].delete();
+                }
+            }
+        }
+        return( path.delete() );
+    }
+
     public void processSample(String seqId, String sampleId) {
         MsgEvent pse = null;
         int SStep = 1;
 
         try {
-            String tmpDir = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
+            String workDirName = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
+            workDirName = workDirName.replace("//","/");
+            File workDir = new File(workDirName);
+            if (workDir.exists()) {
+                deleteDirectory(workDir);
+            }
+            workDir.mkdir();
+
+
             String remoteDir = seqId + "/" + sampleId;
 
             pstep = 3;
@@ -177,7 +200,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("sstep", String.valueOf(SStep));
             plugin.sendMsgEvent(pse);
 
-            oe.downloadDirectory(bucket_name, remoteDir, incoming_directory);
+            oe.downloadDirectory(bucket_name, remoteDir, workDirName);
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
