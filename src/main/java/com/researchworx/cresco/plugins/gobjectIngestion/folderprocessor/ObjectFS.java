@@ -153,7 +153,7 @@ public class ObjectFS implements Runnable {
         pstep = 2;
     }
 
-    public void processSample(String seqId, String sample) {
+    public void processSample(String seqId, String sampleId) {
         MsgEvent pse = null;
         int SStep = 1;
 
@@ -216,6 +216,7 @@ public class ObjectFS implements Runnable {
         }
         //if is makes it through process the seq
         if(SStep == 4) {
+            logger.trace("seq_id=" + seqId + " sample_id=" + sampleId);
 /*
             UUID id = UUID.randomUUID(); //create random tmp location
             String tmpInput = incoming_directory + id.toString();

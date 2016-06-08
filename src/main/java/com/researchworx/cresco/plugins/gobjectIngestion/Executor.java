@@ -175,11 +175,12 @@ public class Executor extends CExecutor {
             MsgEvent.Type eventType = MsgEvent.Type.valueOf(pme.getParam("gmsg_type"));
             logger.info(pathStageName + " " + eventType.name() + " message");
             if(eventType.equals(MsgEvent.Type.INFO)) {
-                int pStep = Integer.parseInt(pme.getParam("pstep"));
-                switch (pStep) {
+                int sStep = Integer.parseInt(pme.getParam("sstep"));
+                switch (sStep) {
                     case 1:
                         break;
                     case 2:
+                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"),pme.getParam("sample_id"));
                         break;
                     case 3:
                         break;
