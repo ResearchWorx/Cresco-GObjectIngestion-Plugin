@@ -201,7 +201,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
-            pse.setParam("sstep", String.valueOf(SStep));
+            pse.setParam("ssstep", String.valueOf(SStep));
             plugin.sendMsgEvent(pse);
 
             oe.downloadDirectory(bucket_name, remoteDir, workDirName);
@@ -233,7 +233,7 @@ public class ObjectFS implements Runnable {
                 pse.setParam("bucket_name", bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
-                pse.setParam("sstep", String.valueOf(SStep));
+                pse.setParam("ssstep", String.valueOf(SStep));
                 plugin.sendMsgEvent(pse);
                 SStep = 4;
             }
@@ -247,7 +247,7 @@ public class ObjectFS implements Runnable {
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage",pathStage);
             pse.setParam("error_message",ex.getMessage());
-            pse.setParam("sstep",String.valueOf(SStep));
+            pse.setParam("ssstep",String.valueOf(SStep));
             plugin.sendMsgEvent(me);
         }
         //if is makes it through process the seq
