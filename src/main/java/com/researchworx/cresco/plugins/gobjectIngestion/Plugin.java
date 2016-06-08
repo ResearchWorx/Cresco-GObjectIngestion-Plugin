@@ -131,6 +131,7 @@ public class Plugin extends CPlugin {
     public MsgEvent genGMessage(MsgEvent.Type met, String msgBody) {
         MsgEvent me = null;
         try {
+            logger.debug("Generated Genomics Message");
             //MsgEvent.Type
             me = new MsgEvent(MsgEvent.Type.EXEC,getRegion(),getAgent(),getPluginID(),msgBody);
             me.setParam("src_region",getRegion());
@@ -141,7 +142,6 @@ public class Plugin extends CPlugin {
             me.setParam("dst_plugin", genomicControllerPlugin);
             me.setParam("gmsg_type",met.name());
             logger.trace(me.getParams().toString());
-
         }
         catch(Exception ex) {
             logger.error(ex.getMessage());
