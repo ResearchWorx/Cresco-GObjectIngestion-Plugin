@@ -197,6 +197,7 @@ public class ObjectFS implements Runnable {
             //me.setParam("inDir", remoteDir);
             //me.setParam("outDir", incoming_directory);
             pse.setParam("seq_id", seqId);
+            pse.setParam("sample_id", sampleId);
             pse.setParam("transfer_status_file", transfer_status_file);
             pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
@@ -229,6 +230,7 @@ public class ObjectFS implements Runnable {
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
                 pse.setParam("indir", workDirName);
                 pse.setParam("seq_id", seqId);
+                pse.setParam("sample_id", sampleId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
@@ -241,6 +243,8 @@ public class ObjectFS implements Runnable {
         catch(Exception ex) {
             logger.error("run {}", ex.getMessage());
             pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+            pse.setParam("seq_id", seqId);
+            pse.setParam("sample_id", sampleId);
             me.setParam("transfer_watch_file",transfer_watch_file);
             me.setParam("transfer_status_file", transfer_status_file);
             me.setParam("bucket_name",bucket_name);
