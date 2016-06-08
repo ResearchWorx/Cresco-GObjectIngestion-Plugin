@@ -158,6 +158,9 @@ public class ObjectFS implements Runnable {
         int SStep = 1;
 
         try {
+            String tmpDir = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
+            String remoteDir = seqId + "/" + sampleId;
+
             pstep = 3;
             logger.debug("Call to processSequence seq_id: " + seqId);
             ObjectEngine oe = new ObjectEngine(plugin);
@@ -174,7 +177,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("sstep", String.valueOf(SStep));
             plugin.sendMsgEvent(pse);
 
-            oe.downloadDirectory(bucket_name, seqId, incoming_directory);
+            oe.downloadDirectory(bucket_name, remoteDir, incoming_directory);
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
