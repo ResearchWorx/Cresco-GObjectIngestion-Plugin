@@ -183,6 +183,9 @@ public class FSObject implements Runnable {
     private String getSampleList(String inDir) {
         String sampleList = null;
         try {
+            if(!inDir.endsWith("/")) {
+                inDir += "/";
+            }
             ArrayList<String> samples = new ArrayList();
             logger.trace("Processing Sequence Directory : " + inDir);
             File file = new File(inDir);
