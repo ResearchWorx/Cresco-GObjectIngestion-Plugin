@@ -175,6 +175,9 @@ public class ObjectFS implements Runnable {
         try {
             String workDirName = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
             workDirName = workDirName.replace("//","/");
+            if(!workDirName.endsWith("/")) {
+                workDirName += "/";
+            }
             File workDir = new File(workDirName);
             if (workDir.exists()) {
                 deleteDirectory(workDir);
@@ -182,7 +185,7 @@ public class ObjectFS implements Runnable {
             workDir.mkdir();
 
 
-            String remoteDir = seqId + "/" + sampleId;
+            String remoteDir = seqId + "/" + sampleId + "/";
 
             pstep = 3;
             logger.debug("Call to processSequence seq_id: " + seqId);
@@ -202,22 +205,28 @@ public class ObjectFS implements Runnable {
 
             oe.downloadDirectory(bucket_name, remoteDir, workDirName);
 
+            workDirName += "/" + remoteDir;
+
+
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
+            /*
             filterList.add(transfer_status_file);
             String inDir = incoming_directory;
             if (!inDir.endsWith("/")) {
                 inDir = inDir + "/";
             }
-            logger.debug("[inDir = {}]", inDir);
+            */
+
+            //logger.debug("[inDir = {}]", inDir);
             oe = new ObjectEngine(plugin);
-            if (oe.isSyncDir(bucket_name, seqId, inDir, filterList)) {
-                logger.debug("Directory Sycned [inDir = {}]", inDir);
-                Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
+            if (oe.isSyncDir(bucket_name, remoteDir, workDirName, filterList)) {
+                logger.debug("Directory Sycned [inDir = {}]", workDirName);
+                Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                 logger.trace("Set MD5 hash");
-                setTransferFileMD5(inDir + transfer_status_file, md5map);
+                //setTransferFileMD5(workDirName + transfer_status_file, md5map);
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
-                pse.setParam("indir", inDir);
+                pse.setParam("indir", workDirName);
                 pse.setParam("seq_id", seqId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
