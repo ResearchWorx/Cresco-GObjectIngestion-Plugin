@@ -173,7 +173,8 @@ public class ObjectFS implements Runnable {
         int SStep = 1;
 
         try {
-            String workDirName = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
+            //String workDirName = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
+            String workDirName = incoming_directory; //create random tmp location
             workDirName = workDirName.replace("//","/");
             if(!workDirName.endsWith("/")) {
                 workDirName += "/";
@@ -205,7 +206,7 @@ public class ObjectFS implements Runnable {
 
             oe.downloadDirectory(bucket_name, remoteDir, workDirName);
 
-            workDirName += "/" + remoteDir;
+            workDirName +=  remoteDir;
 
 
             List<String> filterList = new ArrayList<>();
@@ -224,7 +225,7 @@ public class ObjectFS implements Runnable {
                 logger.debug("Directory Sycned [inDir = {}]", workDirName);
                 Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                 logger.trace("Set MD5 hash");
-                //setTransferFileMD5(workDirName + transfer_status_file, md5map);
+                setTransferFileMD5(workDirName + transfer_status_file, md5map);
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
                 pse.setParam("indir", workDirName);
                 pse.setParam("seq_id", seqId);
