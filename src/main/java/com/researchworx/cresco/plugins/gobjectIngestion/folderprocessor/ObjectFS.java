@@ -223,6 +223,7 @@ public class ObjectFS implements Runnable {
             //logger.debug("[inDir = {}]", inDir);
             oe = new ObjectEngine(plugin);
             if (oe.isSyncDir(bucket_name, remoteDir, workDirName, filterList)) {
+                SStep = 2;
                 logger.debug("Directory Sycned [inDir = {}]", workDirName);
                 Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                 logger.trace("Set MD5 hash");
@@ -237,7 +238,7 @@ public class ObjectFS implements Runnable {
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("ssstep", String.valueOf(SStep));
                 plugin.sendMsgEvent(pse);
-                SStep = 4;
+                SStep = 3;
             }
         }
         catch(Exception ex) {
@@ -255,7 +256,7 @@ public class ObjectFS implements Runnable {
             plugin.sendMsgEvent(me);
         }
         //if is makes it through process the seq
-        if(SStep == 4) {
+        if(SStep == 3) {
             logger.trace("seq_id=" + seqId + " sample_id=" + sampleId);
 /*
             UUID id = UUID.randomUUID(); //create random tmp location
