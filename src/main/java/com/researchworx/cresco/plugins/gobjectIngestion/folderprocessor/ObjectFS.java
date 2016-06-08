@@ -149,7 +149,76 @@ public class ObjectFS implements Runnable {
         pstep = 2;
     }
 
-/*
+    public void processSample(String seqId, String sample) {
+        MsgEvent pse = null;
+        int SStep = 1;
+
+        try {
+            pstep = 3;
+            logger.debug("Call to processSequence seq_id: " + seqId);
+            ObjectEngine oe = new ObjectEngine(plugin);
+
+
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfering");
+            //me.setParam("inDir", remoteDir);
+            //me.setParam("outDir", incoming_directory);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("sstep", String.valueOf(SStep));
+            plugin.sendMsgEvent(pse);
+
+            oe.downloadDirectory(bucket_name, seqId, incoming_directory);
+
+            List<String> filterList = new ArrayList<>();
+            logger.trace("Add [transfer_status_file] to [filterList]");
+            filterList.add(transfer_status_file);
+            String inDir = incoming_directory;
+            if (!inDir.endsWith("/")) {
+                inDir = inDir + "/";
+            }
+            logger.debug("[inDir = {}]", inDir);
+            oe = new ObjectEngine(plugin);
+            if (oe.isSyncDir(bucket_name, seqId, inDir, filterList)) {
+                logger.debug("Directory Sycned [inDir = {}]", inDir);
+                Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
+                logger.trace("Set MD5 hash");
+                setTransferFileMD5(inDir + transfer_status_file, md5map);
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
+                pse.setParam("indir", inDir);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("transfer_status_file", transfer_status_file);
+                pse.setParam("bucket_name", bucket_name);
+                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("sstep", String.valueOf(SStep));
+                plugin.sendMsgEvent(pse);
+                SStep = 4;
+            }
+        }
+        catch(Exception ex) {
+            logger.error("run {}", ex.getMessage());
+            pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_status_file", transfer_status_file);
+            me.setParam("bucket_name",bucket_name);
+            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage",pathStage);
+            pse.setParam("error_message",ex.getMessage());
+            pse.setParam("sstep",String.valueOf(SStep));
+            plugin.sendMsgEvent(me);
+        }
+        //if is makes it through process the seq
+        if(SStep == 4) {
+
+        }
+
+    }
+
+
+    /*
     private void legacy() {
         logger.trace("Thread starting");
         try {

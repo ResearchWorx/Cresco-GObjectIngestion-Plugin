@@ -277,9 +277,12 @@ public class FSObject implements Runnable {
                     me.setParam("pathstage",pathStage);
                     //if pathstage 3 we need to submit jobs for processing
                     if(pathStage.equals("3")) {
+                        logger.trace("Sample Directory: " + dir);
                         String sampleList = getSampleList(dir);
+
                         if(sampleList != null) {
-                            me.setParam("sample_list",getSampleList(dir));
+                            logger.trace("Samples : " + sampleList);
+                            me.setParam("sample_list",sampleList);
                         }
                         else {
                             me.setParam("sample_list","");
