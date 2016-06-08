@@ -59,14 +59,6 @@ public class FSObject implements Runnable {
             logger.trace("Entering while-loop");
             while (Plugin.PathProcessorActive) {
                 //message start of scan
-                me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Filesystem Scan");
-                me.setParam("transfer_watch_file",transfer_watch_file);
-                me.setParam("transfer_status_file", transfer_status_file);
-                me.setParam("bucket_name",bucket_name);
-                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage",pathStage);
-                me.setParam("pstep","2");
-                plugin.sendMsgEvent(me);
 
                 try {
                     Path dir = Plugin.pathQueue.poll();
@@ -75,8 +67,32 @@ public class FSObject implements Runnable {
                         String status = transferStatus(dir, "transfer_ready_status");
                         if (status != null && status.equals("yes")) {
                             logger.trace("Transfer file exists, processing");
+
+                            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Filesystem Scan");
+                            me.setParam("transfer_watch_file",transfer_watch_file);
+                            me.setParam("transfer_status_file", transfer_status_file);
+                            me.setParam("bucket_name",bucket_name);
+                            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            me.setParam("pathstage",pathStage);
+                            me.setParam("pstep","2");
+                            plugin.sendMsgEvent(me);
+
                             processDir(dir);
+
+                            //message end of scan
+                            me = plugin.genGMessage(MsgEvent.Type.INFO,"End Filesystem Scan");
+                            me.setParam("transfer_watch_file",transfer_watch_file);
+                            me.setParam("transfer_status_file", transfer_status_file);
+                            me.setParam("bucket_name",bucket_name);
+                            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            me.setParam("pathstage",pathStage);
+                            me.setParam("pstep","3");
+                            plugin.sendMsgEvent(me);
+
                         }
+                    }
+                    else {
+                        Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
                     }
                 } catch (Exception ex) {
                     logger.error("run : while {}", ex.getMessage());
@@ -90,19 +106,11 @@ public class FSObject implements Runnable {
                     me.setParam("error_message",ex.getMessage());
                     me.setParam("pstep","2");
                     plugin.sendMsgEvent(me);
-
+                    Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
                 }
-                //message end of scan
-                me = plugin.genGMessage(MsgEvent.Type.INFO,"End Filesystem Scan");
-                me.setParam("transfer_watch_file",transfer_watch_file);
-                me.setParam("transfer_status_file", transfer_status_file);
-                me.setParam("bucket_name",bucket_name);
-                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage",pathStage);
-                me.setParam("pstep","3");
-                plugin.sendMsgEvent(me);
 
-                Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
+
+
             }
         } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
