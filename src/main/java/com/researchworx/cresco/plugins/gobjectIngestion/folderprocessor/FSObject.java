@@ -276,6 +276,7 @@ public class FSObject implements Runnable {
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     me.setParam("pathstage",pathStage);
                     //if pathstage 3 we need to submit jobs for processing
+                    logger.trace("pathStage = " + pathStage);
                     if(pathStage.equals("3")) {
                         logger.trace("Sample Directory: " + dir);
                         String sampleList = getSampleList(dir);
