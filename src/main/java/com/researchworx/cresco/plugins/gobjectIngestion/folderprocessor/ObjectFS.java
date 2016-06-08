@@ -9,9 +9,13 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class ObjectFS implements Runnable {
 
@@ -212,7 +216,49 @@ public class ObjectFS implements Runnable {
         }
         //if is makes it through process the seq
         if(SStep == 4) {
+/*
+            UUID id = UUID.randomUUID(); //create random tmp location
+            String tmpInput = incoming_directory + id.toString();
+            String tmpOutput = outgoing_directory + "/" + id.toString();
+            String tmpRemoteOutput = remoteDir + "/" + subDir + "/" + "primary";
+            tmpRemoteOutput = tmpRemoteOutput.replace("//","/");
+            File tmpOutputdir = new File(tmpOutput);
+            if (commands_main.exists()) {
+                deleteDirectory(tmpOutputdir);
+            }
+            tmpOutputdir.mkdir();
 
+            logger.trace("Creating tmp output location : " + tmpOutput);
+            logger.info("Launching processing container:");
+            logger.info("Input Location: " + tmpInput);
+            logger.info("Output Location: " + tmpOutput);
+            logger.info("Remote Output Location: " + tmpRemoteOutput);
+
+            //process data
+            //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+            //String command = "docker run -t -v /home/gpackage:/gpackage -v " + tmpInput + ":/gdata/input -v " + tmpOutput + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+            String command = "dir";
+            logger.info("Docker exec command: " + command);
+            executeCommand(command);
+            String content = "Hello File!";
+            String path = tmpOutput + "/testfile";
+            try {
+                Files.write(Paths.get(path), content.getBytes(), StandardOpenOption.CREATE);
+            }
+            catch (Exception ex) {
+                logger.error(ex.getMessage());
+            }
+            //transfer data
+            logger.info("Transfering " + tmpOutput + " to " + bucket_name + ":" + tmpRemoteOutput);
+            ObjectEngine oe = new ObjectEngine(plugin);
+            if (oe.uploadDirectory(bucket_name, tmpOutput, tmpRemoteOutput)) {
+                //cleanup
+                logger.trace("Removing tmp output location : " + tmpOutput);
+                deleteDirectory(tmpOutputdir);
+            } else {
+                logger.error("Skipping! : commands_main.sh and config_files not found in subdirectory " + dir + "/" + subDir);
+            }
+*/
         }
 
     }
