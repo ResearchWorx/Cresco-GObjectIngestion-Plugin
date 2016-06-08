@@ -297,7 +297,7 @@ public class ObjectFS implements Runnable {
             }
 */
         }
-
+        pstep = 2;
     }
 
 
