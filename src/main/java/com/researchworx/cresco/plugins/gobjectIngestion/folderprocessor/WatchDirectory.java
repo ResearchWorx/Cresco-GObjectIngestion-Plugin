@@ -194,7 +194,8 @@ public class WatchDirectory implements Runnable {
 
     private void walkPath(String path) {
 
-        File root = new File(path);
+        //File root = new File(path);
+        File root = Paths.get(path).toFile();
         File[] list = root.listFiles();
 
         if (list == null) return;
