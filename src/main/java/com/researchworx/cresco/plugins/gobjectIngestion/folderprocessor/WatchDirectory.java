@@ -115,7 +115,7 @@ public class WatchDirectory implements Runnable {
         this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
 
         //process existing files before registering
-        walkPath(dir.toString());
+        walkPath(dir.toFile());
 
 
         if (recursive) {
@@ -192,17 +192,17 @@ public class WatchDirectory implements Runnable {
         }
     }
 
-    private void walkPath(String path) {
+    private void walkPath(File root) {
 
         //File root = new File(path);
-        File root = Paths.get(path).toFile();
+        //File root = path.toFile();
         File[] list = root.listFiles();
 
         if (list == null) return;
 
         for (File f : list) {
             if (f.isDirectory()) {
-                walkPath(f.getAbsolutePath());
+                walkPath(f);
             } else {
                 Path dir = Paths.get(f.getAbsolutePath());
                 plugin.pathQueue.offer(dir);
