@@ -198,6 +198,7 @@ public class ObjectFS implements Runnable {
                     outputStr[i] = outputStr[i].trim();
                 }
 
+
                 if((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) || (outputLine.toLowerCase().startsWith("error")))) {
                     Calendar cal = Calendar.getInstance();
                     SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
