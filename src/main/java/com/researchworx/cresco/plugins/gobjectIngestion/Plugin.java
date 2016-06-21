@@ -90,6 +90,7 @@ public class Plugin extends CPlugin {
                 objectToFSp = new ObjectFS(this);
                 if((config.getStringParam("static_process_indir") != null) && (config.getStringParam("static_process_outdir") != null)) {
                     objectToFSp.executeCommand(config.getStringParam("static_process_indir"),config.getStringParam("static_process_outdir"), true);
+
                 }
                 else {
                     logger.trace("Building pThread around new [OutPathProcessor] runnable");
