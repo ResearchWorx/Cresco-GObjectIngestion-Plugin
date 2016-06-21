@@ -5,17 +5,12 @@ import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.PrintWriter;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class ObjectFS implements Runnable {
 
@@ -168,6 +163,92 @@ public class ObjectFS implements Runnable {
         return( path.delete() );
     }
 
+    private class perfTracker extends Thread {
+
+        public void run(){
+            System.out.println("MyThread running");
+        }
+    }
+
+    public void executeCommand(String inDir, String outDir, boolean trackPerf) {
+
+        //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+        //String command = "docker run -t -v /home/gpackage:/gpackage -v " + tmpInput + ":/gdata/input -v " + tmpOutput + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+        String command = "docker run -t -v /home/gpackage:/gpackage -v " + inDir + ":/gdata/input -v " + outDir + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+
+        StringBuffer output = new StringBuffer();
+        StringBuffer error = new StringBuffer();
+        Process p;
+        try {
+            p = Runtime.getRuntime().exec(command);
+
+            BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String outputLine;
+            long difftime = System.currentTimeMillis();
+            while ((outputLine = outputFeed.readLine()) != null) {
+                output.append(outputLine);
+
+                String[] outputStr = outputLine.split("\\|\\|");
+
+                //System.out.println(outputStr.length + ": " + outputLine);
+                //for(String str : outputStr) {
+                //System.out.println(outputStr.length + " " + str);
+                //}
+                for(int i = 0; i<outputStr.length; i++) {
+                    outputStr[i] = outputStr[i].trim();
+                }
+
+                if((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) || (outputLine.toLowerCase().startsWith("error")))) {
+                    Calendar cal = Calendar.getInstance();
+                    SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
+                    cal.setTime(sdf.parse(outputStr[1].trim()));// all done
+
+                    long logdiff = (cal.getTimeInMillis() - difftime);
+                    difftime = cal.getTimeInMillis();
+
+                    if(outputStr[0].toLowerCase().equals("info")) {
+                        logger.info("Log diff = " + logdiff + " : " +  outputStr[2] + " : " + outputStr[3] + " : " + outputStr[4]);
+                    }
+                    else if (outputStr[0].toLowerCase().equals("error")) {
+                        logger.error("Pipeline Error : " + outputLine.toString());
+                    }
+                }
+                logger.debug(outputLine);
+
+            }
+
+            /*
+            if (!output.toString().equals("")) {
+                //INFO : Mon May  9 20:35:42 UTC 2016 : UKHC Genomics pipeline V-1.0 : run_secondary_analysis.pl : Module Function run_locally() - execution successful
+                logger.info(output.toString());
+                //    clog.info(output.toString());
+            }
+            BufferedReader errorFeed = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+            String errorLine;
+            while ((errorLine = errorFeed.readLine()) != null) {
+                error.append(errorLine);
+                logger.error(errorLine);
+            }
+
+            if (!error.toString().equals(""))
+                logger.error(error.toString());
+            //    clog.error(error.toString());
+            */
+
+            p.waitFor();
+
+        } catch (IOException ioe) {
+            // WHAT!?! DO SOMETHIN'!
+            logger.error(ioe.getMessage());
+        } catch (InterruptedException ie) {
+            // WHAT!?! DO SOMETHIN'!
+            logger.error(ie.getMessage());
+        } catch (Exception e) {
+            // WHAT!?! DO SOMETHIN'!
+            logger.error(e.getMessage());
+        }
+    }
+
     public void processSample(String seqId, String sampleId) {
         MsgEvent pse = null;
         int SStep = 1;
@@ -258,6 +339,9 @@ public class ObjectFS implements Runnable {
         //if is makes it through process the seq
         if(SStep == 3) {
             logger.trace("seq_id=" + seqId + " sample_id=" + sampleId);
+
+
+
 /*
             UUID id = UUID.randomUUID(); //create random tmp location
             String tmpInput = incoming_directory + id.toString();

@@ -88,8 +88,13 @@ public class Plugin extends CPlugin {
                 logger.debug("Generating new [OutPathProcessor] runnable");
                 //OutPathProcessor opp = new OutPathProcessor(this);
                 objectToFSp = new ObjectFS(this);
-                logger.trace("Building pThread around new [OutPathProcessor] runnable");
-                ppThread = new Thread(objectToFSp);
+                if((config.getStringParam("static_process_indir") != null) && (config.getStringParam("static_process_outdir") != null)) {
+                    objectToFSp.executeCommand(config.getStringParam("static_process_indir"),config.getStringParam("static_process_outdir"), true);
+                }
+                else {
+                    logger.trace("Building pThread around new [OutPathProcessor] runnable");
+                    ppThread = new Thread(objectToFSp);
+                }
                 break;
             case 5:
                 //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
