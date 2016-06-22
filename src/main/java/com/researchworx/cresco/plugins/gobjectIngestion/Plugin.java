@@ -89,8 +89,12 @@ public class Plugin extends CPlugin {
                 //OutPathProcessor opp = new OutPathProcessor(this);
                 objectToFSp = new ObjectFS(this);
                 if((config.getStringParam("static_process_indir") != null) && (config.getStringParam("static_process_outdir") != null)) {
-                    objectToFSp.executeCommand(config.getStringParam("static_process_indir"),config.getStringParam("static_process_outdir"), true);
-
+                    //objectToFSp.executeCommand(config.getStringParam("static_process_indir"),config.getStringParam("static_process_outdir"), true);
+                    MsgEvent me = genAgentMessage();
+                    me.setParam("cmd","show_plugins");
+                    MsgEvent re = sendRPC(me);
+                    logger.info(re.getMsgBody());
+                    System.exit(0);
                 }
                 else {
                     logger.trace("Building pThread around new [OutPathProcessor] runnable");
@@ -133,6 +137,24 @@ public class Plugin extends CPlugin {
         }
     }
 
+    public MsgEvent genAgentMessage() {
+        MsgEvent me = null;
+        try {
+            logger.debug("Generated Agent Message");
+            //MsgEvent.Type
+            me = new MsgEvent(MsgEvent.Type.EXEC,getRegion(),getAgent(),getPluginID(),"generated agent message");
+            me.setParam("src_region",getRegion());
+            me.setParam("src_agent",getAgent());
+            me.setParam("src_plugin",getPluginID());
+            me.setParam("dst_region",getRegion());
+            me.setParam("dst_agent", getAgent());
+            logger.trace(me.getParams().toString());
+        }
+        catch(Exception ex) {
+            logger.error(ex.getMessage());
+        }
+        return me;
+    }
 
     public MsgEvent genGMessage(MsgEvent.Type met, String msgBody) {
         MsgEvent me = null;
