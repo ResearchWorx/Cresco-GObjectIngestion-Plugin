@@ -196,7 +196,8 @@ public class Plugin extends CPlugin {
                     }
                     //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
                     //cpu-core-count = 8
-                    int coreCount = Integer.parseInt(me.getParam("cpu-core-count"));
+                    String sCoreCount = me.getParam("cpu-core-count");
+                    int coreCount = Integer.parseInt(sCoreCount);
                     String cpuPerLoad = me.getParam("cpu-per-cpu-load");
                     cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
                     cpuPerLoad = cpuPerLoad.replace("%","");
@@ -205,9 +206,12 @@ public class Plugin extends CPlugin {
                         //logger.info(cpu);
                     }
 
-                    Long memoryTotal = Long.parseLong(me.getParam("memory-total"));
-                    Long memoryAvailable = Long.parseLong(me.getParam("memory-available"));
+                    String sMemoryTotal = me.getParam("memory-total");
+                    Long memoryTotal = Long.parseLong(sMemoryTotal);
+                    String sMemoryAvailable = me.getParam("memory-available");
+                    Long memoryAvailable = Long.parseLong(sMemoryAvailable);
                     Long memoryUsed = memoryTotal - memoryAvailable;
+                    String sMemoryUsed = String.valueOf(memoryUsed);
 
                     String sCpuIdleLoad = me.getParam("cpu-idle-load");
                     String sCpuUserLoad = me.getParam("cpu-user-load");
@@ -220,27 +224,35 @@ public class Plugin extends CPlugin {
                     float cpuTotalLoad = cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad;
 
                     String smemoryUsed = String.valueOf(memoryUsed/1024/1024);
-                    String sCpuTotalLoad = String.valueOf(cpuTotalLoad);
+                    //String sCpuTotalLoad = String.valueOf(cpuTotalLoad);
                     boolean loadIsSane = false;
                     if(cpuTotalLoad == 100.0) {
                         loadIsSane = true;
                     }
 
-                    logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
-                    try {
-                        Path logpath = Paths.get("/opt/cresco/perf/perf.csv");
-                        if(logpath.toFile().exists()) {
-                            Files.write(logpath, "the text".getBytes(), StandardOpenOption.APPEND);
-                        }
-                        else {
-                            Files.write(logpath, "the text".getBytes(), StandardOpenOption.CREATE);
-                        }
+                    //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
 
-                    }catch (Exception e) {
-                        logger.error("Error Static Runner " + e.getMessage());
-                        e.printStackTrace();
-                        //exception handling left as an exercise for the reader
+                    String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,load-sane,memory-total,memory-available,memory-used";
+                    String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed;
+                    String logPath = getConfig().getStringParam("perflogpath");
+                    if(logPath != null) {
+                        try {
+                            Path logpath = Paths.get(logPath);
+                            //output += "\n";
+                            if (!logpath.toFile().exists()) {
+                                Files.write(logpath, header.getBytes(), StandardOpenOption.CREATE);
+                                Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
+                            } else {
+                                Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
+                            }
+
+                        } catch (Exception e) {
+                            logger.error("Error Static Runner " + e.getMessage());
+                            e.printStackTrace();
+                            //exception handling left as an exercise for the reader
+                        }
                     }
+
                 }
                 else {
                     logger.error("me = null");
