@@ -200,14 +200,30 @@ public class Plugin extends CPlugin {
                     cpuPerLoad = cpuPerLoad.replace("%","");
                     String[] perCpu = cpuPerLoad.split(" ");
                     for(String cpu : perCpu) {
-                        logger.info(cpu);
+                        //logger.info(cpu);
                     }
 
                     Long memoryTotal = Long.parseLong(me.getParam("memory-total"));
                     Long memoryAvailable = Long.parseLong(me.getParam("memory-available"));
                     Long memoryUsed = memoryTotal - memoryAvailable;
+                    //cpu-idle-load
+                    //cpu-user-load
+                    //cpu-nice-load
+                    //cpu-sys-load
+                    String sCpuIdleLoad = me.getParam("cpu-idle-load");
+                    String sCpuUserLoad = me.getParam("cpu-user-load");
+                    String sCpuNiceLoad = me.getParam("cpu-nice-load");
+                    String sCpuSysLoad = me.getParam("cpu-sys-load");
+                    float cpuIdleLoad = Float.parseFloat(sCpuIdleLoad);
+                    float cpuUserLoad = Float.parseFloat(sCpuUserLoad);
+                    float cpuNiceLoad = Float.parseFloat(sCpuNiceLoad);
+                    float cpuSysLoad  = Float.parseFloat(sCpuSysLoad);
 
-                    logger.info("Memory Used Mb: " + memoryUsed/1024/1024);
+                    String smemoryUsed = String.valueOf(memoryUsed/1024/1024);
+                    String sTotalLoad = String.valueOf(cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad);
+
+                    logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sTotalLoad);
+
 
                 }
                 else {
