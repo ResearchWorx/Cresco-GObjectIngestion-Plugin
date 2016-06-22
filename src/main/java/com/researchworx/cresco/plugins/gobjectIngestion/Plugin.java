@@ -144,10 +144,10 @@ public class Plugin extends CPlugin {
                 me.setParam("cmd", "getactiveplugins");
                 MsgEvent re = sendRPC(me);
                 //Plugin: [plugin/1] Name: cresco-sysinfo-plugin Initialized: 0.5.0.a1afb.20160517-1722
-                //String[] pstr =
-
-                logger.info(re.getMsgBody());
-
+                String[] activePluginList = re.getParam("activepluginlist").split(",");
+                for(String pluginName : activePluginList) {
+                    logger.info(pluginName);
+                }
             }
             catch(Exception ex) {
                 logger.error("Static runner failure : " + ex.getMessage());
