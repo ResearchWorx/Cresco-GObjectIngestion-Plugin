@@ -6,8 +6,10 @@ import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.*;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -225,7 +227,11 @@ public class Plugin extends CPlugin {
                     }
 
                     logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
-
+                    try {
+                        Files.write(Paths.get("myfile.txt"), "the text".getBytes(), StandardOpenOption.APPEND);
+                    }catch (Exception e) {
+                        //exception handling left as an exercise for the reader
+                    }
                 }
                 else {
                     logger.error("me = null");
