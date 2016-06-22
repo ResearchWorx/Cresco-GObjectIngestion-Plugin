@@ -320,7 +320,7 @@ public class ObjectFS implements Runnable {
                     difftime = cal.getTimeInMillis();
 
                     if(outputStr[0].toLowerCase().equals("info")) {
-                        logger.info("Log diff = " + logdiff + " : " +  outputStr[2] + " : " + outputStr[3] + " : " + outputStr[4]);
+                        //logger.info("Log diff = " + logdiff + " : " +  outputStr[2] + " : " + outputStr[3] + " : " + outputStr[4]);
                         ObjectFS.stagePhase = outputStr[3];
                     }
                     else if (outputStr[0].toLowerCase().equals("error")) {
