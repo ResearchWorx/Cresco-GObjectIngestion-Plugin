@@ -202,9 +202,12 @@ public class Plugin extends CPlugin {
                     cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
                     cpuPerLoad = cpuPerLoad.replace("%","");
                     String[] perCpu = cpuPerLoad.split(" ");
+                    String sCputPerLoadGrp = "";
                     for(String cpu : perCpu) {
                         //logger.info(cpu);
+                        sCputPerLoadGrp += cpu + ":";
                     }
+                    sCputPerLoadGrp = sCputPerLoadGrp.substring(0,sCputPerLoadGrp.length() -1);
 
                     String sMemoryTotal = me.getParam("memory-total");
                     Long memoryTotal = Long.parseLong(sMemoryTotal);
@@ -232,8 +235,10 @@ public class Plugin extends CPlugin {
 
                     //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
 
-                    String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,load-sane,memory-total,memory-available,memory-used\n";
-                    String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "\n";
+                    String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,cpu-core-load,load-sane,memory-total,memory-available,memory-used\n";
+                    String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "\n";
+
+
                     String logPath = getConfig().getStringParam("perflogpath");
                     if(logPath != null) {
                         try {
