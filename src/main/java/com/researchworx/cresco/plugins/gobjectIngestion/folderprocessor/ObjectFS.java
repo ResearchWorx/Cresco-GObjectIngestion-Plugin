@@ -175,94 +175,102 @@ public class ObjectFS implements Runnable {
 
     private class PerfTracker extends Thread {
 
+        private boolean isActive = false;
         public void run(){
             try {
-
-                Thread.sleep(2000);
+                isActive = true;
                 System.out.println("PerfTracker running");
-                System.out.println(ObjectFS.stagePhase);
-
-                MsgEvent me = plugin.getSysInfo();
-                if(me != null) {
-                    //logger.info(me.getParams().toString());
-                    Iterator it = me.getParams().entrySet().iterator();
-                    while (it.hasNext()) {
-                        Map.Entry pairs = (Map.Entry) it.next();
-                        logger.info(pairs.getKey() + " = " + pairs.getValue());
-                        //String plugin = pairs.getKey().toString();
-                    }
-                    //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
-                    //cpu-core-count = 8
-                    String sCoreCount = me.getParam("cpu-core-count");
-                    int coreCount = Integer.parseInt(sCoreCount);
-                    String cpuPerLoad = me.getParam("cpu-per-cpu-load");
-                    cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
-                    cpuPerLoad = cpuPerLoad.replace("%","");
-                    String[] perCpu = cpuPerLoad.split(" ");
-                    String sCputPerLoadGrp = "";
-                    for(String cpu : perCpu) {
-                        //logger.info(cpu);
-                        sCputPerLoadGrp += cpu + ":";
-                    }
-                    sCputPerLoadGrp = sCputPerLoadGrp.substring(0,sCputPerLoadGrp.length() -1);
-
-                    String sMemoryTotal = me.getParam("memory-total");
-                    Long memoryTotal = Long.parseLong(sMemoryTotal);
-                    String sMemoryAvailable = me.getParam("memory-available");
-                    Long memoryAvailable = Long.parseLong(sMemoryAvailable);
-                    Long memoryUsed = memoryTotal - memoryAvailable;
-                    String sMemoryUsed = String.valueOf(memoryUsed);
-
-                    String sCpuIdleLoad = me.getParam("cpu-idle-load");
-                    String sCpuUserLoad = me.getParam("cpu-user-load");
-                    String sCpuNiceLoad = me.getParam("cpu-nice-load");
-                    String sCpuSysLoad = me.getParam("cpu-sys-load");
-                    float cpuIdleLoad = Float.parseFloat(sCpuIdleLoad);
-                    float cpuUserLoad = Float.parseFloat(sCpuUserLoad);
-                    float cpuNiceLoad = Float.parseFloat(sCpuNiceLoad);
-                    float cpuSysLoad  = Float.parseFloat(sCpuSysLoad);
-                    float cpuTotalLoad = cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad;
-
-                    String smemoryUsed = String.valueOf(memoryUsed/1024/1024);
-                    //String sCpuTotalLoad = String.valueOf(cpuTotalLoad);
-                    boolean loadIsSane = false;
-                    if(cpuTotalLoad == 100.0) {
-                        loadIsSane = true;
-                    }
-
-                    //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
-
-                    String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,cpu-core-load,load-sane,memory-total,memory-available,memory-used\n";
-                    String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "\n";
-
-
-                    String logPath = plugin.getConfig().getStringParam("perflogpath");
-                    if(logPath != null) {
-                        try {
-                            Path logpath = Paths.get(logPath);
-                            //output += "\n";
-                            if (!logpath.toFile().exists()) {
-                                Files.write(logpath, header.getBytes(), StandardOpenOption.CREATE);
-                                Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
-                            } else {
-                                Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
-                            }
-
-                        } catch (Exception e) {
-                            logger.error("Error Static Runner " + e.getMessage());
-                            e.printStackTrace();
-                            //exception handling left as an exercise for the reader
-                        }
-                    }
-
-                }
-                else {
-                    logger.error("me = null");
+                Long perfRate = plugin.getConfig().getLongParam("perfrate",5000L);
+                while(isActive) {
+                    logPerf();
+                    Thread.sleep(perfRate);
+                    ObjectFS.stagePhase = "Whut";
                 }
 
             }
             catch(Exception ex) {
                 logger.error("Static runner failure : " + ex.getMessage());
+            }
+        }
+
+        private void logPerf() {
+
+            MsgEvent me = plugin.getSysInfo();
+            if(me != null) {
+                //logger.info(me.getParams().toString());
+                Iterator it = me.getParams().entrySet().iterator();
+                while (it.hasNext()) {
+                    Map.Entry pairs = (Map.Entry) it.next();
+                    logger.info(pairs.getKey() + " = " + pairs.getValue());
+                    //String plugin = pairs.getKey().toString();
+                }
+                //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
+                //cpu-core-count = 8
+                String sCoreCount = me.getParam("cpu-core-count");
+                int coreCount = Integer.parseInt(sCoreCount);
+                String cpuPerLoad = me.getParam("cpu-per-cpu-load");
+                cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
+                cpuPerLoad = cpuPerLoad.replace("%","");
+                String[] perCpu = cpuPerLoad.split(" ");
+                String sCputPerLoadGrp = "";
+                for(String cpu : perCpu) {
+                    //logger.info(cpu);
+                    sCputPerLoadGrp += cpu + ":";
+                }
+                sCputPerLoadGrp = sCputPerLoadGrp.substring(0,sCputPerLoadGrp.length() -1);
+
+                String sMemoryTotal = me.getParam("memory-total");
+                Long memoryTotal = Long.parseLong(sMemoryTotal);
+                String sMemoryAvailable = me.getParam("memory-available");
+                Long memoryAvailable = Long.parseLong(sMemoryAvailable);
+                Long memoryUsed = memoryTotal - memoryAvailable;
+                String sMemoryUsed = String.valueOf(memoryUsed);
+
+                String sCpuIdleLoad = me.getParam("cpu-idle-load");
+                String sCpuUserLoad = me.getParam("cpu-user-load");
+                String sCpuNiceLoad = me.getParam("cpu-nice-load");
+                String sCpuSysLoad = me.getParam("cpu-sys-load");
+                float cpuIdleLoad = Float.parseFloat(sCpuIdleLoad);
+                float cpuUserLoad = Float.parseFloat(sCpuUserLoad);
+                float cpuNiceLoad = Float.parseFloat(sCpuNiceLoad);
+                float cpuSysLoad  = Float.parseFloat(sCpuSysLoad);
+                float cpuTotalLoad = cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad;
+
+                String smemoryUsed = String.valueOf(memoryUsed/1024/1024);
+                //String sCpuTotalLoad = String.valueOf(cpuTotalLoad);
+                boolean loadIsSane = false;
+                if(cpuTotalLoad == 100.0) {
+                    loadIsSane = true;
+                }
+
+                //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
+
+                String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n";
+                String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "," + ObjectFS.stagePhase + "\n";
+
+
+                String logPath = plugin.getConfig().getStringParam("perflogpath");
+                if(logPath != null) {
+                    try {
+                        Path logpath = Paths.get(logPath);
+                        //output += "\n";
+                        if (!logpath.toFile().exists()) {
+                            Files.write(logpath, header.getBytes(), StandardOpenOption.CREATE);
+                            Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
+                        } else {
+                            Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
+                        }
+
+                    } catch (Exception e) {
+                        logger.error("Error Static Runner " + e.getMessage());
+                        e.printStackTrace();
+                        //exception handling left as an exercise for the reader
+                    }
+                }
+
+            }
+            else {
+                logger.error("me = null");
             }
         }
     }
