@@ -232,8 +232,8 @@ public class Plugin extends CPlugin {
 
                     //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
 
-                    String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,load-sane,memory-total,memory-available,memory-used";
-                    String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed;
+                    String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,load-sane,memory-total,memory-available,memory-used\n";
+                    String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "\n";
                     String logPath = getConfig().getStringParam("perflogpath");
                     if(logPath != null) {
                         try {
