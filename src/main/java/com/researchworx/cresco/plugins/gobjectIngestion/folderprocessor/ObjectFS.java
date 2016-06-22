@@ -184,7 +184,7 @@ public class ObjectFS implements Runnable {
                 while(isActive) {
                     logPerf();
                     Thread.sleep(perfRate);
-                    ObjectFS.stagePhase = "Whut";
+
                 }
 
             }
@@ -277,6 +277,13 @@ public class ObjectFS implements Runnable {
 
     public void executeCommand(String inDir, String outDir, boolean trackPerf) {
 
+        //start perf mon
+        PerfTracker pt = null;
+        if(trackPerf) {
+            pt = new PerfTracker();
+            new Thread(pt).start();
+        }
+
         //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
         //String command = "docker run -t -v /home/gpackage:/gpackage -v " + tmpInput + ":/gdata/input -v " + tmpOutput + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
         String command = "docker run -t -v /home/gpackage:/gpackage -v " + inDir + ":/gdata/input -v " + outDir + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
@@ -342,7 +349,9 @@ public class ObjectFS implements Runnable {
             */
 
             p.waitFor();
-
+            if(trackPerf) {
+                pt.isActive = false;
+            }
         } catch (IOException ioe) {
             // WHAT!?! DO SOMETHIN'!
             logger.error(ioe.getMessage());

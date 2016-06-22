@@ -188,7 +188,8 @@ public class Plugin extends CPlugin {
                 String inDir = config.getStringParam("static_process_indir");
                 String outDir = config.getStringParam("static_process_outdir");
 
-                objectToFSp.run_test();
+                //objectToFSp.run_test();
+                objectToFSp.executeCommand(inDir,outDir,false);
 
             }
             catch(Exception ex) {
