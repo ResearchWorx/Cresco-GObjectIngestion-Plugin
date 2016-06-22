@@ -197,13 +197,16 @@ public class ObjectFS implements Runnable {
 
             MsgEvent me = plugin.getSysInfo();
             if(me != null) {
-                //logger.info(me.getParams().toString());
+
+                /*
                 Iterator it = me.getParams().entrySet().iterator();
                 while (it.hasNext()) {
                     Map.Entry pairs = (Map.Entry) it.next();
                     logger.info(pairs.getKey() + " = " + pairs.getValue());
                     //String plugin = pairs.getKey().toString();
                 }
+                */
+
                 //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
                 //cpu-core-count = 8
                 String sCoreCount = me.getParam("cpu-core-count");
