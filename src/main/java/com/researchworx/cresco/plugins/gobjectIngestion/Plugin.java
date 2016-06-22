@@ -230,6 +230,7 @@ public class Plugin extends CPlugin {
                     try {
                         Files.write(Paths.get("/opt/cresco/perf/perf.csv"), "the text".getBytes(), StandardOpenOption.APPEND);
                     }catch (Exception e) {
+                        logger.error("Error Static Runner " + e.getMessage());
                         //exception handling left as an exercise for the reader
                     }
                 }
