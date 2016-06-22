@@ -163,6 +163,7 @@ public class Plugin extends CPlugin {
             if(sysPlugin != null) {
                 MsgEvent me = genAgentMessage();
                 me.setParam("dst_plugin",sysPlugin);
+                logger.info("SENDING MESSAGE: " + me.getParams().toString());
                 MsgEvent re = sendRPC(me);
             }
             else {
@@ -181,8 +182,13 @@ public class Plugin extends CPlugin {
             try {
                 Thread.sleep(2000);
                 System.out.println("StaticRunner running");
-
-                logger.info(getSysInfo().getParams().toString());
+                MsgEvent me = getSysInfo();
+                if(me != null) {
+                    logger.info(getSysInfo().getParams().toString());
+                }
+                else {
+                    logger.error("me = null");
+                }
 
             }
             catch(Exception ex) {
