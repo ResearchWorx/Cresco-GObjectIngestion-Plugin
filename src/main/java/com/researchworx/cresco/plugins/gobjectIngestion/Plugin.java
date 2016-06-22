@@ -192,6 +192,15 @@ public class Plugin extends CPlugin {
                         logger.info(pairs.getKey() + " = " + pairs.getValue());
                         //String plugin = pairs.getKey().toString();
                     }
+                    //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
+                    //cpu-core-count = 8
+                    int coreCount = Integer.parseInt(me.getParam("cpu-core-count"));
+                    String cpuPerLoad = me.getParam("cpu-per-cpu-load");
+                    cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": "));
+                    String[] perCpu = cpuPerLoad.split("%0");
+                    for(String cpu : perCPU) {
+                        logger.info(cpu);
+                    }
                 }
                 else {
                     logger.error("me = null");
