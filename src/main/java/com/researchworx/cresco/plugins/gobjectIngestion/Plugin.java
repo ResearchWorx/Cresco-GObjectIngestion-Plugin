@@ -206,10 +206,7 @@ public class Plugin extends CPlugin {
                     Long memoryTotal = Long.parseLong(me.getParam("memory-total"));
                     Long memoryAvailable = Long.parseLong(me.getParam("memory-available"));
                     Long memoryUsed = memoryTotal - memoryAvailable;
-                    //cpu-idle-load
-                    //cpu-user-load
-                    //cpu-nice-load
-                    //cpu-sys-load
+
                     String sCpuIdleLoad = me.getParam("cpu-idle-load");
                     String sCpuUserLoad = me.getParam("cpu-user-load");
                     String sCpuNiceLoad = me.getParam("cpu-nice-load");
@@ -218,12 +215,16 @@ public class Plugin extends CPlugin {
                     float cpuUserLoad = Float.parseFloat(sCpuUserLoad);
                     float cpuNiceLoad = Float.parseFloat(sCpuNiceLoad);
                     float cpuSysLoad  = Float.parseFloat(sCpuSysLoad);
+                    float cpuTotalLoad = cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad;
 
                     String smemoryUsed = String.valueOf(memoryUsed/1024/1024);
-                    String sTotalLoad = String.valueOf(cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad);
+                    String sCpuTotalLoad = String.valueOf(cpuTotalLoad);
+                    boolean loadIsSane = false;
+                    if(cpuTotalLoad == 100.0) {
+                        loadIsSane = true;
+                    }
 
-                    logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sTotalLoad);
-
+                    logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
 
                 }
                 else {
