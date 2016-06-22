@@ -228,7 +228,7 @@ public class Plugin extends CPlugin {
 
                     logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
                     try {
-                        Files.write(Paths.get("myfile.txt"), "the text".getBytes(), StandardOpenOption.APPEND);
+                        Files.write(Paths.get("/opt/cresco/perf/perf.csv"), "the text".getBytes(), StandardOpenOption.APPEND);
                     }catch (Exception e) {
                         //exception handling left as an exercise for the reader
                     }
