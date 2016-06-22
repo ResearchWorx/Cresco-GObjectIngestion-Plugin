@@ -248,8 +248,8 @@ public class ObjectFS implements Runnable {
 
                 //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
 
-                String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n";
-                String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "," + ObjectFS.stagePhase + "\n";
+                String header = "ts,cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n";
+                String output = System.currentTimeMillis() + "," + sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "," + ObjectFS.stagePhase + "\n";
 
 
                 String logPath = plugin.getConfig().getStringParam("perflogpath");
