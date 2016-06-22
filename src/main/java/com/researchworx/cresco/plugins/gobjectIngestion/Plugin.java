@@ -228,7 +228,14 @@ public class Plugin extends CPlugin {
 
                     logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
                     try {
-                        Files.write(Paths.get("/opt/cresco/perf/perf.csv"), "the text".getBytes(), StandardOpenOption.APPEND);
+                        Path logpath = Paths.get("/opt/cresco/perf/perf.csv");
+                        if(logpath.toFile().exists()) {
+                            Files.write(logpath, "the text".getBytes(), StandardOpenOption.APPEND);
+                        }
+                        else {
+                            Files.write(logpath, "the text".getBytes(), StandardOpenOption.CREATE);
+                        }
+
                     }catch (Exception e) {
                         logger.error("Error Static Runner " + e.getMessage());
                         e.printStackTrace();
