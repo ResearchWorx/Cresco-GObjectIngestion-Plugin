@@ -150,10 +150,30 @@ public class Plugin extends CPlugin {
                 }
             }
         } catch (Exception ex) {
-            logger.error("getSysInfo() " + ex.getMessage());
+            logger.error("getSysInfoPlugin() " + ex.getMessage());
         }
         return sysPlugin;
     }
+
+    public MsgEvent getSysInfo() {
+
+        MsgEvent rm = null;
+        try {
+            String sysPlugin = getSysInfoPlugin();
+            if(sysPlugin != null) {
+                MsgEvent me = genAgentMessage();
+                me.setParam("dst_plugin",sysPlugin);
+                MsgEvent re = sendRPC(me);
+            }
+            else {
+                logger.error("getSysInfo no sysinfo plugin exist on local agent!");
+            }
+        } catch (Exception ex) {
+            logger.error("getSysInfo() " + ex.getMessage());
+        }
+        return rm;
+    }
+
 
     private class StaticRunner extends Thread {
 
@@ -162,7 +182,7 @@ public class Plugin extends CPlugin {
                 Thread.sleep(2000);
                 System.out.println("StaticRunner running");
 
-                logger.info("SysInfo Plugin = " + getSysInfoPlugin());
+                logger.info(getSysInfo().getParams().toString());
 
             }
             catch(Exception ex) {
