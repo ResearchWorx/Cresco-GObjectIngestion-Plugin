@@ -198,7 +198,7 @@ public class Plugin extends CPlugin {
                     String cpuPerLoad = me.getParam("cpu-per-cpu-load");
                     cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": "));
                     String[] perCpu = cpuPerLoad.split("%0");
-                    for(String cpu : perCPU) {
+                    for(String cpu : perCpu) {
                         logger.info(cpu);
                     }
                 }
