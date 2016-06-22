@@ -134,20 +134,36 @@ public class Plugin extends CPlugin {
         }
     }
 
+    public String getSysInfoPlugin() {
+
+        String sysPlugin = null;
+        try {
+
+            MsgEvent me = genAgentMessage();
+            me.setParam("cmd", "getactiveplugins");
+            MsgEvent re = sendRPC(me);
+            String[] activePluginList = re.getParam("activepluginlist").split(",");
+            for (String pluginName : activePluginList) {
+                String[] pstr = pluginName.split("=");
+                if (pstr[0].equals("cresco-sysinfo-plugin")) {
+                    sysPlugin = pstr[1];
+                }
+            }
+        } catch (Exception ex) {
+            logger.error("getSysInfo() " + ex.getMessage());
+        }
+        return sysPlugin;
+    }
+
     private class StaticRunner extends Thread {
 
         public void run(){
             try {
                 Thread.sleep(2000);
                 System.out.println("StaticRunner running");
-                MsgEvent me = genAgentMessage();
-                me.setParam("cmd", "getactiveplugins");
-                MsgEvent re = sendRPC(me);
-                //Plugin: [plugin/1] Name: cresco-sysinfo-plugin Initialized: 0.5.0.a1afb.20160517-1722
-                String[] activePluginList = re.getParam("activepluginlist").split(",");
-                for(String pluginName : activePluginList) {
-                    logger.info(pluginName);
-                }
+
+                logger.info("SysInfo Plugin = " + getSysInfoPlugin());
+
             }
             catch(Exception ex) {
                 logger.error("Static runner failure : " + ex.getMessage());
