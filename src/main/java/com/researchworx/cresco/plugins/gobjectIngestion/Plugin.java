@@ -141,8 +141,11 @@ public class Plugin extends CPlugin {
                 Thread.sleep(2000);
                 System.out.println("StaticRunner running");
                 MsgEvent me = genAgentMessage();
-                me.setParam("cmd", "show_plugins");
+                me.setParam("cmd", "getactiveplugins");
                 MsgEvent re = sendRPC(me);
+                //Plugin: [plugin/1] Name: cresco-sysinfo-plugin Initialized: 0.5.0.a1afb.20160517-1722
+                //String[] pstr =
+
                 logger.info(re.getMsgBody());
 
             }
