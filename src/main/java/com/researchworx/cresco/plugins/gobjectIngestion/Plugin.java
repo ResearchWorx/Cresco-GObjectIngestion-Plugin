@@ -90,11 +90,9 @@ public class Plugin extends CPlugin {
                 objectToFSp = new ObjectFS(this);
                 if((config.getStringParam("static_process_indir") != null) && (config.getStringParam("static_process_outdir") != null)) {
                     //objectToFSp.executeCommand(config.getStringParam("static_process_indir"),config.getStringParam("static_process_outdir"), true);
-                    MsgEvent me = genAgentMessage();
-                    me.setParam("cmd","show_plugins");
-                    MsgEvent re = sendRPC(me);
-                    logger.info(re.getMsgBody());
-                    System.exit(0);
+                    StaticRunner sr = new StaticRunner();
+                    Thread srt = new Thread(sr);
+                    srt.start();
                 }
                 else {
                     logger.trace("Building pThread around new [OutPathProcessor] runnable");
@@ -134,6 +132,24 @@ public class Plugin extends CPlugin {
                 logger.error(ex.getMessage());
             }
 
+        }
+    }
+
+    private class StaticRunner extends Thread {
+
+        public void run(){
+            try {
+                Thread.sleep(2000);
+                System.out.println("StaticRunner running");
+                MsgEvent me = genAgentMessage();
+                me.setParam("cmd", "show_plugins");
+                MsgEvent re = sendRPC(me);
+                logger.info(re.getMsgBody());
+
+            }
+            catch(Exception ex) {
+                logger.error("Static runner failure : " + ex.getMessage());
+            }
         }
     }
 
