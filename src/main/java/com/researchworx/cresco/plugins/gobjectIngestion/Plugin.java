@@ -164,7 +164,7 @@ public class Plugin extends CPlugin {
                 MsgEvent me = genAgentMessage();
                 me.setParam("dst_plugin",sysPlugin);
                 logger.info("SENDING MESSAGE: " + me.getParams().toString());
-                MsgEvent re = sendRPC(me);
+                rm = sendRPC(me);
             }
             else {
                 logger.error("getSysInfo no sysinfo plugin exist on local agent!");
