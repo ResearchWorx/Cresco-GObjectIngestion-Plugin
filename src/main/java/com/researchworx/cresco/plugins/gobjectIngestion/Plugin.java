@@ -202,6 +202,13 @@ public class Plugin extends CPlugin {
                     for(String cpu : perCpu) {
                         logger.info(cpu);
                     }
+
+                    Long memoryTotal = Long.parseLong(me.getParam("memory-total"));
+                    Long memoryAvailable = Long.parseLong(me.getParam("memory-available"));
+                    Long memoryUsed = memoryTotal - memoryAvailable;
+
+                    logger.info("Memory Used Mb: " + memoryUsed/1024/1024);
+
                 }
                 else {
                     logger.error("me = null");
