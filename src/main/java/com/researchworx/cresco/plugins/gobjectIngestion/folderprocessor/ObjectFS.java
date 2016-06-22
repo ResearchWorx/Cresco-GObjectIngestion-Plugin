@@ -4,9 +4,11 @@ import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
+import sun.misc.Perf;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
@@ -24,8 +26,10 @@ public class ObjectFS implements Runnable {
     private MsgEvent me;
     private String pathStage;
     private int pstep;
+    public static String stagePhase;
 
     public ObjectFS(Plugin plugin) {
+        this.stagePhase = "uninit";
         this.pstep = 1;
         this.plugin = plugin;
         this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
@@ -163,10 +167,103 @@ public class ObjectFS implements Runnable {
         return( path.delete() );
     }
 
-    private class perfTracker extends Thread {
+    public void run_test() {
+        PerfTracker pt = new PerfTracker();
+        Thread ptt = new Thread(pt);
+        ptt.start();
+    }
+
+    private class PerfTracker extends Thread {
 
         public void run(){
-            System.out.println("MyThread running");
+            try {
+
+                Thread.sleep(2000);
+                System.out.println("PerfTracker running");
+                System.out.println(ObjectFS.stagePhase);
+
+                MsgEvent me = plugin.getSysInfo();
+                if(me != null) {
+                    //logger.info(me.getParams().toString());
+                    Iterator it = me.getParams().entrySet().iterator();
+                    while (it.hasNext()) {
+                        Map.Entry pairs = (Map.Entry) it.next();
+                        logger.info(pairs.getKey() + " = " + pairs.getValue());
+                        //String plugin = pairs.getKey().toString();
+                    }
+                    //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
+                    //cpu-core-count = 8
+                    String sCoreCount = me.getParam("cpu-core-count");
+                    int coreCount = Integer.parseInt(sCoreCount);
+                    String cpuPerLoad = me.getParam("cpu-per-cpu-load");
+                    cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
+                    cpuPerLoad = cpuPerLoad.replace("%","");
+                    String[] perCpu = cpuPerLoad.split(" ");
+                    String sCputPerLoadGrp = "";
+                    for(String cpu : perCpu) {
+                        //logger.info(cpu);
+                        sCputPerLoadGrp += cpu + ":";
+                    }
+                    sCputPerLoadGrp = sCputPerLoadGrp.substring(0,sCputPerLoadGrp.length() -1);
+
+                    String sMemoryTotal = me.getParam("memory-total");
+                    Long memoryTotal = Long.parseLong(sMemoryTotal);
+                    String sMemoryAvailable = me.getParam("memory-available");
+                    Long memoryAvailable = Long.parseLong(sMemoryAvailable);
+                    Long memoryUsed = memoryTotal - memoryAvailable;
+                    String sMemoryUsed = String.valueOf(memoryUsed);
+
+                    String sCpuIdleLoad = me.getParam("cpu-idle-load");
+                    String sCpuUserLoad = me.getParam("cpu-user-load");
+                    String sCpuNiceLoad = me.getParam("cpu-nice-load");
+                    String sCpuSysLoad = me.getParam("cpu-sys-load");
+                    float cpuIdleLoad = Float.parseFloat(sCpuIdleLoad);
+                    float cpuUserLoad = Float.parseFloat(sCpuUserLoad);
+                    float cpuNiceLoad = Float.parseFloat(sCpuNiceLoad);
+                    float cpuSysLoad  = Float.parseFloat(sCpuSysLoad);
+                    float cpuTotalLoad = cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad;
+
+                    String smemoryUsed = String.valueOf(memoryUsed/1024/1024);
+                    //String sCpuTotalLoad = String.valueOf(cpuTotalLoad);
+                    boolean loadIsSane = false;
+                    if(cpuTotalLoad == 100.0) {
+                        loadIsSane = true;
+                    }
+
+                    //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
+
+                    String header = "cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,cpu-core-load,load-sane,memory-total,memory-available,memory-used\n";
+                    String output = sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "\n";
+
+
+                    String logPath = plugin.getConfig().getStringParam("perflogpath");
+                    if(logPath != null) {
+                        try {
+                            Path logpath = Paths.get(logPath);
+                            //output += "\n";
+                            if (!logpath.toFile().exists()) {
+                                Files.write(logpath, header.getBytes(), StandardOpenOption.CREATE);
+                                Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
+                            } else {
+                                Files.write(logpath, output.getBytes(), StandardOpenOption.APPEND);
+                            }
+
+                        } catch (Exception e) {
+                            logger.error("Error Static Runner " + e.getMessage());
+                            e.printStackTrace();
+                            //exception handling left as an exercise for the reader
+                        }
+                    }
+
+                }
+                else {
+                    logger.error("me = null");
+                }
+
+            }
+            catch(Exception ex) {
+                logger.error("Static runner failure : " + ex.getMessage());
+            }
         }
     }
 
