@@ -8,6 +8,8 @@ import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @AutoService(CPlugin.class)
@@ -163,7 +165,6 @@ public class Plugin extends CPlugin {
             if(sysPlugin != null) {
                 MsgEvent me = genAgentMessage();
                 me.setParam("dst_plugin",sysPlugin);
-                logger.info("SENDING MESSAGE: " + me.getParams().toString());
                 rm = sendRPC(me);
             }
             else {
@@ -184,7 +185,13 @@ public class Plugin extends CPlugin {
                 System.out.println("StaticRunner running");
                 MsgEvent me = getSysInfo();
                 if(me != null) {
-                    logger.info(getSysInfo().getParams().toString());
+                    //logger.info(me.getParams().toString());
+                    Iterator it = me.getParams().entrySet().iterator();
+                    while (it.hasNext()) {
+                        Map.Entry pairs = (Map.Entry) it.next();
+                        logger.info(pairs.getKey() + " = " + pairs.getValue());
+                        //String plugin = pairs.getKey().toString();
+                    }
                 }
                 else {
                     logger.error("me = null");
