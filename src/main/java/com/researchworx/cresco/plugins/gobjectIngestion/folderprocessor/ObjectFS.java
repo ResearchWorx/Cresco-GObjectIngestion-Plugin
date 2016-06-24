@@ -209,8 +209,9 @@ public class ObjectFS implements Runnable {
 
                 //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
                 //cpu-core-count = 8
-                String sCoreCount = me.getParam("cpu-core-count");
-                int coreCount = Integer.parseInt(sCoreCount);
+                String sCoreCountp = me.getParam("cpu-core-count-physical");
+                String sCoreCountl = me.getParam("cpu-core-count-logical");
+                int pcoreCount = Integer.parseInt(sCoreCountp);
                 String cpuPerLoad = me.getParam("cpu-per-cpu-load");
                 cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
                 cpuPerLoad = cpuPerLoad.replace("%","");
@@ -248,8 +249,8 @@ public class ObjectFS implements Runnable {
 
                 //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
 
-                String header = "ts,cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n";
-                String output = System.currentTimeMillis() + "," + sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCount + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "," + ObjectFS.stagePhase + "\n";
+                String header = "ts,cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count-physical,cpu-core-count-logical,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n";
+                String output = System.currentTimeMillis() + "," + sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCountp + "," + sCoreCountl + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "," + ObjectFS.stagePhase + "\n";
 
 
                 String logPath = plugin.getConfig().getStringParam("perflogpath");
