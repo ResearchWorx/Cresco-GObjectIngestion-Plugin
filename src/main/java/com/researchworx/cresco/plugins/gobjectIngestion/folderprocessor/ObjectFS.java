@@ -209,8 +209,10 @@ public class ObjectFS implements Runnable {
 
                 //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
                 //cpu-core-count = 8
-                String sCoreCountp = me.getParam("cpu-core-count-physical");
-                String sCoreCountl = me.getParam("cpu-core-count-logical");
+                //String sCoreCountp = me.getParam("cpu-core-count-physical");
+                //String sCoreCountl = me.getParam("cpu-core-count-logical");
+                String sCoreCountp = me.getParam("cpu-core-count");
+                String sCoreCountl = me.getParam("cpu-core-count");
                 int pcoreCount = Integer.parseInt(sCoreCountp);
                 String cpuPerLoad = me.getParam("cpu-per-cpu-load");
                 cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
