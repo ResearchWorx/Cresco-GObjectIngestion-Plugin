@@ -270,7 +270,7 @@ public class FSObject implements Runnable {
 
         if (status.equals("no")) {
 
-            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start transfer directory " + outDir);
+            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start transfer directory");
             me.setParam("indir", inDir);
             me.setParam("outdir", outDir);
             me.setParam("seq_id", seqId);
