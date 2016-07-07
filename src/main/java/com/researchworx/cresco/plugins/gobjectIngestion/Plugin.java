@@ -6,8 +6,10 @@ import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.*;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -183,36 +185,11 @@ public class Plugin extends CPlugin {
             try {
                 Thread.sleep(2000);
                 System.out.println("StaticRunner running");
-                MsgEvent me = getSysInfo();
-                if(me != null) {
-                    //logger.info(me.getParams().toString());
-                    Iterator it = me.getParams().entrySet().iterator();
-                    while (it.hasNext()) {
-                        Map.Entry pairs = (Map.Entry) it.next();
-                        logger.info(pairs.getKey() + " = " + pairs.getValue());
-                        //String plugin = pairs.getKey().toString();
-                    }
-                    //cpu-per-cpu-load = CPU Load per processor: 1.0% 12.0% 8.0% 7.9% 0.0% 0.0% 0.0% 0.0%
-                    //cpu-core-count = 8
-                    int coreCount = Integer.parseInt(me.getParam("cpu-core-count"));
-                    String cpuPerLoad = me.getParam("cpu-per-cpu-load");
-                    cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
-                    cpuPerLoad = cpuPerLoad.replace("%","");
-                    String[] perCpu = cpuPerLoad.split(" ");
-                    for(String cpu : perCpu) {
-                        logger.info(cpu);
-                    }
+                String inDir = config.getStringParam("static_process_indir");
+                String outDir = config.getStringParam("static_process_outdir");
 
-                    Long memoryTotal = Long.parseLong(me.getParam("memory-total"));
-                    Long memoryAvailable = Long.parseLong(me.getParam("memory-available"));
-                    Long memoryUsed = memoryTotal - memoryAvailable;
-
-                    logger.info("Memory Used Mb: " + memoryUsed/1024/1024);
-
-                }
-                else {
-                    logger.error("me = null");
-                }
+                //objectToFSp.run_test();
+                objectToFSp.executeCommand(inDir,outDir,true);
 
             }
             catch(Exception ex) {

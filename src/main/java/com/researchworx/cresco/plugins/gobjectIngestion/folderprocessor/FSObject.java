@@ -92,6 +92,16 @@ public class FSObject implements Runnable {
                         }
                     }
                     else {
+
+                        me = plugin.genGMessage(MsgEvent.Type.INFO, "Idle");
+                        me.setParam("transfer_watch_file", transfer_watch_file);
+                        me.setParam("transfer_status_file", transfer_status_file);
+                        me.setParam("bucket_name", bucket_name);
+                        me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                        me.setParam("pathstage", pathStage);
+                        me.setParam("pstep","3");
+                        plugin.sendMsgEvent(me);
+
                         Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
                     }
                 } catch (Exception ex) {
@@ -238,6 +248,9 @@ public class FSObject implements Runnable {
         logger.debug("Call to processDir [dir = {}]", dir.toString());
 
         String inDir = dir.toString();
+        if(inDir.contains("\\")) {
+            inDir = inDir.replaceAll("\\\\","/");
+        }
         inDir = inDir.substring(0, inDir.length() - transfer_status_file.length() - 1);
         logger.debug("[inDir = {}]", inDir);
 
@@ -257,7 +270,7 @@ public class FSObject implements Runnable {
 
         if (status.equals("no")) {
 
-            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start transfer directory " + outDir);
+            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start transfer directory");
             me.setParam("indir", inDir);
             me.setParam("outdir", outDir);
             me.setParam("seq_id", seqId);
