@@ -65,11 +65,12 @@ public class ObjectEngine {
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
-
+        clientConfig.setMaxConnections(100);
         logger.trace("Connecting to Amazon S3");
         conn = new AmazonS3Client(credentials, clientConfig);
         conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
         conn.setEndpoint(endpoint);
+
 
         logger.trace("Building new MD5Tools");
         md5t = new MD5Tools(plugin);
@@ -108,13 +109,13 @@ public class ObjectEngine {
 
             // You can poll your transfer's status to check its progress
             while (!myUpload.isDone()) {
-                /*
+
                    System.out.println("Transfer: " + myUpload.getDescription());
 				   System.out.println("  - State: " + myUpload.getState());
 				   System.out.println("  - Progress: "
 								   + myUpload.getProgress().getBytesTransferred());
-				*/
-                Thread.sleep(1000);
+
+                Thread.sleep(5000);
             }
 
             logger.trace("Calculating upload statistics");
@@ -325,6 +326,7 @@ public class ObjectEngine {
             logger.error("isSyncDir {}", ex.getMessage());
             isSync = false;
         }
+        mdhp.clear();
         return isSync;
 
     }
