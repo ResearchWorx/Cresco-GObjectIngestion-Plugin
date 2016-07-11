@@ -110,23 +110,24 @@ public class ObjectEngine {
             // You can poll your transfer's status to check its progress
             while (!myUpload.isDone()) {
 
-                   System.out.println("Transfer: " + myUpload.getDescription());
-				   System.out.println("  - State: " + myUpload.getState());
-				   System.out.println("  - Progress: "
+                    logger.debug("Transfer: " + myUpload.getDescription());
+                    logger.debug("  - State: " + myUpload.getState());
+                    logger.debug("  - Progress Bytes: "
 								   + myUpload.getProgress().getBytesTransferred());
+
+                //logger.trace("Calculating upload statistics");
+                float transferTime = (System.currentTimeMillis() - startUpload) / 1000;
+                long bytesTransfered = myUpload.getProgress().getBytesTransferred();
+                float transferRate = (bytesTransfered / 1000000) / transferTime;
+
+                logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
+                logger.debug("\t- Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
+                logger.debug("\t- Elapsed time : " + transferTime + " seconds");
+                logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
 
                 Thread.sleep(5000);
             }
 
-            logger.trace("Calculating upload statistics");
-            float transferTime = (System.currentTimeMillis() - startUpload) / 1000;
-            long bytesTransfered = myUpload.getProgress().getBytesTransferred();
-            float transferRate = (bytesTransfered / 1000000) / transferTime;
-
-            logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
-            logger.debug("\t- Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
-            logger.debug("\t- Elapsed time : " + transferTime + " seconds");
-            logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
 
 			/*
 			   System.out.println("Transfer: " + myUpload.getDescription());
