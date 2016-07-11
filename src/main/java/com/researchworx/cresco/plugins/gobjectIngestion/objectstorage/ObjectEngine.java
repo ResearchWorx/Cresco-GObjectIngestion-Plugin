@@ -18,6 +18,7 @@ import com.amazonaws.services.s3.transfer.MultipleFileUpload;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.util.StringUtils;
+import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import org.slf4j.Logger;
@@ -40,11 +41,13 @@ public class ObjectEngine {
     //private final static String FOLDER_SUFFIX = "/";
     private MD5Tools md5t;
     private int partSize;
+    private Plugin plugin;
 
     public ObjectEngine(Plugin plugin) {
         this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
         //this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
 
+        this.plugin = plugin;
         //logger.trace("ObjectEngine instantiated [group = {}]", group);
         String accessKey = plugin.getConfig().getStringParam("accesskey");
         logger.debug("\"accesskey\" from config [{}]", accessKey);
@@ -66,6 +69,7 @@ public class ObjectEngine {
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
         clientConfig.setMaxConnections(100);
+
         logger.trace("Connecting to Amazon S3");
         conn = new AmazonS3Client(credentials, clientConfig);
         conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
@@ -90,6 +94,7 @@ public class ObjectEngine {
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
 
             logger.trace("Setting up minimum part size");
+
             // Sets the minimum part size for upload parts.
             tmConfig.setMinimumUploadPartSize(partSize * 1024 * 1024);
             logger.trace("Setting up size threshold for multipart uploads");
@@ -110,7 +115,7 @@ public class ObjectEngine {
             // You can poll your transfer's status to check its progress
             while (!myUpload.isDone()) {
 
-                    logger.debug("Transfer: " + myUpload.getDescription());
+                logger.debug("Transfer: " + myUpload.getDescription());
                     logger.debug("  - State: " + myUpload.getState());
                     logger.debug("  - Progress Bytes: "
 								   + myUpload.getProgress().getBytesTransferred());
@@ -124,6 +129,17 @@ public class ObjectEngine {
                 logger.debug("\t- Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
                 logger.debug("\t- Elapsed time : " + transferTime + " seconds");
                 logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
+
+                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Filesystem Scan");
+                //me.setParam("pathstage",pathStage);
+                me.setParam("indir",inDir);
+                me.setParam("outdir",outDir);
+                me.setParam("pathstage", String.valueOf(plugin.pathStage));
+                me.setParam("sstep","1");
+                me.setParam("xfer_rate",String.valueOf(transferRate));
+                me.setParam("xfer_bytes",String.valueOf(myUpload.getProgress().getBytesTransferred()));
+                plugin.sendMsgEvent(me);
+
 
                 Thread.sleep(5000);
             }

@@ -191,6 +191,7 @@ public class FSObject implements Runnable {
             logger.trace("Writing lines to file at [tmpPath]");
             Files.write(file, lines, Charset.forName("UTF-8"));
             logger.trace("Completed writing to file");
+            Plugin.pathQueue.offer(dir); //add to path for processing
             isTransfer = true;
         } catch (Exception ex) {
             logger.error("createTransferFile Error : {}", ex.getMessage());
