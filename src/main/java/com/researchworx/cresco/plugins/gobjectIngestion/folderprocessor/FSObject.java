@@ -26,7 +26,7 @@ public class FSObject implements Runnable {
 
     public FSObject(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
         this.pathStage = String.valueOf(plugin.pathStage);
 
         logger.trace("FStoObject instantiated");
@@ -284,9 +284,9 @@ public class FSObject implements Runnable {
 
 
             logger.debug("[status = \"no\"]");
-            Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
-            logger.trace("Setting MD5 hash");
-            setTransferFileMD5(dir, md5map);
+            //Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
+            //logger.trace("Setting MD5 hash");
+            //setTransferFileMD5(dir, md5map);
             logger.trace("Transferring directory");
             if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
                 if (setTransferFile(dir)) {

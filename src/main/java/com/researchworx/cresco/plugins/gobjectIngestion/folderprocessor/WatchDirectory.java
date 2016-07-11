@@ -117,9 +117,6 @@ public class WatchDirectory implements Runnable {
         //process existing files before registering
         walkPath(dir.toFile(), 2);
 
-        System.out.println("PAthQuqu dize " + plugin.pathQueue.size());
-        System.exit(0);
-
         if (recursive) {
             registerAll(dir);
         } else {
