@@ -42,7 +42,7 @@ public class ObjectEngine {
     private int partSize;
 
     public ObjectEngine(Plugin plugin) {
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
         //this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
 
         //logger.trace("ObjectEngine instantiated [group = {}]", group);
@@ -273,12 +273,12 @@ public class ObjectEngine {
             }
             //check if bucket exist
             if(doesBucketExist(bucket)) {
-            logger.trace("Grabbing [objects] from [bucket] [s3Dir]");
+            logger.trace("isSync Grabbing [objects] from [bucket] [s3Dir]");
             ObjectListing objects = conn.listObjects(bucket, s3Dir);
             do {
                 for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
                     if (!mdhp.containsKey(objectSummary.getKey())) {
-                        logger.debug("Adding from s3 [{} : {}]", objectSummary.getKey(), objectSummary.getETag());
+                        logger.trace("Adding from s3 [{} : {}]", objectSummary.getKey(), objectSummary.getETag());
                         mdhp.put(objectSummary.getKey(), objectSummary.getETag());
                     }
                 }
