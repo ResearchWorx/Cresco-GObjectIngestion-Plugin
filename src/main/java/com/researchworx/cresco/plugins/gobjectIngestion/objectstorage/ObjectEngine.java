@@ -134,6 +134,7 @@ public class ObjectEngine {
                 //me.setParam("pathstage",pathStage);
                 me.setParam("indir",inDir);
                 me.setParam("outdir",outDir);
+                me.setParam("seq_id",outDir);
                 me.setParam("pathstage", String.valueOf(plugin.pathStage));
                 me.setParam("sstep","1");
                 me.setParam("xfer_rate",String.valueOf(transferRate));
