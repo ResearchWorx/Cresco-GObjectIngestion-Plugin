@@ -21,8 +21,6 @@ import com.amazonaws.util.StringUtils;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -130,7 +128,7 @@ public class ObjectEngine {
                 logger.debug("\t- Elapsed time : " + transferTime + " seconds");
                 logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
 
-                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Filesystem Scan");
+                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + (int)myUpload.getProgress().getPercentTransferred() + "%)");
                 //me.setParam("pathstage",pathStage);
                 me.setParam("indir",inDir);
                 me.setParam("outdir",outDir);
@@ -139,6 +137,7 @@ public class ObjectEngine {
                 me.setParam("sstep","1");
                 me.setParam("xfer_rate",String.valueOf(transferRate));
                 me.setParam("xfer_bytes",String.valueOf(myUpload.getProgress().getBytesTransferred()));
+                me.setParam("xfer_percent", String.valueOf(myUpload.getProgress().getPercentTransferred()));
                 plugin.sendMsgEvent(me);
 
 
