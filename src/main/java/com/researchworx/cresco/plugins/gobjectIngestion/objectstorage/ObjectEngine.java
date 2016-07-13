@@ -44,7 +44,7 @@ public class ObjectEngine {
     private Plugin plugin;
 
     public ObjectEngine(Plugin plugin) {
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
+        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         //this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
 
         this.plugin = plugin;
@@ -214,6 +214,7 @@ public class ObjectEngine {
 
             //logger.info("Downloading: " + bucketName + ":" + keyPrefix + " to " + downloadDir);
 
+            /*
 			myDownload.addProgressListener(new ProgressListener() {
 				// This method is called periodically as your transfer progresses
 				public void progressChanged(ProgressEvent progressEvent) {
@@ -228,9 +229,10 @@ public class ObjectEngine {
 					//}
 				}
 			});
-			//myDownload.waitForCompletion();
+			myDownload.waitForCompletion();
+            */
 
-
+            logger.trace("Entering download wait loop");
 
             while (!myDownload.isDone()) {
                 System.out.println(myDownload.getProgress().getPercentTransferred() + "%");
