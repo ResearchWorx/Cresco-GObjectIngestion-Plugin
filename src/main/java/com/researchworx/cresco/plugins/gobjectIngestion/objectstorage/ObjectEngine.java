@@ -6,6 +6,8 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.event.ProgressEvent;
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -68,6 +70,7 @@ public class ObjectEngine {
         clientConfig.setSignerOverride("S3SignerType");
         clientConfig.setMaxConnections(100);
 
+
         logger.trace("Connecting to Amazon S3");
         conn = new AmazonS3Client(credentials, clientConfig);
         conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
@@ -95,6 +98,7 @@ public class ObjectEngine {
 
             // Sets the minimum part size for upload parts.
             tmConfig.setMinimumUploadPartSize(partSize * 1024 * 1024);
+
             logger.trace("Setting up size threshold for multipart uploads");
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
@@ -202,21 +206,23 @@ public class ObjectEngine {
             MultipleFileDownload myDownload = tx.downloadDirectory(bucketName, keyPrefix, downloadDir);
 
             //logger.info("Downloading: " + bucketName + ":" + keyPrefix + " to " + downloadDir);
-			/*
+
 			myDownload.addProgressListener(new ProgressListener() {
 				// This method is called periodically as your transfer progresses
 				public void progressChanged(ProgressEvent progressEvent) {
-					System.out.println(myDownload.getProgress().getPercentTransferred() + "%");
+                    //System.out.println(myDownload.getProgress().getPercentTransferred());
+
+                    //System.out.println(myDownload.getProgress().getPercentTransferred() + "%");
 					System.out.println(progressEvent.getEventType());
-					System.out.println(progressEvent.getEventCode());
-					System.out.println(ProgressEvent.COMPLETED_EVENT_CODE);
-					if (progressEvent.getEventCode() == ProgressEvent.COMPLETED_EVENT_CODE) {
-						System.out.println("download complete!!!");
-					}
+					//System.out.println(progressEvent.getEventCode());
+					//System.out.println(ProgressEvent.COMPLETED_EVENT_CODE);
+					//if (progressEvent.getEventCode() == ProgressEvent.COMPLETED_EVENT_CODE) {
+					//	System.out.println("download complete!!!");
+					//}
 				}
 			});
 			myDownload.waitForCompletion();
-			*/
+
 
 
             while (!myDownload.isDone()) {
