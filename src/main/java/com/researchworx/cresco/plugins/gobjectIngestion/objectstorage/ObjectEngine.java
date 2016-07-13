@@ -77,7 +77,7 @@ public class ObjectEngine {
         //S3ClientOptions(boolean pathStyleAccess, boolean chunkedEncodingDisabled, boolean accelerateModeEnabled, boolean payloadSigningEnabled)
         //conn.setS3ClientOptions(S3ClientOptions.);
         S3ClientOptions s3ops = S3ClientOptions.builder()
-                .setAccelerateModeEnabled(true)
+                .setAccelerateModeEnabled(false)
                 .setPathStyleAccess(true)
                 .setPayloadSigningEnabled(false)
                 .build();
