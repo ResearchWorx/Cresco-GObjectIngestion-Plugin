@@ -228,12 +228,13 @@ public class ObjectEngine {
 					//}
 				}
 			});
-			myDownload.waitForCompletion();
+			//myDownload.waitForCompletion();
 
 
 
             while (!myDownload.isDone()) {
-                Thread.sleep(1000);
+                System.out.println(myDownload.getProgress().getPercentTransferred() + "%");
+                Thread.sleep(5000);
             }
 
             logger.trace("Calculating download statistics");
