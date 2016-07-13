@@ -68,12 +68,21 @@ public class ObjectEngine {
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
-        clientConfig.setMaxConnections(100);
+        //clientConfig.setMaxConnections(100);
 
 
         logger.trace("Connecting to Amazon S3");
         conn = new AmazonS3Client(credentials, clientConfig);
-        conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        //conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        //S3ClientOptions(boolean pathStyleAccess, boolean chunkedEncodingDisabled, boolean accelerateModeEnabled, boolean payloadSigningEnabled)
+        //conn.setS3ClientOptions(S3ClientOptions.);
+        S3ClientOptions s3ops = S3ClientOptions.builder()
+                .setAccelerateModeEnabled(true)
+                .setPathStyleAccess(true)
+                .setPayloadSigningEnabled(false)
+                .build();
+        conn.setS3ClientOptions(s3ops);
+
         conn.setEndpoint(endpoint);
 
 
@@ -93,12 +102,10 @@ public class ObjectEngine {
 
             logger.trace("Building new TransferManagerConfiguration");
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
-
             logger.trace("Setting up minimum part size");
 
             // Sets the minimum part size for upload parts.
             tmConfig.setMinimumUploadPartSize(partSize * 1024 * 1024);
-
             logger.trace("Setting up size threshold for multipart uploads");
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
