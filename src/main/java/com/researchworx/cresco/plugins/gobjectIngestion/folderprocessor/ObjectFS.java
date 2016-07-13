@@ -4,7 +4,6 @@ import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
-import sun.misc.Perf;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -91,11 +90,11 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    public void processSequence(String seqId) {
+    public void processSequence(String seqId, String reqId) {
         MsgEvent pse = null;
         try {
             pstep = 3;
-            logger.debug("Call to processSequence seq_id: " + seqId);
+            logger.debug("Call to processSequence seq_id: " + seqId, ", req_id: " + reqId);
             ObjectEngine oe = new ObjectEngine(plugin);
 
 
@@ -103,6 +102,7 @@ public class ObjectFS implements Runnable {
             //me.setParam("inDir", remoteDir);
             //me.setParam("outDir", incoming_directory);
             pse.setParam("seq_id", seqId);
+            pse.setParam("req_id", reqId);
             pse.setParam("transfer_status_file", transfer_status_file);
             pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
@@ -129,6 +129,7 @@ public class ObjectFS implements Runnable {
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
                 pse.setParam("indir", inDir);
                 pse.setParam("seq_id", seqId);
+                pse.setParam("req_id", reqId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
@@ -140,14 +141,16 @@ public class ObjectFS implements Runnable {
         catch(Exception ex) {
             logger.error("run {}", ex.getMessage());
             pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            me.setParam("transfer_watch_file",transfer_watch_file);
-            me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name",bucket_name);
-            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("seq_id", seqId);
+            pse.setParam("req_id", reqId);
+            pse.setParam("transfer_watch_file",transfer_watch_file);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name",bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage",pathStage);
             pse.setParam("error_message",ex.getMessage());
             pse.setParam("sstep","1");
-            plugin.sendMsgEvent(me);
+            plugin.sendMsgEvent(pse);
         }
         pstep = 2;
     }

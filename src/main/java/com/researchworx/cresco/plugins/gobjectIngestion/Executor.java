@@ -2,7 +2,6 @@ package com.researchworx.cresco.plugins.gobjectIngestion;
 
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CExecutor;
-import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
 
 public class Executor extends CExecutor {
@@ -106,6 +105,10 @@ public class Executor extends CExecutor {
             String transfer_watch_file = pme.getParam("transfer_watch_file");
             String message = pme.getParam("msg");
             String endpoint = pme.getParam("endpoint");
+            String seqId = pme.getParam("seq_id");
+            String reqId = pme.getParam("req_id");
+            if (reqId == null)
+                reqId = "unknown";
             logger.info(pathStageName + " " + eventType.name() + " " + message + " " + pme.getParam("src_region") + "_" + pme.getParam("src_agent"));
 
 
@@ -115,7 +118,7 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                            Plugin.objectToFSp.processSequence(pme.getParam("seq_id"));
+                            Plugin.objectToFSp.processSequence(seqId, reqId);
                         break;
                     case 3:
                         break;
