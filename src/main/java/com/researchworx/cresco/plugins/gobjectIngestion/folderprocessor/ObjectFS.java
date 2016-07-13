@@ -374,7 +374,7 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    public void processSample(String seqId, String sampleId) {
+    public void processSample(String seqId, String sampleId, String reqId) {
         MsgEvent pse = null;
         int SStep = 1;
 
@@ -402,6 +402,7 @@ public class ObjectFS implements Runnable {
             pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfering");
             //me.setParam("inDir", remoteDir);
             //me.setParam("outDir", incoming_directory);
+            pse.setParam("req_id", reqId);
             pse.setParam("seq_id", seqId);
             pse.setParam("sample_id", sampleId);
             pse.setParam("transfer_status_file", transfer_status_file);
@@ -436,6 +437,7 @@ public class ObjectFS implements Runnable {
                 setTransferFileMD5(workDirName + transfer_status_file, md5map);
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
                 pse.setParam("indir", workDirName);
+                pse.setParam("req_id", reqId);
                 pse.setParam("seq_id", seqId);
                 pse.setParam("sample_id", sampleId);
                 pse.setParam("transfer_status_file", transfer_status_file);
@@ -450,16 +452,17 @@ public class ObjectFS implements Runnable {
         catch(Exception ex) {
             logger.error("run {}", ex.getMessage());
             pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+            pse.setParam("req_id", reqId);
             pse.setParam("seq_id", seqId);
             pse.setParam("sample_id", sampleId);
-            me.setParam("transfer_watch_file",transfer_watch_file);
-            me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name",bucket_name);
-            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("transfer_watch_file",transfer_watch_file);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name",bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage",pathStage);
             pse.setParam("error_message",ex.getMessage());
             pse.setParam("ssstep",String.valueOf(SStep));
-            plugin.sendMsgEvent(me);
+            plugin.sendMsgEvent(pse);
         }
         //if is makes it through process the seq
         if(SStep == 3) {
