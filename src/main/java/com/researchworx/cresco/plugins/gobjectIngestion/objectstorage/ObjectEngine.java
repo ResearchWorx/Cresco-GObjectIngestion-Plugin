@@ -6,8 +6,6 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.event.ProgressEvent;
-import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -15,10 +13,7 @@ import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.amazonaws.services.s3.transfer.MultipleFileDownload;
-import com.amazonaws.services.s3.transfer.MultipleFileUpload;
-import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
+import com.amazonaws.services.s3.transfer.*;
 import com.amazonaws.util.StringUtils;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
@@ -29,13 +24,19 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 //import java.io.InputStream;
 //import com.amazonaws.services.s3.model.ObjectMetadata;
 //import com.amazonaws.services.s3.model.PutObjectRequest;
 
 public class ObjectEngine {
-    //private static final Logger logger = LoggerFactory.getLogger(ObjectEngine.class);
+    private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
+    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 5;
+
     private CLogger logger;
     private static AmazonS3 conn;
     //private final static String FOLDER_SUFFIX = "/";
@@ -125,9 +126,9 @@ public class ObjectEngine {
             while (!myUpload.isDone()) {
 
                 logger.debug("Transfer: " + myUpload.getDescription());
-                    logger.debug("  - State: " + myUpload.getState());
-                    logger.debug("  - Progress Bytes: "
-								   + myUpload.getProgress().getBytesTransferred());
+                logger.debug("  - State: " + myUpload.getState());
+                logger.debug("  - Progress Bytes: "
+                        + myUpload.getProgress().getBytesTransferred());
 
                 //logger.trace("Calculating upload statistics");
                 float transferTime = (System.currentTimeMillis() - startUpload) / 1000;
@@ -139,15 +140,15 @@ public class ObjectEngine {
                 logger.debug("\t- Elapsed time : " + transferTime + " seconds");
                 logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
 
-                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + (int)myUpload.getProgress().getPercentTransferred() + "%)");
+                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + (int) myUpload.getProgress().getPercentTransferred() + "%)");
                 //me.setParam("pathstage",pathStage);
-                me.setParam("indir",inDir);
-                me.setParam("outdir",outDir);
-                me.setParam("seq_id",outDir);
+                me.setParam("indir", inDir);
+                me.setParam("outdir", outDir);
+                me.setParam("seq_id", outDir);
                 me.setParam("pathstage", String.valueOf(plugin.pathStage));
-                me.setParam("sstep","1");
-                me.setParam("xfer_rate",String.valueOf(transferRate));
-                me.setParam("xfer_bytes",String.valueOf(myUpload.getProgress().getBytesTransferred()));
+                me.setParam("sstep", "1");
+                me.setParam("xfer_rate", String.valueOf(transferRate));
+                me.setParam("xfer_bytes", String.valueOf(myUpload.getProgress().getBytesTransferred()));
                 me.setParam("xfer_percent", String.valueOf(myUpload.getProgress().getPercentTransferred()));
                 plugin.sendMsgEvent(me);
 
@@ -157,7 +158,7 @@ public class ObjectEngine {
 
 
 			/*
-			   System.out.println("Transfer: " + myUpload.getDescription());
+               System.out.println("Transfer: " + myUpload.getDescription());
 			   System.out.println("  - State: " + myUpload.getState());
 			   System.out.println("  - Progress: "
 							   + myUpload.getProgress().getBytesTransferred());
@@ -189,10 +190,13 @@ public class ObjectEngine {
     }
 
     //	downloadDirectory(String bucketName, String keyPrefix, File destinationDirectory)
-    public boolean downloadDirectory(String bucketName, String keyPrefix, String destinationDirectory) {
+    public boolean downloadDirectory(String bucketName, String keyPrefix, String destinationDirectory, String seqId, String sampleId) {
         logger.debug("Call to downloadDirectory [bucketName = {}, keyPrefix = {}, destinationDirectory = {}", bucketName, keyPrefix, destinationDirectory);
         boolean wasTransfered = false;
         TransferManager tx = null;
+        if (!destinationDirectory.endsWith("/")) {
+            destinationDirectory += "/";
+        }
 
         try {
             logger.trace("Building new TransferManager");
@@ -207,63 +211,116 @@ public class ObjectEngine {
                 }
             }
 
-            logger.trace("Starting download timer");
-            long startDownload = System.currentTimeMillis();
-            logger.info("Beginning download [bucketName = {}, keyPrefix = {}, downloadDir = {}", bucketName, keyPrefix, downloadDir);
-            MultipleFileDownload myDownload = tx.downloadDirectory(bucketName, keyPrefix, downloadDir);
+            Map<String, Long> dirList = getlistBucketContents(bucketName, keyPrefix);
 
-            //logger.info("Downloading: " + bucketName + ":" + keyPrefix + " to " + downloadDir);
+            if (dirList.keySet().size() <= MAX_FILES_FOR_S3_DOWNLOAD) {
 
-            /*
-			myDownload.addProgressListener(new ProgressListener() {
-				// This method is called periodically as your transfer progresses
-				public void progressChanged(ProgressEvent progressEvent) {
-                    //System.out.println(myDownload.getProgress().getPercentTransferred());
+                logger.trace("Starting download timer");
+                long startDownload = System.currentTimeMillis();
+                logger.info("Beginning download [bucketName = {}, keyPrefix = {}, downloadDir = {}", bucketName, keyPrefix, downloadDir);
+                MultipleFileDownload myDownload = tx.downloadDirectory(bucketName, keyPrefix, downloadDir);
 
-                    //System.out.println(myDownload.getProgress().getPercentTransferred() + "%");
-					System.out.println(progressEvent.getEventType());
-					//System.out.println(progressEvent.getEventCode());
-					//System.out.println(ProgressEvent.COMPLETED_EVENT_CODE);
-					//if (progressEvent.getEventCode() == ProgressEvent.COMPLETED_EVENT_CODE) {
-					//	System.out.println("download complete!!!");
-					//}
-				}
-			});
-			myDownload.waitForCompletion();
-            */
+                while (!myDownload.isDone()) {
 
-            logger.trace("Entering download wait loop");
+                    logger.debug("Transfer: " + myDownload.getDescription());
+                    logger.debug("  - State: " + myDownload.getState());
+                    logger.debug("  - Progress Bytes: "
+                            + myDownload.getProgress().getBytesTransferred());
 
-            while (!myDownload.isDone()) {
-                System.out.println(myDownload.getProgress().getPercentTransferred() + "%");
-                Thread.sleep(5000);
+                    float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
+                    long bytesTransfered = myDownload.getProgress().getBytesTransferred();
+                    float transferRate = (bytesTransfered / 1000000) / transferTime;
+
+                    logger.debug("Download Transfer Desc: " + myDownload.getDescription());
+                    logger.debug("\t- Transfered : " + myDownload.getProgress().getBytesTransferred() + " bytes");
+                    logger.debug("\t- Elapsed time : " + transferTime + " seconds");
+                    logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
+
+                    MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + (int) myDownload.getProgress().getPercentTransferred() + "%)");
+                    if (seqId != null)
+                        me.setParam("seq_id", seqId);
+                    if (sampleId != null)
+                        me.setParam("sample_id", sampleId);
+                    me.setParam("pathstage", String.valueOf(plugin.pathStage));
+                    me.setParam("sstep", "1");
+                    me.setParam("xfer_rate", String.valueOf(transferRate));
+                    me.setParam("xfer_bytes", String.valueOf(myDownload.getProgress().getBytesTransferred()));
+                    me.setParam("xfer_percent", String.valueOf(myDownload.getProgress().getPercentTransferred()));
+                    plugin.sendMsgEvent(me);
+
+
+                    Thread.sleep(5000);
+                }
+
+                logger.trace("Calculating download statistics");
+                float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
+                long bytesTransfered = myDownload.getProgress().getBytesTransferred();
+                float transferRate = (bytesTransfered / 1000000) / transferTime;
+
+                logger.debug("Download Transfer Desc: " + myDownload.getDescription());
+                logger.debug("\t- Transfered : " + myDownload.getProgress().getBytesTransferred() + " bytes");
+                logger.debug("\t- Elapsed time : " + transferTime + " seconds");
+                logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
+
+
+                wasTransfered = true;
+
+
+            } else {
+                long startDownload = System.currentTimeMillis();
+                ExecutorService downloadExecutorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS_FOR_DOWNLOAD);
+                ConcurrentHashMap<String, Download> downloads = new ConcurrentHashMap<>();
+                for (Map.Entry<String, Long> entry : dirList.entrySet()) {
+                    String dir = entry.getKey();
+                    String tdir = dir.substring(0, dir.lastIndexOf("/"));
+                    File directory = new File(destinationDirectory + tdir);
+                    File file = new File(destinationDirectory + dir);
+
+                    if (!directory.exists()) {
+                        if (createDir(directory)) {
+                            logger.trace("created directory : " + directory.getAbsolutePath());
+                        } else {
+                            logger.error("failed creating directory : " + directory.getAbsolutePath());
+                        }
+                    }
+                    downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads));
+                }
+                downloadExecutorService.shutdown();
+                downloadExecutorService.awaitTermination(10, TimeUnit.DAYS);
+                boolean done = false;
+                while (!done) {
+                    done = true;
+                    long totalBytesToDownload = 0L;
+                    long totalBytesDownloaded = 0L;
+                    for (Map.Entry<String, Download> entry : downloads.entrySet()) {
+                        Download download = entry.getValue();
+                        if (download.getState() != Transfer.TransferState.Completed)
+                            done = false;
+                        totalBytesToDownload += download.getProgress().getTotalBytesToTransfer();
+                        totalBytesDownloaded += download.getProgress().getBytesTransferred();
+                    }
+
+                    float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
+                    float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
+                    int progress = (int)(totalBytesDownloaded / totalBytesToDownload);
+
+                    MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
+                    if (seqId != null)
+                        me.setParam("seq_id", seqId);
+                    if (sampleId != null)
+                        me.setParam("sample_id", sampleId);
+                    me.setParam("pathstage", String.valueOf(plugin.pathStage));
+                    me.setParam("sstep", "1");
+                    me.setParam("xfer_rate", String.valueOf(transferRate));
+                    me.setParam("xfer_bytes", String.valueOf(totalBytesDownloaded));
+                    me.setParam("xfer_percent", String.valueOf(progress));
+                    plugin.sendMsgEvent(me);
+
+                    Thread.sleep(5000);
+                }
+
+                wasTransfered = true;
             }
-
-            logger.trace("Calculating download statistics");
-            float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
-            long bytesTransfered = myDownload.getProgress().getBytesTransferred();
-            float transferRate = (bytesTransfered / 1000000) / transferTime;
-
-            logger.debug("Download Transfer Desc: " + myDownload.getDescription());
-            logger.debug("\t- Transfered : " + myDownload.getProgress().getBytesTransferred() + " bytes");
-            logger.debug("\t- Elapsed time : " + transferTime + " seconds");
-            logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
-
-
-            // Transfers also allow you to set a <code>ProgressListener</code> to receive
-            // asynchronous notifications about your transfer's progress.
-            //myUpload.addProgressListener(myProgressListener);
-
-            // Or you can block the current thread and wait for your transfer to
-            // to complete. If the transfer fails, this method will throw an
-            // AmazonClientException or AmazonServiceException detailing the reason.
-            //myUpload.waitForCompletion();
-
-            // After the upload is complete, call shutdownNow to release the resources.
-
-
-            wasTransfered = true;
-
         } catch (Exception ex) {
             logger.error("downloadDirectory {}", ex.getMessage());
         } finally {
@@ -275,6 +332,71 @@ public class ObjectEngine {
             }
         }
         return wasTransfered;
+    }
+
+    private Map<String, Long> getlistBucketContents(String bucket, String prefixKey) {
+        logger.debug("Call to listBucketContents [bucket = {}, prefixKey = {}]", bucket, prefixKey);
+        Map<String, Long> dirList = new HashMap<>();
+        try {
+            if (doesBucketExist(bucket)) {
+                logger.trace("Grabbing [objects] list from [bucket]");
+                ObjectListing objects = conn.listObjects(bucket);
+
+                objects.setPrefix(prefixKey);
+                do {
+                    for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
+                        dirList.put(objectSummary.getKey(), objectSummary.getSize());
+                    }
+                    objects = conn.listNextBatchOfObjects(objects);
+                } while (objects.isTruncated());
+            } else {
+                logger.warn("Bucket :" + bucket + " does not exist!");
+            }
+        } catch (Exception ex) {
+            logger.error("getlistBucketContents {}", ex.getMessage());
+        }
+        return dirList;
+    }
+
+    private class DownloadWorker implements Runnable {
+        private TransferManager tx;
+        private String keyPrefix;
+        private String bucketName;
+        private File file;
+        private Map<String, Download> downloads;
+
+        DownloadWorker(TransferManager tx, String bucketName, String keyPrefix, File file, Map<String, Download> downloads) {
+            this.tx = tx;
+            this.keyPrefix = keyPrefix;
+            this.bucketName = bucketName;
+            this.file = file;
+            this.downloads = downloads;
+        }
+
+        @Override
+        public void run() {
+            try {
+                downloads.put(keyPrefix, tx.download(bucketName, keyPrefix, file));
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    private static boolean createDir(File file) {
+        boolean isCreated = false;
+        try {
+            //File file = new File(directories);
+
+            // The mkdirs will create folder including any necessary but non existence
+            // parent directories. This method returns true if and only if the directory
+            // was created along with all necessary parent directories.
+            isCreated = file.mkdirs();
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return isCreated;
     }
 
     /*public void createFolder(String bucket, String foldername) {
@@ -305,53 +427,52 @@ public class ObjectEngine {
                 s3Dir = s3Dir + "/";
             }
             //check if bucket exist
-            if(doesBucketExist(bucket)) {
-            logger.trace("isSync Grabbing [objects] from [bucket] [s3Dir]");
-            ObjectListing objects = conn.listObjects(bucket, s3Dir);
-            do {
-                for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
-                    if (!mdhp.containsKey(objectSummary.getKey())) {
-                        logger.trace("Adding from s3 [{} : {}]", objectSummary.getKey(), objectSummary.getETag());
-                        mdhp.put(objectSummary.getKey(), objectSummary.getETag());
+            if (doesBucketExist(bucket)) {
+                logger.trace("isSync Grabbing [objects] from [bucket] [s3Dir]");
+                ObjectListing objects = conn.listObjects(bucket, s3Dir);
+                do {
+                    for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
+                        if (!mdhp.containsKey(objectSummary.getKey())) {
+                            logger.trace("Adding from s3 [{} : {}]", objectSummary.getKey(), objectSummary.getETag());
+                            mdhp.put(objectSummary.getKey(), objectSummary.getETag());
+                        }
                     }
-                }
-                logger.trace("Grabbing next batch of [objects]");
-                objects = conn.listNextBatchOfObjects(objects);
-            } while (objects.isTruncated());
+                    logger.trace("Grabbing next batch of [objects]");
+                    objects = conn.listNextBatchOfObjects(objects);
+                } while (objects.isTruncated());
 
-            //S3Object object = conn.getObject(new GetObjectRequest(bucketName, key));
+                //S3Object object = conn.getObject(new GetObjectRequest(bucketName, key));
 
-            logger.trace("Grabbing list of files from [localDir]");
-            File folder = new File(localDir);
-            File[] listOfFiles = folder.listFiles();
-            for (File file : listOfFiles != null ? listOfFiles : new File[0]) {
-                if ((file.isFile()) && (!ignoreList.contains(file.getName()))) {
-                    String bucket_key = s3Dir + file.getName();
-                    logger.debug("[bucket_key = {}]", bucket_key);
-                    String md5hash;
-                    if (mdhp.containsKey(bucket_key)) {
-                        logger.trace("[mdhp] contains [bucket_key]");
-                        String checkhash = mdhp.get(bucket_key);
-                        if (checkhash.contains("-")) {
-                            logger.trace("Grabbing multipart-checksum for large/multipart file");
-                            md5hash = md5t.getMultiCheckSum(file.getAbsolutePath());
+                logger.trace("Grabbing list of files from [localDir]");
+                File folder = new File(localDir);
+                File[] listOfFiles = folder.listFiles();
+                for (File file : listOfFiles != null ? listOfFiles : new File[0]) {
+                    if ((file.isFile()) && (!ignoreList.contains(file.getName()))) {
+                        String bucket_key = s3Dir + file.getName();
+                        logger.debug("[bucket_key = {}]", bucket_key);
+                        String md5hash;
+                        if (mdhp.containsKey(bucket_key)) {
+                            logger.trace("[mdhp] contains [bucket_key]");
+                            String checkhash = mdhp.get(bucket_key);
+                            if (checkhash.contains("-")) {
+                                logger.trace("Grabbing multipart-checksum for large/multipart file");
+                                md5hash = md5t.getMultiCheckSum(file.getAbsolutePath());
+                            } else {
+                                logger.trace("Grabbing direct checksum for small/non-multipart file");
+                                md5hash = md5t.getCheckSum(file.getAbsolutePath());
+                            }
+                            if (!md5hash.equals(checkhash)) {
+                                isSync = false;
+                                logger.debug("Invalid Sync [bucket_key = {}, checkhash = {}] should be [md5hash = {}]", bucket_key, checkhash, md5hash);
+                            }
                         } else {
-                            logger.trace("Grabbing direct checksum for small/non-multipart file");
-                            md5hash = md5t.getCheckSum(file.getAbsolutePath());
-                        }
-                        if (!md5hash.equals(checkhash)) {
+                            logger.debug("Missing Key [bucket_key = {}]", bucket_key);
                             isSync = false;
-                            logger.debug("Invalid Sync [bucket_key = {}, checkhash = {}] should be [md5hash = {}]", bucket_key, checkhash, md5hash);
                         }
-                    } else {
-                        logger.debug("Missing Key [bucket_key = {}]", bucket_key);
-                        isSync = false;
                     }
                 }
-            }
 
-        }
-            else{
+            } else {
                 logger.warn("Bucket :" + bucket + " does not exist!");
 
             }
@@ -393,22 +514,21 @@ public class ObjectEngine {
         logger.debug("Call to listBucketContents [bucket = {}]", bucket);
         Map<String, String> fileMap = new HashMap<>();
         try {
-            if(doesBucketExist(bucket)) {
-            logger.trace("Grabbing [objects] list from [bucket]");
-            ObjectListing objects = conn.listObjects(bucket);
-            do {
-                for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
-                    logger.debug("Found object {}\t{}\t{}\t{}", objectSummary.getKey(),
-                            objectSummary.getSize(),
-                            objectSummary.getETag(),
-                            StringUtils.fromDate(objectSummary.getLastModified()));
-                    fileMap.put(objectSummary.getKey(), objectSummary.getETag());
-                }
-                logger.trace("Grabbing next batch of [objects]");
-                objects = conn.listNextBatchOfObjects(objects);
-            } while (objects.isTruncated());
-        }
-            else {
+            if (doesBucketExist(bucket)) {
+                logger.trace("Grabbing [objects] list from [bucket]");
+                ObjectListing objects = conn.listObjects(bucket);
+                do {
+                    for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
+                        logger.debug("Found object {}\t{}\t{}\t{}", objectSummary.getKey(),
+                                objectSummary.getSize(),
+                                objectSummary.getETag(),
+                                StringUtils.fromDate(objectSummary.getLastModified()));
+                        fileMap.put(objectSummary.getKey(), objectSummary.getETag());
+                    }
+                    logger.trace("Grabbing next batch of [objects]");
+                    objects = conn.listNextBatchOfObjects(objects);
+                } while (objects.isTruncated());
+            } else {
                 logger.warn("Bucket :" + bucket + " does not exist!");
             }
         } catch (Exception ex) {
@@ -422,24 +542,23 @@ public class ObjectEngine {
         logger.debug("Call to listBucketDirs [bucket = {}]", bucket);
         List<String> dirList = new ArrayList<>();
         try {
-            if(doesBucketExist(bucket)) {
-            logger.trace("Instantiating new ListObjectsRequest");
-            ListObjectsRequest lor = new ListObjectsRequest();
-            lor.setBucketName(bucket);
-            lor.setDelimiter("/");
+            if (doesBucketExist(bucket)) {
+                logger.trace("Instantiating new ListObjectsRequest");
+                ListObjectsRequest lor = new ListObjectsRequest();
+                lor.setBucketName(bucket);
+                lor.setDelimiter("/");
 
-            logger.trace("Grabbing [objects] list from [lor]");
-            //if(doesBucketExist(bucket))
-            ObjectListing objects = conn.listObjects(lor);
-            do {
-                List<String> sublist = objects.getCommonPrefixes();
-                logger.trace("Adding all Common Prefixes from [objects]");
-                dirList.addAll(sublist);
-                logger.trace("Grabbing next batch of [objects]");
-                objects = conn.listNextBatchOfObjects(objects);
-            } while (objects.isTruncated());
-        }
-            else {
+                logger.trace("Grabbing [objects] list from [lor]");
+                //if(doesBucketExist(bucket))
+                ObjectListing objects = conn.listObjects(lor);
+                do {
+                    List<String> sublist = objects.getCommonPrefixes();
+                    logger.trace("Adding all Common Prefixes from [objects]");
+                    dirList.addAll(sublist);
+                    logger.trace("Grabbing next batch of [objects]");
+                    objects = conn.listNextBatchOfObjects(objects);
+                } while (objects.isTruncated());
+            } else {
                 logger.warn("Bucket :" + bucket + " does not exist!");
             }
         } catch (Exception ex) {
@@ -453,23 +572,22 @@ public class ObjectEngine {
         logger.debug("Call to listBucketContents [bucket = {}, searchName = {}]", bucket, searchName);
         Map<String, String> fileMap = new HashMap<>();
         try {
-            if(doesBucketExist(bucket)) {
-            logger.trace("Grabbing [objects] list from [bucket]");
-            ObjectListing objects = conn.listObjects(bucket);
-            do {
-                for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
-                    if (objectSummary.getKey().contains(searchName)) {
-                        logger.debug("Found object {}\t{}\t{}\t{}", objectSummary.getKey(),
-                                objectSummary.getSize(),
-                                objectSummary.getETag(),
-                                StringUtils.fromDate(objectSummary.getLastModified()));
-                        fileMap.put(objectSummary.getKey(), objectSummary.getETag());
+            if (doesBucketExist(bucket)) {
+                logger.trace("Grabbing [objects] list from [bucket]");
+                ObjectListing objects = conn.listObjects(bucket);
+                do {
+                    for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
+                        if (objectSummary.getKey().contains(searchName)) {
+                            logger.debug("Found object {}\t{}\t{}\t{}", objectSummary.getKey(),
+                                    objectSummary.getSize(),
+                                    objectSummary.getETag(),
+                                    StringUtils.fromDate(objectSummary.getLastModified()));
+                            fileMap.put(objectSummary.getKey(), objectSummary.getETag());
+                        }
                     }
-                }
-                objects = conn.listNextBatchOfObjects(objects);
-            } while (objects.isTruncated());
-        }
-            else{
+                    objects = conn.listNextBatchOfObjects(objects);
+                } while (objects.isTruncated());
+            } else {
                 logger.warn("Bucket :" + bucket + " does not exist!");
             }
         } catch (Exception ex) {

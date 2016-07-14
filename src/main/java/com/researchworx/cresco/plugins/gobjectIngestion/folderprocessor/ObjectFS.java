@@ -110,7 +110,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("sstep", "1");
             plugin.sendMsgEvent(pse);
 
-            oe.downloadDirectory(bucket_name, seqId, incoming_directory);
+            oe.downloadDirectory(bucket_name, seqId, incoming_directory, seqId, null);
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
@@ -412,7 +412,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("ssstep", String.valueOf(SStep));
             plugin.sendMsgEvent(pse);
 
-            oe.downloadDirectory(bucket_name, remoteDir, workDirName);
+            oe.downloadDirectory(bucket_name, remoteDir, workDirName, seqId, sampleId);
 
             workDirName +=  remoteDir;
 

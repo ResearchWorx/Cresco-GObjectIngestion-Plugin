@@ -150,7 +150,7 @@ public class OutPathPreProcessor implements Runnable {
             me.setParam("sstep","1");
             plugin.sendMsgEvent(me);
 
-            oe.downloadDirectory(bucket_name, remoteDir, incoming_directory);
+            oe.downloadDirectory(bucket_name, remoteDir, incoming_directory, seqId, null);
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
