@@ -293,14 +293,29 @@ public class ObjectEngine {
                 boolean done = false;
                 while (!done && !downloadExecutorService.isTerminated()) {
                     done = true;
+                    int downloadsWaiting = 0;
+                    int downloadsRunning = 0;
+                    int downloadsCompleted = 0;
                     long totalBytesDownloaded = 0L;
                     logger.trace("Calculating progress from {} active downloads.", downloads.size());
                     for (Map.Entry<String, Download> entry : downloads.entrySet()) {
                         Download download = entry.getValue();
-                        if (download.getState() != Transfer.TransferState.Completed)
+                        if (download.getState() == Transfer.TransferState.Waiting) {
+                            downloadsWaiting++;
                             done = false;
+                        }
+                        if (download.getState() == Transfer.TransferState.InProgress) {
+                            downloadsRunning++;
+                            done = false;
+                        }
+                        if (download.getState() == Transfer.TransferState.Completed) {
+                            downloadsCompleted++;
+                        }
                         totalBytesDownloaded += download.getProgress().getBytesTransferred();
                     }
+                    logger.debug("\tWaiting: {}", downloadsWaiting);
+                    logger.debug("\tDownloading: {}", downloadsRunning);
+                    logger.debug("\tComplete: {}", downloadsCompleted);
                     logger.trace("Calculating download progress metrics.");
                     float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
                     float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
@@ -308,9 +323,9 @@ public class ObjectEngine {
                     if (totalBytesToDownload.get() > 0L)
                         progress = (int)((totalBytesDownloaded / totalBytesToDownload.get()) * 100);
                     logger.trace("Sending download progress metrics to controller");
-                    logger.debug("\t- Transferred: {} / {} ({}%)", totalBytesDownloaded, totalBytesToDownload, progress);
-                    logger.debug("\t- Elapsed time: {} seconds", transferTime);
-                    logger.debug("\t- Transfer rate: {} MB/sec", transferRate);
+                    logger.debug("\tTransferred: {} / {} ({}%)", totalBytesDownloaded, totalBytesToDownload, progress);
+                    logger.debug("\tElapsed time: {} seconds", transferTime);
+                    logger.debug("\tTransfer rate: {} MB/sec", transferRate);
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
                     if (seqId != null)
                         me.setParam("seq_id", seqId);
