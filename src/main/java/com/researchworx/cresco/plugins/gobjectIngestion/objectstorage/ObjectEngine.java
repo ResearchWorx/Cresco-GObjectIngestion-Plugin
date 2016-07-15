@@ -34,7 +34,7 @@ import java.util.concurrent.Executors;
 
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
-    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 50;
+    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 10;
 
     private CLogger logger;
     private static AmazonS3 conn;
@@ -448,7 +448,7 @@ public class ObjectEngine {
                 OutputStream outStream = new FileOutputStream(file);
                 int n;
                 long bytesDownloaded = 0L;
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[16384];
 
                 while ((n = objectData.read(buffer)) > -1) {
                     bytesDownloaded += n;
