@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
-    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 5;
+    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 100;
 
     private CLogger logger;
     private static AmazonS3 conn;
@@ -285,8 +285,7 @@ public class ObjectEngine {
                             logger.error("failed creating directory : " + directory.getAbsolutePath());
                         }
                     }
-                    //downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads, totalBytesToDownload));
-                    new Thread(new DownloadWorker(tx, bucketName, dir, file, downloads, totalBytesToDownload)).start();
+                    downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads, totalBytesToDownload));
                 }
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
