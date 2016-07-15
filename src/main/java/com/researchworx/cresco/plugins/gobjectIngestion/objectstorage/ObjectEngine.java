@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -192,27 +193,26 @@ public class ObjectEngine {
     public boolean downloadDirectory(String bucketName, String keyPrefix, String destinationDirectory, String seqId, String sampleId) {
         logger.debug("Call to downloadDirectory [bucketName = {}, keyPrefix = {}, destinationDirectory = {}", bucketName, keyPrefix, destinationDirectory);
         boolean wasTransfered = false;
-        TransferManager tx = null;
         if (!destinationDirectory.endsWith("/")) {
             destinationDirectory += "/";
         }
 
-        try {
-            logger.trace("Building new TransferManager");
-            tx = new TransferManager(conn);
-
-            logger.trace("Setting [downloadDir] to [desinationDirectory]");
-            File downloadDir = new File(destinationDirectory);
-            if (!downloadDir.exists()) {
-                if (!downloadDir.mkdirs()) {
-                    logger.error("Failed to create download directory!");
-                    return false;
-                }
+        logger.trace("Setting [downloadDir] to [desinationDirectory]");
+        File downloadDir = new File(destinationDirectory);
+        if (!downloadDir.exists()) {
+            if (!downloadDir.mkdirs()) {
+                logger.error("Failed to create download directory!");
+                return false;
             }
+        }
 
-            Map<String, Long> dirList = getlistBucketContents(bucketName, keyPrefix);
+        Map<String, Long> dirList = getlistBucketContents(bucketName, keyPrefix);
 
-            if (dirList.keySet().size() <= MAX_FILES_FOR_S3_DOWNLOAD) {
+        if (dirList.keySet().size() <= MAX_FILES_FOR_S3_DOWNLOAD) {
+            TransferManager tx = null;
+            try {
+                logger.trace("Building new TransferManager");
+                tx = new TransferManager(conn);
 
                 logger.trace("Starting download timer");
                 long startDownload = System.currentTimeMillis();
@@ -261,16 +261,25 @@ public class ObjectEngine {
                 logger.debug("\t- Elapsed time : " + transferTime + " seconds");
                 logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
 
-
                 wasTransfered = true;
+            } catch (Exception ex) {
+                logger.error("downloadDirectory {}", ex.getMessage());
+            } finally {
+                try {
+                    assert tx != null;
+                    tx.shutdownNow();
+                } catch (AssertionError e) {
+                    logger.error("downloadDirectory - TransferManager was pre-emptively shutdown");
+                }
+            }
 
 
-            } else {
+        } else {
+            try {
                 logger.trace("Beginning Large FileSet Download routine");
                 long startDownload = System.currentTimeMillis();
                 ExecutorService downloadExecutorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS_FOR_DOWNLOAD);
                 long totalBytesToDownload = 0L;
-                ConcurrentHashMap<String, Download> downloads = new ConcurrentHashMap<>();
                 ConcurrentHashMap<String, Long> downloadProgresses = new ConcurrentHashMap<>();
                 for (Map.Entry<String, Long> entry : dirList.entrySet()) {
                     String dir = entry.getKey();
@@ -286,67 +295,12 @@ public class ObjectEngine {
                         }
                     }
                     totalBytesToDownload += entry.getValue();
-                    downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads, downloadProgresses));
+                    downloadExecutorService.submit(new DownloadWorker(bucketName, dir, file, downloadProgresses));
                 }
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
                 logger.trace("Entering Status while loop.");
-                /*boolean done = false;
-                while (!done && !downloadExecutorService.isTerminated()) {
-                    done = true;
-                    int downloadsWaiting = 0;
-                    int downloadsRunning = 0;
-                    int downloadsCompleted = 0;
-                    int downloadsFailed = 0;
-                    long totalBytesDownloaded = 0L;
-                    logger.trace("Calculating progress from {} active downloads.", downloads.size());
-                    for (Map.Entry<String, Download> entry : downloads.entrySet()) {
-                        Download download = entry.getValue();
-                        if (download.getState() == Transfer.TransferState.Waiting) {
-                            downloadsWaiting++;
-                            done = false;
-                        }
-                        if (download.getState() == Transfer.TransferState.InProgress) {
-                            downloadsRunning++;
-                            done = false;
-                        }
-                        if (download.getState() == Transfer.TransferState.Completed) {
-                            downloadsCompleted++;
-                        }
-                        if (download.getState() == Transfer.TransferState.Failed) {
-                            downloadsFailed++;
-                        }
-                        totalBytesDownloaded += download.getProgress().getBytesTransferred();
-                    }
-                    logger.debug("\tWaiting: {}", downloadsWaiting);
-                    logger.debug("\tDownloading: {}", downloadsRunning);
-                    logger.debug("\tComplete: {}", downloadsCompleted);
-                    logger.debug("\tFailed: {}", downloadsFailed);
-                    logger.trace("Calculating download progress metrics.");
-                    float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
-                    float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
-                    double progress = 0;
-                    if (totalBytesToDownload > 0L)
-                        progress = ((double)totalBytesDownloaded/(double)totalBytesToDownload) * 100.0;
-                    logger.trace("Sending download progress metrics to controller");
-                    logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload, true), progress);
-                    logger.debug("\tElapsed time: {} seconds", transferTime);
-                    logger.debug("\tTransfer rate: {} MB/sec", transferRate);
-                    MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
-                    if (seqId != null)
-                        me.setParam("seq_id", seqId);
-                    if (sampleId != null)
-                        me.setParam("sample_id", sampleId);
-                    me.setParam("pathstage", String.valueOf(plugin.pathStage));
-                    me.setParam("sstep", "1");
-                    me.setParam("xfer_rate", String.valueOf(transferRate));
-                    me.setParam("xfer_bytes", String.valueOf(totalBytesDownloaded));
-                    me.setParam("xfer_percent", String.valueOf(progress));
-                    plugin.sendMsgEvent(me);
-
-                    Thread.sleep(60000);
-                }*/
-
+                DecimalFormat percentFormatter = new DecimalFormat("#.##");
                 while (!downloadExecutorService.isTerminated()) {
                     long totalBytesDownloaded = 0L;
                     for (Map.Entry<String, Long> entry : downloadProgresses.entrySet()) {
@@ -357,12 +311,12 @@ public class ObjectEngine {
                     float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
                     double progress = 0;
                     if (totalBytesToDownload > 0L)
-                        progress = ((double)totalBytesDownloaded/(double)totalBytesToDownload) * 100.0;
+                        progress = ((double) totalBytesDownloaded / (double) totalBytesToDownload) * 100.0;
                     logger.trace("Sending download progress metrics to controller");
-                    logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload, true), progress);
+                    logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload, true), percentFormatter.format(progress));
                     logger.debug("\tElapsed time: {} seconds", transferTime);
                     logger.debug("\tTransfer rate: {} MB/sec", transferRate);
-                    MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
+                    MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(progress) + "%)");
                     if (seqId != null)
                         me.setParam("seq_id", seqId);
                     if (sampleId != null)
@@ -378,15 +332,10 @@ public class ObjectEngine {
                 }
 
                 wasTransfered = true;
-            }
-        } catch (Exception ex) {
-            logger.error("downloadDirectory {}", ex.getMessage());
-        } finally {
-            try {
-                assert tx != null;
-                tx.shutdownNow();
-            } catch (AssertionError e) {
-                logger.error("downloadDirectory - TransferManager was pre-emptively shutdown");
+            } catch (InterruptedException e) {
+                return false;
+            } catch (Exception e) {
+                logger.error("Exception in Large FileSet Download routine: {}", e.getMessage());
             }
         }
         return wasTransfered;
@@ -417,32 +366,21 @@ public class ObjectEngine {
     }
 
     private class DownloadWorker implements Runnable {
-        private TransferManager tx;
         private String keyPrefix;
         private String bucketName;
         private File file;
-        private Map<String, Download> downloads;
         private Map<String, Long> downloadProgresses;
 
-        DownloadWorker(TransferManager tx, String bucketName, String keyPrefix, File file, Map<String, Download> downloads, Map<String, Long> downloadProgresses) {
-            this.tx = tx;
+        DownloadWorker(String bucketName, String keyPrefix, File file, Map<String, Long> downloadProgresses) {
             this.keyPrefix = keyPrefix;
             this.bucketName = bucketName;
             this.file = file;
-            this.downloads = downloads;
             this.downloadProgresses = downloadProgresses;
         }
 
         @Override
         public void run() {
             try {
-                /*Download download = tx.download(bucketName, keyPrefix, file);
-                downloads.put(keyPrefix, download);
-                while (!download.isDone()) {
-                    Thread.sleep(10);
-                }*/
-
-
                 S3Object object = conn.getObject(new GetObjectRequest(bucketName, keyPrefix));
                 InputStream objectData = object.getObjectContent();
                 OutputStream outStream = new FileOutputStream(file);
