@@ -34,7 +34,7 @@ import java.util.concurrent.Executors;
 
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
-    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 1;
+    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 10;
 
     private CLogger logger;
     private static AmazonS3 conn;
