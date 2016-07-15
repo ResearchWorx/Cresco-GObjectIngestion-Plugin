@@ -403,7 +403,11 @@ public class ObjectEngine {
         @Override
         public void run() {
             try {
-                downloads.put(keyPrefix, tx.download(bucketName, keyPrefix, file));
+                Download download = tx.download(bucketName, keyPrefix, file);
+                downloads.put(keyPrefix, download);
+                while (!download.isDone()) {
+                    Thread.sleep(10);
+                }
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
