@@ -293,6 +293,7 @@ public class ObjectEngine {
                     done = true;
                     long totalBytesToDownload = 0L;
                     long totalBytesDownloaded = 0L;
+                    logger.trace("Calculating progress from {} active downloads.", downloads.size());
                     for (Map.Entry<String, Download> entry : downloads.entrySet()) {
                         Download download = entry.getValue();
                         if (download.getState() != Transfer.TransferState.Completed)
@@ -300,13 +301,13 @@ public class ObjectEngine {
                         totalBytesToDownload += download.getProgress().getTotalBytesToTransfer();
                         totalBytesDownloaded += download.getProgress().getBytesTransferred();
                     }
-
+                    logger.trace("Calculating download progress metrics.");
                     float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
                     float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
                     int progress = 0;
                     if (totalBytesToDownload > 0)
                         progress = (int)(totalBytesDownloaded / totalBytesToDownload);
-
+                    logger.trace("Sending download progress metrics to controller");
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
                     if (seqId != null)
                         me.setParam("seq_id", seqId);
@@ -319,7 +320,7 @@ public class ObjectEngine {
                     me.setParam("xfer_percent", String.valueOf(progress));
                     plugin.sendMsgEvent(me);
 
-                    Thread.sleep(5000);
+                    Thread.sleep(60000);
                 }
 
                 wasTransfered = true;
