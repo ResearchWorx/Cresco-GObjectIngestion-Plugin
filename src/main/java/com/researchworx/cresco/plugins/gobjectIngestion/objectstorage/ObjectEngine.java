@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
-    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 100;
+    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 10;
 
     private CLogger logger;
     private static AmazonS3 conn;
@@ -296,6 +296,7 @@ public class ObjectEngine {
                     int downloadsWaiting = 0;
                     int downloadsRunning = 0;
                     int downloadsCompleted = 0;
+                    int downloadsFailed = 0;
                     long totalBytesDownloaded = 0L;
                     logger.trace("Calculating progress from {} active downloads.", downloads.size());
                     for (Map.Entry<String, Download> entry : downloads.entrySet()) {
@@ -311,19 +312,23 @@ public class ObjectEngine {
                         if (download.getState() == Transfer.TransferState.Completed) {
                             downloadsCompleted++;
                         }
+                        if (download.getState() == Transfer.TransferState.Failed) {
+                            downloadsFailed++;
+                        }
                         totalBytesDownloaded += download.getProgress().getBytesTransferred();
                     }
                     logger.debug("\tWaiting: {}", downloadsWaiting);
                     logger.debug("\tDownloading: {}", downloadsRunning);
                     logger.debug("\tComplete: {}", downloadsCompleted);
+                    logger.debug("\tFailed: {}", downloadsFailed);
                     logger.trace("Calculating download progress metrics.");
                     float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
                     float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
-                    int progress = 0;
+                    double progress = 0;
                     if (totalBytesToDownload.get() > 0L)
-                        progress = (int)((totalBytesDownloaded / totalBytesToDownload.get()) * 100);
+                        progress = ((double)downloadsCompleted/(double)dirList.size()) * 100;
                     logger.trace("Sending download progress metrics to controller");
-                    logger.debug("\tTransferred: {} / {} ({}%)", totalBytesDownloaded, totalBytesToDownload, progress);
+                    logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload.get(), true), progress);
                     logger.debug("\tElapsed time: {} seconds", transferTime);
                     logger.debug("\tTransfer rate: {} MB/sec", transferRate);
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
@@ -662,5 +667,13 @@ public class ObjectEngine {
             }
             objects = conn.listNextBatchOfObjects(objects);
         } while (objects.isTruncated());
+    }
+
+    public static String humanReadableByteCount(long bytes, boolean si) {
+        int unit = si ? 1000 : 1024;
+        if (bytes < unit) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(unit));
+        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp-1) + (si ? "" : "i");
+        return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
     }
 }
