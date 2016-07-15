@@ -285,7 +285,8 @@ public class ObjectEngine {
                             logger.error("failed creating directory : " + directory.getAbsolutePath());
                         }
                     }
-                    downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads, totalBytesToDownload));
+                    //downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads, totalBytesToDownload));
+                    new Thread(new DownloadWorker(tx, bucketName, dir, file, downloads, totalBytesToDownload)).start();
                 }
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
