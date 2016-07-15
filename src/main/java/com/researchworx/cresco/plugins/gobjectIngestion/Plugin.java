@@ -4,14 +4,12 @@ import com.google.auto.service.AutoService;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
-import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.*;
+import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.FSObject;
+import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.ObjectFS;
+import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.WatchDirectory;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @AutoService(CPlugin.class)
@@ -201,7 +199,7 @@ public class Plugin extends CPlugin {
     public MsgEvent genAgentMessage() {
         MsgEvent me = null;
         try {
-            logger.debug("Generated Agent Message");
+            logger.trace("Generated Agent Message");
             //MsgEvent.Type
             me = new MsgEvent(MsgEvent.Type.EXEC,getRegion(),getAgent(),getPluginID(),"generated agent message");
             me.setParam("src_region",getRegion());
