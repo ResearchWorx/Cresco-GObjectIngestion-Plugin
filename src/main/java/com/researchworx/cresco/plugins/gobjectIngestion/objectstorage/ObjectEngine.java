@@ -308,6 +308,9 @@ public class ObjectEngine {
                     if (totalBytesToDownload > 0)
                         progress = (int)(totalBytesDownloaded / totalBytesToDownload);
                     logger.trace("Sending download progress metrics to controller");
+                    logger.debug("\t- Transferred: {} / {}", totalBytesDownloaded, totalBytesToDownload);
+                    logger.debug("\t- Elapsed time: {} seconds", transferTime);
+                    logger.debug("\t- Transfer rate: {} MB/sec", transferRate);
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
                     if (seqId != null)
                         me.setParam("seq_id", seqId);
