@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 //import java.io.InputStream;
 //import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -267,6 +266,7 @@ public class ObjectEngine {
 
 
             } else {
+                logger.trace("Beginning Large FileSet Download routine");
                 long startDownload = System.currentTimeMillis();
                 ExecutorService downloadExecutorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS_FOR_DOWNLOAD);
                 ConcurrentHashMap<String, Download> downloads = new ConcurrentHashMap<>();
@@ -285,10 +285,11 @@ public class ObjectEngine {
                     }
                     downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads));
                 }
+                logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
-                downloadExecutorService.awaitTermination(10, TimeUnit.DAYS);
+                logger.trace("Entering Status while loop.");
                 boolean done = false;
-                while (!done) {
+                while (!done && !downloadExecutorService.isTerminated()) {
                     done = true;
                     long totalBytesToDownload = 0L;
                     long totalBytesDownloaded = 0L;
@@ -302,7 +303,9 @@ public class ObjectEngine {
 
                     float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
                     float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
-                    int progress = (int)(totalBytesDownloaded / totalBytesToDownload);
+                    int progress = 0;
+                    if (totalBytesToDownload > 0)
+                        progress = (int)(totalBytesDownloaded / totalBytesToDownload);
 
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
                     if (seqId != null)
