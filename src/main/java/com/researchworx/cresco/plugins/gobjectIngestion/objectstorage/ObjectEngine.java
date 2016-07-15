@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicLong;
 
 //import java.io.InputStream;
 //import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -35,7 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
-    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 10;
+    private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 15;
 
     private CLogger logger;
     private static AmazonS3 conn;
@@ -270,7 +269,7 @@ public class ObjectEngine {
                 logger.trace("Beginning Large FileSet Download routine");
                 long startDownload = System.currentTimeMillis();
                 ExecutorService downloadExecutorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS_FOR_DOWNLOAD);
-                AtomicLong totalBytesToDownload = new AtomicLong(0L);
+                long totalBytesToDownload = 0L;
                 ConcurrentHashMap<String, Download> downloads = new ConcurrentHashMap<>();
                 for (Map.Entry<String, Long> entry : dirList.entrySet()) {
                     String dir = entry.getKey();
@@ -285,7 +284,8 @@ public class ObjectEngine {
                             logger.error("failed creating directory : " + directory.getAbsolutePath());
                         }
                     }
-                    downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads, totalBytesToDownload));
+                    totalBytesToDownload += entry.getValue();
+                    downloadExecutorService.submit(new DownloadWorker(tx, bucketName, dir, file, downloads));
                 }
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
@@ -325,10 +325,10 @@ public class ObjectEngine {
                     float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
                     float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
                     double progress = 0;
-                    if (totalBytesToDownload.get() > 0L)
-                        progress = ((double)downloadsCompleted/(double)dirList.size()) * 100;
+                    if (totalBytesToDownload > 0L)
+                        progress = ((double)totalBytesDownloaded/(double)totalBytesToDownload) * 100.0;
                     logger.trace("Sending download progress metrics to controller");
-                    logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload.get(), true), progress);
+                    logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload, true), progress);
                     logger.debug("\tElapsed time: {} seconds", transferTime);
                     logger.debug("\tTransfer rate: {} MB/sec", transferRate);
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + progress + "%)");
@@ -391,23 +391,19 @@ public class ObjectEngine {
         private String bucketName;
         private File file;
         private Map<String, Download> downloads;
-        private AtomicLong totalBytesToDownload;
 
-        DownloadWorker(TransferManager tx, String bucketName, String keyPrefix, File file, Map<String, Download> downloads, AtomicLong totalBytesToDownload) {
+        DownloadWorker(TransferManager tx, String bucketName, String keyPrefix, File file, Map<String, Download> downloads) {
             this.tx = tx;
             this.keyPrefix = keyPrefix;
             this.bucketName = bucketName;
             this.file = file;
             this.downloads = downloads;
-            this.totalBytesToDownload = totalBytesToDownload;
         }
 
         @Override
         public void run() {
             try {
-                Download download = tx.download(bucketName, keyPrefix, file);
-                totalBytesToDownload.addAndGet(download.getProgress().getTotalBytesToTransfer());
-                downloads.put(keyPrefix, download);
+                downloads.put(keyPrefix, tx.download(bucketName, keyPrefix, file));
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
