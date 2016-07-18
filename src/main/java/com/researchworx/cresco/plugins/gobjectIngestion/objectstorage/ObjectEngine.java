@@ -297,6 +297,7 @@ public class ObjectEngine {
                     totalBytesToDownload += entry.getValue();
                     downloadExecutorService.submit(new DownloadWorker(bucketName, dir, file, downloadProgresses));
                 }
+                logger.debug("dirList.size() = {}", dirList.size());
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
                 logger.trace("Entering Status while loop.");
