@@ -31,7 +31,7 @@ public class ObjectFS implements Runnable {
         this.stagePhase = "uninit";
         this.pstep = 1;
         this.plugin = plugin;
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.logger = new CLogger(ObjectFS.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
         logger.debug("OutPathPreProcessor Instantiated");
         incoming_directory = plugin.getConfig().getStringParam("incoming_directory");

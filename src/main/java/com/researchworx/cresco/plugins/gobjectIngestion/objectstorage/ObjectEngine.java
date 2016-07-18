@@ -50,7 +50,7 @@ public class ObjectEngine {
     private Plugin plugin;
 
     public ObjectEngine(Plugin plugin) {
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         //this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
 
         this.plugin = plugin;
@@ -282,7 +282,6 @@ public class ObjectEngine {
         } else {
             try {
                 logger.trace("Beginning Large FileSet Download routine");
-                long startDownload = System.currentTimeMillis();
                 ExecutorService downloadExecutorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS_FOR_DOWNLOAD);
                 long totalBytesToDownload = 0L;
                 ConcurrentHashMap<String, Long> downloadProgresses = new ConcurrentHashMap<>();
@@ -307,17 +306,21 @@ public class ObjectEngine {
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
                 logger.trace("Triggering downloads to start");
+                long startDownload = System.currentTimeMillis();
                 latch.countDown();
                 logger.trace("Entering Status while loop.");
                 DecimalFormat percentFormatter = new DecimalFormat("#.##");
                 while (!downloadExecutorService.isTerminated()) {
+                    Thread.sleep(60000);
                     long totalBytesDownloaded = 0L;
                     for (Map.Entry<String, Long> entry : downloadProgresses.entrySet()) {
                         totalBytesDownloaded += entry.getValue();
                     }
                     logger.trace("Calculating download progress metrics.");
                     float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
-                    float transferRate = (totalBytesDownloaded / 1000000) / transferTime;
+                    float transferRate = 0;
+                    if (transferTime > 0)
+                        transferRate = (totalBytesDownloaded / 1000000) / transferTime;
                     double progress = 0;
                     if (totalBytesToDownload > 0L)
                         progress = ((double) totalBytesDownloaded / (double) totalBytesToDownload) * 100.0;
@@ -336,8 +339,6 @@ public class ObjectEngine {
                     me.setParam("xfer_bytes", String.valueOf(totalBytesDownloaded));
                     me.setParam("xfer_percent", String.valueOf(progress));
                     plugin.sendMsgEvent(me);
-
-                    Thread.sleep(60000);
                 }
 
                 wasTransfered = true;

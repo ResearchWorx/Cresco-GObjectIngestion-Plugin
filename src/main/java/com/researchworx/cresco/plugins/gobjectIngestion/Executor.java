@@ -9,7 +9,7 @@ public class Executor extends CExecutor {
     private CLogger logger;
     public Executor(Plugin plugin) {
         super(plugin);
-        logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        logger = new CLogger(Executor.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
     }
 
     @Override

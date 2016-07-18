@@ -112,7 +112,7 @@ public class WatchDirectory implements Runnable {
         this.keys = new HashMap<>();
         this.recursive = recursive;
         this.plugin = plugin;
-        this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.logger = new CLogger(WatchDirectory.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
 
         //process existing files before registering
         walkPath(dir.toFile(), 2);
