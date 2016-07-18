@@ -359,7 +359,7 @@ public class ObjectEngine {
                 final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket);
                 ListObjectsV2Result objects = conn.listObjectsV2(req);
                 //ObjectListing objects = conn.listObjects(bucket);
-                //objects.setPrefix(prefixKey);
+                objects.setPrefix(prefixKey);
                 do {
                     for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
                         dirList.put(objectSummary.getKey(), objectSummary.getSize());
@@ -409,7 +409,7 @@ public class ObjectEngine {
                 objectData.close();
                 object.close();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                logger.error("Failed to download file [{}] due to: {}", file.getAbsolutePath());
             }
         }
     }
