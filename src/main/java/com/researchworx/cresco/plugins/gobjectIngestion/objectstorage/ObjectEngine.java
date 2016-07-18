@@ -356,7 +356,7 @@ public class ObjectEngine {
                 /*for (S3ObjectSummary objectSummary : S3Objects.withPrefix(conn, bucket, prefixKey)) {
                     dirList.put(objectSummary.getKey(), objectSummary.getSize());
                 }*/
-                final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket).withMaxKeys(2);
+                final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket);
                 ListObjectsV2Result objects = conn.listObjectsV2(req);
                 //ObjectListing objects = conn.listObjects(bucket);
                 //objects.setPrefix(prefixKey);
