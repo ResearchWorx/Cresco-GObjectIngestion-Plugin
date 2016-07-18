@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -285,6 +286,7 @@ public class ObjectEngine {
                 ExecutorService downloadExecutorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS_FOR_DOWNLOAD);
                 long totalBytesToDownload = 0L;
                 ConcurrentHashMap<String, Long> downloadProgresses = new ConcurrentHashMap<>();
+                CountDownLatch latch = new CountDownLatch(1);
                 for (Map.Entry<String, Long> entry : dirList.entrySet()) {
                     String dir = entry.getKey();
                     String tdir = dir.substring(0, dir.lastIndexOf("/"));
@@ -299,11 +301,13 @@ public class ObjectEngine {
                         }
                     }
                     totalBytesToDownload += entry.getValue();
-                    downloadExecutorService.submit(new DownloadWorker(bucketName, dir, file, downloadProgresses));
+                    downloadExecutorService.submit(new DownloadWorker(bucketName, dir, file, downloadProgresses, latch, logger));
                 }
                 logger.debug("dirList.size() = {}", dirList.size());
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
+                logger.trace("Triggering downloads to start");
+                latch.countDown();
                 logger.trace("Entering Status while loop.");
                 DecimalFormat percentFormatter = new DecimalFormat("#.##");
                 while (!downloadExecutorService.isTerminated()) {
@@ -357,14 +361,6 @@ public class ObjectEngine {
                 for (S3ObjectSummary objectSummary : S3Objects.withPrefix(conn, bucket, prefixKey)) {
                     dirList.put(objectSummary.getKey(), objectSummary.getSize());
                 }
-                /*ObjectListing objects = conn.listObjects(bucket);
-                objects.setPrefix(prefixKey);
-                do {
-                    for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
-                        dirList.put(objectSummary.getKey(), objectSummary.getSize());
-                    }
-                    objects = conn.listNextBatchOfObjects(objects);
-                } while (objects.isTruncated());*/
             } else {
                 logger.warn("Bucket :" + bucket + " does not exist!");
             }
@@ -379,17 +375,22 @@ public class ObjectEngine {
         private String bucketName;
         private File file;
         private Map<String, Long> downloadProgresses;
+        private CountDownLatch latch;
+        private CLogger logger;
 
-        DownloadWorker(String bucketName, String keyPrefix, File file, Map<String, Long> downloadProgresses) {
+        DownloadWorker(String bucketName, String keyPrefix, File file, Map<String, Long> downloadProgresses, CountDownLatch latch, CLogger logger) {
             this.keyPrefix = keyPrefix;
             this.bucketName = bucketName;
             this.file = file;
             this.downloadProgresses = downloadProgresses;
+            this.latch = latch;
+            this.logger = logger;
         }
 
         @Override
         public void run() {
             try {
+                latch.await();
                 S3Object object = conn.getObject(new GetObjectRequest(bucketName, keyPrefix));
                 InputStream objectData = object.getObjectContent();
                 OutputStream outStream = new FileOutputStream(file);
