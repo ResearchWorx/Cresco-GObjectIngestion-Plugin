@@ -9,6 +9,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.services.s3.iterable.S3Objects;
 import com.amazonaws.services.s3.model.*;
 import com.amazonaws.services.s3.transfer.*;
 import com.amazonaws.util.StringUtils;
@@ -350,17 +351,20 @@ public class ObjectEngine {
         try {
             if (doesBucketExist(bucket)) {
                 logger.trace("Grabbing [objects] list from [bucket]");
-                final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket).withMaxKeys(2);
-                ListObjectsV2Result objects = conn.listObjectsV2(req);
+                for (S3ObjectSummary objectSummary : S3Objects.withPrefix(conn, bucket, prefixKey)) {
+                    dirList.put(objectSummary.getKey(), objectSummary.getSize());
+                }
+                //final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket).withMaxKeys(2);
+                //ListObjectsV2Result objects = conn.listObjectsV2(req);
                 //ObjectListing objects = conn.listObjects(bucket);
-                objects.setPrefix(prefixKey);
-                do {
-                    for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
-                        dirList.put(objectSummary.getKey(), objectSummary.getSize());
-                    }
+                //objects.setPrefix(prefixKey);
+                //do {
+                //    for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
+                //        dirList.put(objectSummary.getKey(), objectSummary.getSize());
+                //    }
                     //objects = conn.listNextBatchOfObjects(objects);
-                    req.setContinuationToken(objects.getNextContinuationToken());
-                } while (objects.isTruncated());
+                    //req.setContinuationToken(objects.getNextContinuationToken());
+                //} while (objects.isTruncated());
             } else {
                 logger.warn("Bucket :" + bucket + " does not exist!");
             }
