@@ -286,7 +286,10 @@ public class ObjectEngine {
                 long totalBytesToDownload = 0L;
                 ConcurrentHashMap<String, Long> downloadProgresses = new ConcurrentHashMap<>();
                 CountDownLatch latch = new CountDownLatch(1);
+                logger.debug("dirList.size() = {}", dirList.size());
+                logger.trace("Creating directories and building downloads");
                 for (Map.Entry<String, Long> entry : dirList.entrySet()) {
+                    if (entry.getKey() == null) continue;
                     String dir = entry.getKey();
                     String tdir = dir.substring(0, dir.lastIndexOf("/"));
                     File directory = new File(destinationDirectory + tdir);
@@ -294,15 +297,15 @@ public class ObjectEngine {
 
                     if (!directory.exists()) {
                         if (createDir(directory)) {
-                            logger.trace("created directory : " + directory.getAbsolutePath());
+                            //logger.trace("created directory : " + directory.getAbsolutePath());
                         } else {
                             logger.error("failed creating directory : " + directory.getAbsolutePath());
                         }
                     }
-                    totalBytesToDownload += entry.getValue();
+                    if (entry.getValue() != null)
+                        totalBytesToDownload += entry.getValue();
                     downloadExecutorService.submit(new DownloadWorker(bucketName, dir, file, downloadProgresses, latch, logger));
                 }
-                logger.debug("dirList.size() = {}", dirList.size());
                 logger.trace("All downloads have been generated");
                 downloadExecutorService.shutdown();
                 logger.trace("Triggering downloads to start");
