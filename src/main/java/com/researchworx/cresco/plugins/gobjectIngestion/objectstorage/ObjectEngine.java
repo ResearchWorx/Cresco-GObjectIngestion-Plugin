@@ -343,19 +343,23 @@ public class ObjectEngine {
     }
 
     private Map<String, Long> getlistBucketContents(String bucket, String prefixKey) {
+        if (!prefixKey.endsWith("/"))
+            prefixKey = prefixKey + "/";
         logger.debug("Call to listBucketContents [bucket = {}, prefixKey = {}]", bucket, prefixKey);
         Map<String, Long> dirList = new HashMap<>();
         try {
             if (doesBucketExist(bucket)) {
                 logger.trace("Grabbing [objects] list from [bucket]");
-                ObjectListing objects = conn.listObjects(bucket);
-
+                final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket).withMaxKeys(2);
+                ListObjectsV2Result objects = conn.listObjectsV2(req);
+                //ObjectListing objects = conn.listObjects(bucket);
                 objects.setPrefix(prefixKey);
                 do {
                     for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
                         dirList.put(objectSummary.getKey(), objectSummary.getSize());
                     }
-                    objects = conn.listNextBatchOfObjects(objects);
+                    //objects = conn.listNextBatchOfObjects(objects);
+                    req.setContinuationToken(objects.getNextContinuationToken());
                 } while (objects.isTruncated());
             } else {
                 logger.warn("Bucket :" + bucket + " does not exist!");
