@@ -19,11 +19,11 @@ public class Plugin extends CPlugin {
     public static boolean PathProcessorActive = false;
 
     public int pathStage;
-    private String genomicControllerRegion;
-    private String genomicControllerAgent;
-    private String genomicControllerPlugin;
-    private static ObjectFS objectToFSp;
-    private static FSObject fStoObjectp;
+    public String genomicControllerRegion;
+    public String genomicControllerAgent;
+    public String genomicControllerPlugin;
+    public static ObjectFS objectToFSp;
+    public static FSObject fStoObjectp;
 
 
     public void setExecutor() {
