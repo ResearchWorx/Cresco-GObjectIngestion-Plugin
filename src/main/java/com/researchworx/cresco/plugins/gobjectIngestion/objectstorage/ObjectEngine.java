@@ -467,7 +467,7 @@ public class ObjectEngine {
                 do {
                     for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
                         if (!mdhp.containsKey(objectSummary.getKey())) {
-                            logger.trace("Adding from s3 [{} : {}]", objectSummary.getKey(), objectSummary.getETag());
+                            //logger.trace("Adding from s3 [{} : {}]", objectSummary.getKey(), objectSummary.getETag());
                             mdhp.put(objectSummary.getKey(), objectSummary.getETag());
                         }
                     }
