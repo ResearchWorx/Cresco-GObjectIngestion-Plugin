@@ -215,7 +215,10 @@ public class ObjectEngine {
                     if (sampleId != null)
                         me.setParam("sample_id", sampleId);
                     me.setParam("pathstage", String.valueOf(plugin.pathStage));
-                    me.setParam("sstep", "1");
+                    if (sampleId == null)
+                        me.setParam("sstep", "1");
+                    else
+                        me.setParam("ssstep", "1");
                     me.setParam("xfer_rate", String.valueOf(transferRate));
                     me.setParam("xfer_bytes", String.valueOf(myDownload.getProgress().getBytesTransferred()));
                     me.setParam("xfer_percent", String.valueOf(myDownload.getProgress().getPercentTransferred()));
@@ -301,7 +304,10 @@ public class ObjectEngine {
                     if (sampleId != null)
                         me.setParam("sample_id", sampleId);
                     me.setParam("pathstage", String.valueOf(plugin.pathStage));
-                    me.setParam("sstep", "1");
+                    if (sampleId == null)
+                        me.setParam("sstep", "1");
+                    else
+                        me.setParam("ssstep", "1");
                     me.setParam("xfer_rate", String.valueOf(transferRate));
                     me.setParam("xfer_bytes", String.valueOf(totalBytesDownloaded));
                     me.setParam("xfer_percent", String.valueOf(progress));
