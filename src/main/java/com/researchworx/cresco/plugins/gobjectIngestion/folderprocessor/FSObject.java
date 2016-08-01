@@ -217,18 +217,38 @@ public class FSObject implements Runnable {
                 }
             });
 
-            for (String subDir : directories) {
-                logger.trace("Processing Sample SubDirectory : " + subDir);
-                String commands_main_filename = inDir + subDir + "/commands_main.sh";
-                String config_files_directoryname = inDir + subDir + "/config_files";
+            List<String> subDirectories = new ArrayList<>();
+
+            if (directories != null) {
+                for (String subDir : directories) {
+                    subDirectories.add(subDir);
+                    File subFile = new File(subDir);
+                    String[] subSubDirs = subFile.list(new FilenameFilter() {
+                        @Override
+                        public boolean accept(File current, String name) {
+                            return new File(current, name).isDirectory();
+                        }
+                    });
+                    if (subSubDirs != null) {
+                        for (String subSubDir : subSubDirs) {
+                            subDirectories.add(subSubDir);
+                        }
+                    }
+                }
+            }
+
+            for (String subDirectory : subDirectories) {
+                logger.trace("Processing Sample SubDirectory : " + subDirectory);
+                String commands_main_filename = inDir + subDirectory + "/commands_main.sh";
+                String config_files_directoryname = inDir + subDirectory + "/config_files";
                 File commands_main = new File(commands_main_filename);
                 File config_files = new File(config_files_directoryname);
-                logger.trace("commands_main " + commands_main_filename  + " exist : " + commands_main.exists());
+                logger.trace("commands_main " + commands_main_filename + " exist : " + commands_main.exists());
                 logger.trace("config_files " + config_files_directoryname + " exist : " + config_files.exists());
 
                 if (commands_main.exists() && !commands_main.isDirectory() && config_files.exists() && config_files.isDirectory()) {
                     // do something
-                    samples.add(subDir);
+                    samples.add(subDirectory);
                     logger.trace("Found Sample: " + commands_main_filename + " and " + config_files_directoryname);
                 }
             }
