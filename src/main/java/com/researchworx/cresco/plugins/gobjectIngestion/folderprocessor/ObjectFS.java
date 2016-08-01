@@ -380,7 +380,7 @@ public class ObjectFS implements Runnable {
 
     public void processSample(String seqId, String sampleId, String reqId, boolean trackPerf) {
         MsgEvent pse = null;
-        int SStep = 1;
+        int ssstep = 1;
         String workDirName = null;
         try {
             //String workDirName = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
@@ -413,7 +413,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
-            pse.setParam("ssstep", String.valueOf(SStep));
+            pse.setParam("ssstep", String.valueOf(ssstep));
             plugin.sendMsgEvent(pse);
 
             oe.downloadDirectory(bucket_name, remoteDir, workDirName, seqId, sampleId);
@@ -433,7 +433,7 @@ public class ObjectFS implements Runnable {
             //logger.debug("[inDir = {}]", inDir);
             oe = new ObjectEngine(plugin);
             if (oe.isSyncDir(bucket_name, remoteDir, workDirName, filterList)) {
-                SStep = 2;
+                ssstep = 2;
                 logger.debug("Directory Sycned [inDir = {}]", workDirName);
                 Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                 logger.trace("Set MD5 hash");
@@ -447,9 +447,9 @@ public class ObjectFS implements Runnable {
                 pse.setParam("bucket_name", bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
-                pse.setParam("ssstep", String.valueOf(SStep));
+                pse.setParam("ssstep", String.valueOf(ssstep));
                 plugin.sendMsgEvent(pse);
-                SStep = 3;
+                ssstep = 3;
             }
         }
         catch(Exception ex) {
@@ -464,12 +464,12 @@ public class ObjectFS implements Runnable {
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage",pathStage);
             pse.setParam("error_message",ex.getMessage());
-            pse.setParam("ssstep",String.valueOf(SStep));
+            pse.setParam("ssstep",String.valueOf(ssstep));
             plugin.sendMsgEvent(pse);
         }
 
         //if is makes it through process the seq
-        if(SStep == 3) {
+        if(ssstep == 3) {
             logger.trace("seq_id=" + seqId + " sample_id=" + sampleId);
 
             //start perf mon
@@ -488,7 +488,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
-            pse.setParam("ssstep", String.valueOf(SStep));
+            pse.setParam("ssstep", String.valueOf(ssstep));
             plugin.sendMsgEvent(pse);
 
             String resultDirName = outgoing_directory; //create random tmp location
@@ -503,7 +503,7 @@ public class ObjectFS implements Runnable {
             }
             resultDir.mkdir();
 
-            SStep = 4;
+            ssstep = 4;
             pse = plugin.genGMessage(MsgEvent.Type.INFO, "Starting Pipeline via Docker Container");
             pse.setParam("indir", workDirName);
             pse.setParam("outdir", resultDirName);
@@ -514,11 +514,9 @@ public class ObjectFS implements Runnable {
             pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
-            pse.setParam("ssstep", String.valueOf(SStep));
+            pse.setParam("ssstep", String.valueOf(ssstep));
             plugin.sendMsgEvent(pse);
 
-            //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
-            //String command = "docker run -t -v /home/gpackage:/gpackage -v " + tmpInput + ":/gdata/input -v " + tmpOutput + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
             String command = "docker run -t -v /home/gpackage:/gpackage -v " + workDirName + ":/gdata/input -v " + resultDirName + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
 
             StringBuffer output = new StringBuffer();
@@ -561,7 +559,7 @@ public class ObjectFS implements Runnable {
                                 pse.setParam("bucket_name", bucket_name);
                                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                                 pse.setParam("pathstage", pathStage);
-                                pse.setParam("ssstep", String.valueOf(SStep));
+                                pse.setParam("ssstep", String.valueOf(ssstep));
                                 plugin.sendMsgEvent(pse);
                             }
                             ObjectFS.stagePhase = outputStr[3];
@@ -578,7 +576,7 @@ public class ObjectFS implements Runnable {
                             pse.setParam("bucket_name", bucket_name);
                             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                             pse.setParam("pathstage", pathStage);
-                            pse.setParam("ssstep", String.valueOf(SStep));
+                            pse.setParam("ssstep", String.valueOf(ssstep));
                             pse.setParam("error_message", outputLine);
                             plugin.sendMsgEvent(pse);
                         }
@@ -602,7 +600,7 @@ public class ObjectFS implements Runnable {
                 logger.error("Exception: {}", e.getMessage());
             }
 
-            SStep = 5;
+            ssstep = 5;
             pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
             pse.setParam("indir", workDirName);
             pse.setParam("req_id", reqId);
@@ -612,7 +610,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
-            pse.setParam("ssstep", String.valueOf(SStep));
+            pse.setParam("ssstep", String.valueOf(ssstep));
             pse.setParam("output_log", output.toString());
             plugin.sendMsgEvent(pse);
 
