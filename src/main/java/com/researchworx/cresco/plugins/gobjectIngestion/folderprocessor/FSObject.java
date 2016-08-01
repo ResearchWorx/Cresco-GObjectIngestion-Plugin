@@ -231,7 +231,7 @@ public class FSObject implements Runnable {
                     });
                     if (subSubDirs != null) {
                         for (String subSubDir : subSubDirs) {
-                            subDirectories.add(subSubDir);
+                            subDirectories.add(subDir + "/" + subSubDir);
                         }
                     }
                 }
