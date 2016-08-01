@@ -28,7 +28,7 @@ public class FSObject implements Runnable {
 
     public FSObject(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = new CLogger(FSObject.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
+        this.logger = new CLogger(FSObject.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
 
         logger.trace("FStoObject instantiated");
