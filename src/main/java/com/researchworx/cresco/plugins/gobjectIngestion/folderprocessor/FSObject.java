@@ -221,8 +221,9 @@ public class FSObject implements Runnable {
 
             if (directories != null) {
                 for (String subDir : directories) {
+                    logger.trace("Searching for sub-directories of {}", inDir + "/" + subDir);
                     subDirectories.add(subDir);
-                    File subFile = new File(subDir);
+                    File subFile = new File(inDir + "/" + subDir);
                     String[] subSubDirs = subFile.list(new FilenameFilter() {
                         @Override
                         public boolean accept(File current, String name) {
@@ -231,6 +232,7 @@ public class FSObject implements Runnable {
                     });
                     if (subSubDirs != null) {
                         for (String subSubDir : subSubDirs) {
+                            logger.trace("Found sub-directory {}", inDir + "/" + subDir + "/" + subSubDir);
                             subDirectories.add(subDir + "/" + subSubDir);
                         }
                     }
