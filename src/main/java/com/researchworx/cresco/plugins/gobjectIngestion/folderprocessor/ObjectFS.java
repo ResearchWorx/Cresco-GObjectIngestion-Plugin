@@ -379,11 +379,27 @@ public class ObjectFS implements Runnable {
     }
 
     public void processSample(String seqId, String sampleId, String reqId, boolean trackPerf) {
-        MsgEvent pse = null;
+        pstep = 3;
+        String results_bucket_name = plugin.getConfig().getStringParam("results_bucket");
+        if (results_bucket_name == null || results_bucket_name.equals("")) {
+            plugin.PathProcessorActive = false;
+            MsgEvent error = plugin.genGMessage(MsgEvent.Type.ERROR, "Configuration value [results_bucket] is not properly set");
+            error.setParam("req_id", reqId);
+            error.setParam("seq_id", seqId);
+            error.setParam("sample_id", sampleId);
+            error.setParam("transfer_status_file", transfer_status_file);
+            error.setParam("bucket_name", bucket_name);
+            error.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            error.setParam("pathstage", pathStage);
+            error.setParam("ssstep", "0");
+            plugin.sendMsgEvent(error);
+        }
+
+
+        MsgEvent pse;
         int ssstep = 1;
         String workDirName = null;
         try {
-            //String workDirName = incoming_directory + "/" + UUID.randomUUID().toString(); //create random tmp location
             workDirName = incoming_directory; //create random tmp location
             workDirName = workDirName.replace("//","/");
             if(!workDirName.endsWith("/")) {
@@ -398,10 +414,10 @@ public class ObjectFS implements Runnable {
 
             String remoteDir = seqId + "/" + sampleId + "/";
 
-            pstep = 3;
             logger.debug("Call to processSample seq_id: {}, sample_id: {}, req_id: {}", seqId, sampleId, reqId);
             ObjectEngine oe = new ObjectEngine(plugin);
 
+            oe.createBucket(results_bucket_name);
 
             pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfering");
             //me.setParam("inDir", remoteDir);
@@ -411,6 +427,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("sample_id", sampleId);
             pse.setParam("transfer_status_file", transfer_status_file);
             pse.setParam("bucket_name", bucket_name);
+            pse.setParam("results_bucket_name", results_bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
             pse.setParam("ssstep", String.valueOf(ssstep));
@@ -418,7 +435,7 @@ public class ObjectFS implements Runnable {
 
             oe.downloadDirectory(bucket_name, remoteDir, workDirName, seqId, sampleId);
 
-            workDirName +=  remoteDir;
+            workDirName += remoteDir;
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
@@ -445,6 +462,7 @@ public class ObjectFS implements Runnable {
                 pse.setParam("sample_id", sampleId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
+                pse.setParam("results_bucket_name", results_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("ssstep", String.valueOf(ssstep));
@@ -461,6 +479,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("transfer_watch_file",transfer_watch_file);
             pse.setParam("transfer_status_file", transfer_status_file);
             pse.setParam("bucket_name",bucket_name);
+            pse.setParam("results_bucket_name", results_bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage",pathStage);
             pse.setParam("error_message",ex.getMessage());
@@ -472,84 +491,104 @@ public class ObjectFS implements Runnable {
         if(ssstep == 3) {
             logger.trace("seq_id=" + seqId + " sample_id=" + sampleId);
 
-            //start perf mon
-            PerfTracker pt = null;
-            if(trackPerf) {
-                pt = new PerfTracker();
-                new Thread(pt).start();
-            }
-
-            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Creating output directory");
-            pse.setParam("indir", workDirName);
-            pse.setParam("req_id", reqId);
-            pse.setParam("seq_id", seqId);
-            pse.setParam("sample_id", sampleId);
-            pse.setParam("transfer_status_file", transfer_status_file);
-            pse.setParam("bucket_name", bucket_name);
-            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            pse.setParam("pathstage", pathStage);
-            pse.setParam("ssstep", String.valueOf(ssstep));
-            plugin.sendMsgEvent(pse);
-
-            String resultDirName = outgoing_directory; //create random tmp location
-            resultDirName = resultDirName.replace("//","/");
-            if(!resultDirName.endsWith("/")) {
-                resultDirName += "/";
-            }
-            resultDirName = resultDirName + seqId + "/" + sampleId + "/";
-            File resultDir = new File(resultDirName);
-            if (resultDir.exists()) {
-                deleteDirectory(resultDir);
-            }
-            resultDir.mkdir();
-
-            ssstep = 4;
-            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Starting Pipeline via Docker Container");
-            pse.setParam("indir", workDirName);
-            pse.setParam("outdir", resultDirName);
-            pse.setParam("req_id", reqId);
-            pse.setParam("seq_id", seqId);
-            pse.setParam("sample_id", sampleId);
-            pse.setParam("transfer_status_file", transfer_status_file);
-            pse.setParam("bucket_name", bucket_name);
-            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            pse.setParam("pathstage", pathStage);
-            pse.setParam("ssstep", String.valueOf(ssstep));
-            plugin.sendMsgEvent(pse);
-
-            String command = "docker run -t -v /home/gpackage:/gpackage -v " + workDirName + ":/gdata/input -v " + resultDirName + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
-
-            StringBuffer output = new StringBuffer();
-            StringBuffer error = new StringBuffer();
-            Process p;
             try {
-                p = Runtime.getRuntime().exec(command);
+                //start perf mon
+                PerfTracker pt = null;
+                if (trackPerf) {
+                    pt = new PerfTracker();
+                    new Thread(pt).start();
+                }
 
-                BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
-                String outputLine;
-                long difftime = System.currentTimeMillis();
-                while ((outputLine = outputFeed.readLine()) != null) {
-                    output.append(outputLine);
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Creating output directory");
+                pse.setParam("indir", workDirName);
+                pse.setParam("req_id", reqId);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("sample_id", sampleId);
+                pse.setParam("transfer_status_file", transfer_status_file);
+                pse.setParam("bucket_name", bucket_name);
+                pse.setParam("results_bucket_name", results_bucket_name);
+                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("ssstep", String.valueOf(ssstep));
+                plugin.sendMsgEvent(pse);
 
-                    String[] outputStr = outputLine.split("\\|\\|");
+                String resultDirName = outgoing_directory; //create random tmp location
+                resultDirName = resultDirName.replace("//", "/");
+                if (!resultDirName.endsWith("/")) {
+                    resultDirName += "/";
+                }
+                resultDirName = resultDirName + seqId + "/" + sampleId + "/";
+                File resultDir = new File(resultDirName);
+                if (resultDir.exists()) {
+                    deleteDirectory(resultDir);
+                }
+                resultDir.mkdir();
 
-                    for(int i = 0; i<outputStr.length; i++) {
-                        outputStr[i] = outputStr[i].trim();
-                    }
+                ssstep = 4;
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Starting Pipeline via Docker Container");
+                pse.setParam("indir", workDirName);
+                pse.setParam("outdir", resultDirName);
+                pse.setParam("req_id", reqId);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("sample_id", sampleId);
+                pse.setParam("transfer_status_file", transfer_status_file);
+                pse.setParam("bucket_name", bucket_name);
+                pse.setParam("results_bucket_name", results_bucket_name);
+                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("ssstep", String.valueOf(ssstep));
+                plugin.sendMsgEvent(pse);
+
+                String command = "docker run -t -v /home/gpackage:/gpackage -v " + workDirName + ":/gdata/input -v " + resultDirName + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+
+                StringBuffer output = new StringBuffer();
+                StringBuffer error = new StringBuffer();
+                Process p;
+                try {
+                    p = Runtime.getRuntime().exec(command);
+
+                    BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                    String outputLine;
+                    long difftime = System.currentTimeMillis();
+                    while ((outputLine = outputFeed.readLine()) != null) {
+                        output.append(outputLine);
+
+                        String[] outputStr = outputLine.split("\\|\\|");
+
+                        for (int i = 0; i < outputStr.length; i++) {
+                            outputStr[i] = outputStr[i].trim();
+                        }
 
 
-                    if((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) || (outputLine.toLowerCase().startsWith("error")))) {
-                        Calendar cal = Calendar.getInstance();
-                        SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
-                        cal.setTime(sdf.parse(outputStr[1].trim()));// all done
+                        if ((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) || (outputLine.toLowerCase().startsWith("error")))) {
+                            Calendar cal = Calendar.getInstance();
+                            SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
+                            cal.setTime(sdf.parse(outputStr[1].trim()));// all done
 
-                        long logdiff = (cal.getTimeInMillis() - difftime);
-                        difftime = cal.getTimeInMillis();
+                            long logdiff = (cal.getTimeInMillis() - difftime);
+                            difftime = cal.getTimeInMillis();
 
-                        if(outputStr[0].toLowerCase().equals("info")) {
-                            //logger.info("Log diff = " + logdiff + " : " +  outputStr[2] + " : " + outputStr[3] + " : " + outputStr[4]);
-                            if (!stagePhase.equals(outputStr[3])) {
-                                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline now in phase " + outputStr[3]);
+                            if (outputStr[0].toLowerCase().equals("info")) {
+                                //logger.info("Log diff = " + logdiff + " : " +  outputStr[2] + " : " + outputStr[3] + " : " + outputStr[4]);
+                                if (!stagePhase.equals(outputStr[3])) {
+                                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline now in phase " + outputStr[3]);
+                                    pse.setParam("indir", workDirName);
+                                    pse.setParam("outdir", resultDirName);
+                                    pse.setParam("req_id", reqId);
+                                    pse.setParam("seq_id", seqId);
+                                    pse.setParam("sample_id", sampleId);
+                                    pse.setParam("transfer_status_file", transfer_status_file);
+                                    pse.setParam("bucket_name", bucket_name);
+                                    pse.setParam("results_bucket_name", results_bucket_name);
+                                    pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                                    pse.setParam("pathstage", pathStage);
+                                    pse.setParam("ssstep", String.valueOf(ssstep));
+                                    plugin.sendMsgEvent(pse);
+                                }
+                                ObjectFS.stagePhase = outputStr[3];
+                            } else if (outputStr[0].toLowerCase().equals("error")) {
+                                logger.error("Pipeline Error : " + outputLine);
+                                pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Pipeline now in phase " + outputStr[3]);
                                 pse.setParam("indir", workDirName);
                                 pse.setParam("outdir", resultDirName);
                                 pse.setParam("req_id", reqId);
@@ -557,62 +596,96 @@ public class ObjectFS implements Runnable {
                                 pse.setParam("sample_id", sampleId);
                                 pse.setParam("transfer_status_file", transfer_status_file);
                                 pse.setParam("bucket_name", bucket_name);
+                                pse.setParam("results_bucket_name", results_bucket_name);
                                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                                 pse.setParam("pathstage", pathStage);
                                 pse.setParam("ssstep", String.valueOf(ssstep));
+                                pse.setParam("error_message", outputLine);
                                 plugin.sendMsgEvent(pse);
                             }
-                            ObjectFS.stagePhase = outputStr[3];
                         }
-                        else if (outputStr[0].toLowerCase().equals("error")) {
-                            logger.error("Pipeline Error : " + outputLine);
-                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Pipeline now in phase " + outputStr[3]);
-                            pse.setParam("indir", workDirName);
-                            pse.setParam("outdir", resultDirName);
-                            pse.setParam("req_id", reqId);
-                            pse.setParam("seq_id", seqId);
-                            pse.setParam("sample_id", sampleId);
-                            pse.setParam("transfer_status_file", transfer_status_file);
-                            pse.setParam("bucket_name", bucket_name);
-                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                            pse.setParam("pathstage", pathStage);
-                            pse.setParam("ssstep", String.valueOf(ssstep));
-                            pse.setParam("error_message", outputLine);
-                            plugin.sendMsgEvent(pse);
-                        }
+                        logger.debug(outputLine);
+
                     }
-                    logger.debug(outputLine);
 
+                    p.waitFor();
+                    if (trackPerf) {
+                        pt.isActive = false;
+                    }
+                } catch (IOException ioe) {
+                    // WHAT!?! DO SOMETHIN'!
+                    logger.error("File read/write exception: {}", ioe.getMessage());
+                } catch (InterruptedException ie) {
+                    // WHAT!?! DO SOMETHIN'!
+                    logger.error("Process was interrupted: {}", ie.getMessage());
+                } catch (Exception e) {
+                    // WHAT!?! DO SOMETHIN'!
+                    logger.error("Exception: {}", e.getMessage());
                 }
 
-                p.waitFor();
-                if(trackPerf) {
-                    pt.isActive = false;
-                }
-            } catch (IOException ioe) {
-                // WHAT!?! DO SOMETHIN'!
-                logger.error("File read/write exception: {}", ioe.getMessage());
-            } catch (InterruptedException ie) {
-                // WHAT!?! DO SOMETHIN'!
-                logger.error("Process was interrupted: {}", ie.getMessage());
-            } catch (Exception e) {
-                // WHAT!?! DO SOMETHIN'!
-                logger.error("Exception: {}", e.getMessage());
+                ssstep = 5;
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
+                pse.setParam("indir", workDirName);
+                pse.setParam("req_id", reqId);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("sample_id", sampleId);
+                pse.setParam("transfer_status_file", transfer_status_file);
+                pse.setParam("bucket_name", bucket_name);
+                pse.setParam("results_bucket_name", results_bucket_name);
+                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("ssstep", String.valueOf(ssstep));
+                pse.setParam("output_log", output.toString());
+                plugin.sendMsgEvent(pse);
+
+                ObjectEngine oe = new ObjectEngine(plugin);
+
+                ssstep = 6;
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Uploading Results Directory");
+                pse.setParam("indir", workDirName);
+                pse.setParam("req_id", reqId);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("sample_id", sampleId);
+                pse.setParam("transfer_status_file", transfer_status_file);
+                pse.setParam("bucket_name", bucket_name);
+                pse.setParam("results_bucket_name", results_bucket_name);
+                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("ssstep", String.valueOf(ssstep));
+                plugin.sendMsgEvent(pse);
+
+                oe.uploadDirectory(results_bucket_name, resultDirName, seqId + "/" + sampleId + "/");
+
+                List<String> filterList = new ArrayList<>();
+                logger.trace("Add [transfer_status_file] to [filterList]");
+            /*
+            filterList.add(transfer_status_file);
+            String inDir = incoming_directory;
+            if (!inDir.endsWith("/")) {
+                inDir = inDir + "/";
             }
+            */
 
-            ssstep = 5;
-            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
-            pse.setParam("indir", workDirName);
-            pse.setParam("req_id", reqId);
-            pse.setParam("seq_id", seqId);
-            pse.setParam("sample_id", sampleId);
-            pse.setParam("transfer_status_file", transfer_status_file);
-            pse.setParam("bucket_name", bucket_name);
-            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            pse.setParam("pathstage", pathStage);
-            pse.setParam("ssstep", String.valueOf(ssstep));
-            pse.setParam("output_log", output.toString());
-            plugin.sendMsgEvent(pse);
+                //logger.debug("[inDir = {}]", inDir);
+                oe = new ObjectEngine(plugin);
+                if (oe.isSyncDir(bucket_name, seqId + "/" + sampleId + "/", resultDirName, filterList)) {
+                    ssstep = 7;
+                    logger.debug("Results Directory Sycned [inDir = {}]", workDirName);
+                    Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
+                    logger.trace("Set MD5 hash");
+                    setTransferFileMD5(workDirName + transfer_status_file, md5map);
+                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Results Directory Transferred");
+                    pse.setParam("indir", workDirName);
+                    pse.setParam("req_id", reqId);
+                    pse.setParam("seq_id", seqId);
+                    pse.setParam("sample_id", sampleId);
+                    pse.setParam("transfer_status_file", transfer_status_file);
+                    pse.setParam("bucket_name", bucket_name);
+                    pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    pse.setParam("pathstage", pathStage);
+                    pse.setParam("ssstep", String.valueOf(ssstep));
+                    plugin.sendMsgEvent(pse);
+                }
 
 /*
             UUID id = UUID.randomUUID(); //create random tmp location
@@ -657,6 +730,22 @@ public class ObjectFS implements Runnable {
                 logger.error("Skipping! : commands_main.sh and config_files not found in subdirectory " + dir + "/" + subDir);
             }
 */
+            } catch (Exception e) {
+                logger.error("processSample {}", e.getMessage());
+                pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+                pse.setParam("req_id", reqId);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("sample_id", sampleId);
+                pse.setParam("transfer_watch_file",transfer_watch_file);
+                pse.setParam("transfer_status_file", transfer_status_file);
+                pse.setParam("bucket_name",bucket_name);
+                pse.setParam("results_bucket_name", results_bucket_name);
+                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                pse.setParam("pathstage",pathStage);
+                pse.setParam("error_message",e.getMessage());
+                pse.setParam("ssstep", String.valueOf(ssstep));
+                plugin.sendMsgEvent(pse);
+            }
         }
         pstep = 2;
     }
