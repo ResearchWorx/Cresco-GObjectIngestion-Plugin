@@ -32,7 +32,7 @@ public class ObjectFS implements Runnable {
         this.stagePhase = "uninit";
         this.pstep = 1;
         this.plugin = plugin;
-        this.logger = new CLogger(ObjectFS.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
+        this.logger = new CLogger(ObjectFS.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
         logger.debug("OutPathPreProcessor Instantiated");
         incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
@@ -393,6 +393,7 @@ public class ObjectFS implements Runnable {
             error.setParam("pathstage", pathStage);
             error.setParam("ssstep", "0");
             plugin.sendMsgEvent(error);
+            return;
         }
 
 
@@ -407,7 +408,7 @@ public class ObjectFS implements Runnable {
             }
             File workDir = new File(workDirName);
             if (workDir.exists()) {
-                deleteDirectory(workDir);
+                //deleteDirectory(workDir);
             }
             workDir.mkdir();
 
@@ -437,6 +438,24 @@ public class ObjectFS implements Runnable {
 
             workDirName += remoteDir;
 
+            File commands_main = new File(workDirName + "commands_main.sh");
+
+            if (!commands_main.exists()) {
+                MsgEvent error = plugin.genGMessage(MsgEvent.Type.ERROR, "Commands file is missing from download");
+                error.setParam("req_id", reqId);
+                error.setParam("seq_id", seqId);
+                error.setParam("sample_id", sampleId);
+                error.setParam("transfer_status_file", transfer_status_file);
+                error.setParam("bucket_name", bucket_name);
+                error.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                error.setParam("pathstage", pathStage);
+                error.setParam("ssstep", String.valueOf(ssstep));
+                plugin.sendMsgEvent(error);
+                return;
+            }
+
+            commands_main.setExecutable(true);
+
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
             /*
@@ -452,9 +471,9 @@ public class ObjectFS implements Runnable {
             if (oe.isSyncDir(bucket_name, remoteDir, workDirName, filterList)) {
                 ssstep = 2;
                 logger.debug("Directory Sycned [inDir = {}]", workDirName);
-                Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
-                logger.trace("Set MD5 hash");
-                setTransferFileMD5(workDirName + transfer_status_file, md5map);
+                //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
+                //logger.trace("Set MD5 hash");
+                //setTransferFileMD5(workDirName + transfer_status_file, md5map);
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
                 pse.setParam("indir", workDirName);
                 pse.setParam("req_id", reqId);
@@ -495,6 +514,7 @@ public class ObjectFS implements Runnable {
                 //start perf mon
                 PerfTracker pt = null;
                 if (trackPerf) {
+                    logger.trace("Starting performance monitoring");
                     pt = new PerfTracker();
                     new Thread(pt).start();
                 }
@@ -518,6 +538,7 @@ public class ObjectFS implements Runnable {
                     resultDirName += "/";
                 }
                 resultDirName = resultDirName + seqId + "/" + sampleId + "/";
+                logger.trace("Creating output directory: {}", resultDirName);
                 File resultDir = new File(resultDirName);
                 if (resultDir.exists()) {
                     deleteDirectory(resultDir);
@@ -539,19 +560,22 @@ public class ObjectFS implements Runnable {
                 pse.setParam("ssstep", String.valueOf(ssstep));
                 plugin.sendMsgEvent(pse);
 
-                String command = "docker run -t -v /home/gpackage:/gpackage -v " + workDirName + ":/gdata/input -v " + resultDirName + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+                String command = "docker run -t -v /mnt/localdata/gpackage:/gpackage -v " + workDirName + ":/gdata/input -v " + resultDirName + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+
+                logger.trace("Running Docker Command: {}", command);
 
                 StringBuffer output = new StringBuffer();
                 StringBuffer error = new StringBuffer();
                 Process p;
                 try {
                     p = Runtime.getRuntime().exec(command);
-
+                    logger.trace("Attaching output reader");
                     BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
                     String outputLine;
                     long difftime = System.currentTimeMillis();
                     while ((outputLine = outputFeed.readLine()) != null) {
                         output.append(outputLine);
+                        output.append("\n");
 
                         String[] outputStr = outputLine.split("\\|\\|");
 
@@ -608,6 +632,8 @@ public class ObjectFS implements Runnable {
 
                     }
 
+                    logger.trace("Waiting for Docker process to finish");
+
                     p.waitFor();
                     if (trackPerf) {
                         pt.isActive = false;
@@ -622,6 +648,8 @@ public class ObjectFS implements Runnable {
                     // WHAT!?! DO SOMETHIN'!
                     logger.error("Exception: {}", e.getMessage());
                 }
+
+                logger.trace("Pipeline has finished");
 
                 ssstep = 5;
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
@@ -639,6 +667,8 @@ public class ObjectFS implements Runnable {
                 plugin.sendMsgEvent(pse);
 
                 ObjectEngine oe = new ObjectEngine(plugin);
+
+                logger.trace("Uploading results to objectStore");
 
                 ssstep = 6;
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Uploading Results Directory");
@@ -668,12 +698,12 @@ public class ObjectFS implements Runnable {
 
                 //logger.debug("[inDir = {}]", inDir);
                 oe = new ObjectEngine(plugin);
-                if (oe.isSyncDir(bucket_name, seqId + "/" + sampleId + "/", resultDirName, filterList)) {
+                if (oe.isSyncDir(results_bucket_name, seqId + "/" + sampleId + "/", resultDirName, filterList)) {
                     ssstep = 7;
                     logger.debug("Results Directory Sycned [inDir = {}]", workDirName);
-                    Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
-                    logger.trace("Set MD5 hash");
-                    setTransferFileMD5(workDirName + transfer_status_file, md5map);
+                    //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
+                    //logger.trace("Set MD5 hash");
+                    //setTransferFileMD5(workDirName + transfer_status_file, md5map);
                     pse = plugin.genGMessage(MsgEvent.Type.INFO, "Results Directory Transferred");
                     pse.setParam("indir", workDirName);
                     pse.setParam("req_id", reqId);
