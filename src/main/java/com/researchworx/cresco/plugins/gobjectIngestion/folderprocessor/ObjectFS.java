@@ -184,7 +184,7 @@ public class ObjectFS implements Runnable {
 
     private class PerfTracker extends Thread {
         private boolean isActive = false;
-        private StringBuilder results;
+        private StringBuilder results = new StringBuilder();
 
         PerfTracker() {
             isActive = false;
@@ -543,12 +543,12 @@ public class ObjectFS implements Runnable {
                 if (!resultDirName.endsWith("/")) {
                     resultDirName += "/";
                 }
-                resultDirName = resultDirName + seqId + "/" + sampleId + "/";
-                logger.trace("Creating output directory: {}", resultDirName);
                 File resultDir = new File(resultDirName);
                 if (resultDir.exists()) {
                     deleteDirectory(resultDir);
                 }
+                resultDirName = resultDirName + seqId + "/" + sampleId + "/";
+                logger.trace("Creating output directory: {}", resultDirName);
                 resultDir.mkdir();
 
                 ssstep = 4;
