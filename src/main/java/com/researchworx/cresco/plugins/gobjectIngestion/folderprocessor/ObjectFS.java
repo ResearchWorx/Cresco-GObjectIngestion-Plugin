@@ -6,10 +6,6 @@ import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -26,7 +22,7 @@ public class ObjectFS implements Runnable {
     private MsgEvent me;
     private String pathStage;
     private int pstep;
-    public static String stagePhase;
+    private String stagePhase;
 
     public ObjectFS(Plugin plugin) {
         this.stagePhase = "uninit";
@@ -48,13 +44,13 @@ public class ObjectFS implements Runnable {
         bucket_name = plugin.getConfig().getStringParam("bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"bucket\" from config [{}]", bucket_name);
 
-        me = plugin.genGMessage(MsgEvent.Type.INFO,"InPathPreProcessor instantiated");
-        me.setParam("transfer_watch_file",transfer_watch_file);
+        me = plugin.genGMessage(MsgEvent.Type.INFO, "InPathPreProcessor instantiated");
+        me.setParam("transfer_watch_file", transfer_watch_file);
         me.setParam("transfer_status_file", transfer_status_file);
-        me.setParam("bucket_name",bucket_name);
-        me.setParam("pathstage",pathStage);
+        me.setParam("bucket_name", bucket_name);
+        me.setParam("pathstage", pathStage);
         me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-        me.setParam("pstep",String.valueOf(pstep));
+        me.setParam("pstep", String.valueOf(pstep));
         plugin.sendMsgEvent(me);
 
 
@@ -75,26 +71,26 @@ public class ObjectFS implements Runnable {
                 me.setParam("bucket_name", bucket_name);
                 me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 me.setParam("pathstage", pathStage);
-                me.setParam("pstep",String.valueOf(pstep));
+                me.setParam("pstep", String.valueOf(pstep));
                 plugin.sendMsgEvent(me);
-                Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
+                Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval", 5000));
             }
         } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
-            me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            me.setParam("transfer_watch_file",transfer_watch_file);
+            me = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
+            me.setParam("transfer_watch_file", transfer_watch_file);
             me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name",bucket_name);
+            me.setParam("bucket_name", bucket_name);
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathstage",pathStage);
-            me.setParam("error_message",ex.getMessage());
-            me.setParam("pstep",String.valueOf(pstep));
+            me.setParam("pathstage", pathStage);
+            me.setParam("error_message", ex.getMessage());
+            me.setParam("pstep", String.valueOf(pstep));
             plugin.sendMsgEvent(me);
         }
     }
 
     public void processSequence(String seqId, String reqId) {
-        MsgEvent pse = null;
+        MsgEvent pse;
         try {
             pstep = 3;
             logger.debug("Call to processSequence seq_id: " + seqId, ", req_id: " + reqId);
@@ -140,69 +136,82 @@ public class ObjectFS implements Runnable {
                 pse.setParam("sstep", "2");
                 plugin.sendMsgEvent(pse);
             }
-        }
-        catch(Exception ex) {
+        } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
-            pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
             pse.setParam("seq_id", seqId);
             pse.setParam("req_id", reqId);
-            pse.setParam("transfer_watch_file",transfer_watch_file);
+            pse.setParam("transfer_watch_file", transfer_watch_file);
             pse.setParam("transfer_status_file", transfer_status_file);
-            pse.setParam("bucket_name",bucket_name);
+            pse.setParam("bucket_name", bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            pse.setParam("pathstage",pathStage);
-            pse.setParam("error_message",ex.getMessage());
-            pse.setParam("sstep","1");
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("error_message", ex.getMessage());
+            pse.setParam("sstep", "1");
             plugin.sendMsgEvent(pse);
         }
         pstep = 2;
     }
 
     private boolean deleteDirectory(File path) {
-        if( path.exists() ) {
+        boolean deleted = true;
+        if (path.exists()) {
             File[] files = path.listFiles();
-            for(int i=0; i<files.length; i++) {
-                if(files[i].isDirectory()) {
-                    deleteDirectory(files[i]);
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory())
+                        deleteDirectory(file);
+                    else if (!file.delete())
+                        deleted = false;
                 }
-                else {
-                    files[i].delete();
-                }
+                /*for (int i = 0; i < files.length; i++) {
+                    if (files[i].isDirectory()) {
+                        deleteDirectory(files[i]);
+                    } else {
+                        files[i].delete();
+                    }
+                }*/
             }
         }
-        return( path.delete() );
+        return (path.delete() && deleted);
     }
 
-    public void run_test() {
+    /*public void run_test() {
         PerfTracker pt = new PerfTracker();
         Thread ptt = new Thread(pt);
         ptt.start();
-    }
+    }*/
 
     private class PerfTracker extends Thread {
-
         private boolean isActive = false;
-        public void run(){
+        private StringBuilder results;
+
+        PerfTracker() {
+            isActive = false;
+        }
+
+        public void run() {
             try {
+                results.append("ts,cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count-physical,cpu-core-count-logical,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n");
                 isActive = true;
-                System.out.println("PerfTracker running");
-                Long perfRate = plugin.getConfig().getLongParam("perfrate",5000L);
-                while(isActive) {
+                Long perfRate = plugin.getConfig().getLongParam("perfrate", 5000L);
+                while (isActive) {
                     logPerf();
                     Thread.sleep(perfRate);
-
                 }
+            } catch (Exception ex) {
+                logger.error("PerfTracker run(): {}", ex.getMessage());
+            }
+        }
 
-            }
-            catch(Exception ex) {
-                logger.error("Static runner failure : " + ex.getMessage());
-            }
+        public String getResults() {
+            return results.toString();
         }
 
         private void logPerf() {
 
             MsgEvent me = plugin.getSysInfo();
-            if(me != null) {
+            if (me != null) {
 
                 /*
                 Iterator it = me.getParams().entrySet().iterator();
@@ -222,14 +231,14 @@ public class ObjectFS implements Runnable {
                 int pcoreCount = Integer.parseInt(sCoreCountp);
                 String cpuPerLoad = me.getParam("cpu-per-cpu-load");
                 cpuPerLoad = cpuPerLoad.substring(cpuPerLoad.indexOf(": ") + 2);
-                cpuPerLoad = cpuPerLoad.replace("%","");
+                cpuPerLoad = cpuPerLoad.replace("%", "");
                 String[] perCpu = cpuPerLoad.split(" ");
                 String sCputPerLoadGrp = "";
-                for(String cpu : perCpu) {
+                for (String cpu : perCpu) {
                     //logger.info(cpu);
                     sCputPerLoadGrp += cpu + ":";
                 }
-                sCputPerLoadGrp = sCputPerLoadGrp.substring(0,sCputPerLoadGrp.length() -1);
+                sCputPerLoadGrp = sCputPerLoadGrp.substring(0, sCputPerLoadGrp.length() - 1);
 
                 String sMemoryTotal = me.getParam("memory-total");
                 Long memoryTotal = Long.parseLong(sMemoryTotal);
@@ -245,24 +254,24 @@ public class ObjectFS implements Runnable {
                 float cpuIdleLoad = Float.parseFloat(sCpuIdleLoad);
                 float cpuUserLoad = Float.parseFloat(sCpuUserLoad);
                 float cpuNiceLoad = Float.parseFloat(sCpuNiceLoad);
-                float cpuSysLoad  = Float.parseFloat(sCpuSysLoad);
+                float cpuSysLoad = Float.parseFloat(sCpuSysLoad);
                 float cpuTotalLoad = cpuIdleLoad + cpuUserLoad + cpuNiceLoad + cpuSysLoad;
 
-                String smemoryUsed = String.valueOf(memoryUsed/1024/1024);
+                String smemoryUsed = String.valueOf(memoryUsed / 1024 / 1024);
                 //String sCpuTotalLoad = String.valueOf(cpuTotalLoad);
                 boolean loadIsSane = false;
-                if(cpuTotalLoad == 100.0) {
+                if (cpuTotalLoad == 100.0) {
                     loadIsSane = true;
                 }
 
                 //logger.info("MEM USED = " + smemoryUsed + " sTotalLoad = " + sCpuTotalLoad + " isSane = " + loadIsSane);
 
-                String header = "ts,cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count-physical,cpu-core-count-logical,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n";
-                String output = System.currentTimeMillis() + "," + sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCountp + "," + sCoreCountl + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "," + ObjectFS.stagePhase + "\n";
+                //String header = "ts,cpu-idle-load,cpu-user-load,cpu-nice-load,cpu-sys-load,cpu-core-count-physical,cpu-core-count-logical,cpu-core-load,load-sane,memory-total,memory-available,memory-used,process-phase\n";
+                String output = System.currentTimeMillis() + "," + sCpuIdleLoad + "," + sCpuUserLoad + "," + sCpuNiceLoad + "," + sCpuSysLoad + "," + sCoreCountp + "," + sCoreCountl + "," + sCputPerLoadGrp + "," + String.valueOf(loadIsSane) + "," + sMemoryTotal + "," + sMemoryAvailable + "," + sMemoryUsed + "," + stagePhase + "\n";
+                results.append(output);
 
-
-                String logPath = plugin.getConfig().getStringParam("perflogpath");
-                if(logPath != null) {
+                /*String logPath = plugin.getConfig().getStringParam("perflogpath");
+                if (logPath != null) {
                     try {
                         Path logpath = Paths.get(logPath);
                         //output += "\n";
@@ -278,11 +287,10 @@ public class ObjectFS implements Runnable {
                         e.printStackTrace();
                         //exception handling left as an exercise for the reader
                     }
-                }
+                }*/
 
-            }
-            else {
-                logger.error("me = null");
+            } else {
+                logger.error("PerfTracker logPerf() : me = null");
             }
         }
     }
@@ -291,7 +299,7 @@ public class ObjectFS implements Runnable {
         pstep = 3;
         //start perf mon
         PerfTracker pt = null;
-        if(trackPerf) {
+        if (trackPerf) {
             pt = new PerfTracker();
             new Thread(pt).start();
         }
@@ -318,12 +326,12 @@ public class ObjectFS implements Runnable {
                 //for(String str : outputStr) {
                 //System.out.println(outputStr.length + " " + str);
                 //}
-                for(int i = 0; i<outputStr.length; i++) {
+                for (int i = 0; i < outputStr.length; i++) {
                     outputStr[i] = outputStr[i].trim();
                 }
 
 
-                if((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) || (outputLine.toLowerCase().startsWith("error")))) {
+                if ((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) || (outputLine.toLowerCase().startsWith("error")))) {
                     Calendar cal = Calendar.getInstance();
                     SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
                     cal.setTime(sdf.parse(outputStr[1].trim()));// all done
@@ -331,11 +339,10 @@ public class ObjectFS implements Runnable {
                     long logdiff = (cal.getTimeInMillis() - difftime);
                     difftime = cal.getTimeInMillis();
 
-                    if(outputStr[0].toLowerCase().equals("info")) {
+                    if (outputStr[0].toLowerCase().equals("info")) {
                         //logger.info("Log diff = " + logdiff + " : " +  outputStr[2] + " : " + outputStr[3] + " : " + outputStr[4]);
-                        ObjectFS.stagePhase = outputStr[3];
-                    }
-                    else if (outputStr[0].toLowerCase().equals("error")) {
+                        stagePhase = outputStr[3];
+                    } else if (outputStr[0].toLowerCase().equals("error")) {
                         logger.error("Pipeline Error : " + outputLine.toString());
                     }
                 }
@@ -362,7 +369,7 @@ public class ObjectFS implements Runnable {
             */
 
             p.waitFor();
-            if(trackPerf) {
+            if (trackPerf) {
                 pt.isActive = false;
             }
         } catch (IOException ioe) {
@@ -402,13 +409,13 @@ public class ObjectFS implements Runnable {
         String workDirName = null;
         try {
             workDirName = incoming_directory; //create random tmp location
-            workDirName = workDirName.replace("//","/");
-            if(!workDirName.endsWith("/")) {
+            workDirName = workDirName.replace("//", "/");
+            if (!workDirName.endsWith("/")) {
                 workDirName += "/";
             }
             File workDir = new File(workDirName);
             if (workDir.exists()) {
-                //deleteDirectory(workDir);
+                deleteDirectory(workDir);
             }
             workDir.mkdir();
 
@@ -488,26 +495,25 @@ public class ObjectFS implements Runnable {
                 plugin.sendMsgEvent(pse);
                 ssstep = 3;
             }
-        }
-        catch(Exception ex) {
+        } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
-            pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
             pse.setParam("req_id", reqId);
             pse.setParam("seq_id", seqId);
             pse.setParam("sample_id", sampleId);
-            pse.setParam("transfer_watch_file",transfer_watch_file);
+            pse.setParam("transfer_watch_file", transfer_watch_file);
             pse.setParam("transfer_status_file", transfer_status_file);
-            pse.setParam("bucket_name",bucket_name);
+            pse.setParam("bucket_name", bucket_name);
             pse.setParam("results_bucket_name", results_bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            pse.setParam("pathstage",pathStage);
-            pse.setParam("error_message",ex.getMessage());
-            pse.setParam("ssstep",String.valueOf(ssstep));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("error_message", ex.getMessage());
+            pse.setParam("ssstep", String.valueOf(ssstep));
             plugin.sendMsgEvent(pse);
         }
 
         //if is makes it through process the seq
-        if(ssstep == 3) {
+        if (ssstep == 3) {
             logger.trace("seq_id=" + seqId + " sample_id=" + sampleId);
 
             try {
@@ -564,15 +570,13 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Running Docker Command: {}", command);
 
-                StringBuffer output = new StringBuffer();
-                StringBuffer error = new StringBuffer();
+                StringBuilder output = new StringBuilder();
                 Process p;
                 try {
                     p = Runtime.getRuntime().exec(command);
                     logger.trace("Attaching output reader");
                     BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
                     String outputLine;
-                    long difftime = System.currentTimeMillis();
                     while ((outputLine = outputFeed.readLine()) != null) {
                         output.append(outputLine);
                         output.append("\n");
@@ -583,17 +587,8 @@ public class ObjectFS implements Runnable {
                             outputStr[i] = outputStr[i].trim();
                         }
 
-
                         if ((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) || (outputLine.toLowerCase().startsWith("error")))) {
-                            Calendar cal = Calendar.getInstance();
-                            SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
-                            cal.setTime(sdf.parse(outputStr[1].trim()));// all done
-
-                            long logdiff = (cal.getTimeInMillis() - difftime);
-                            difftime = cal.getTimeInMillis();
-
                             if (outputStr[0].toLowerCase().equals("info")) {
-                                //logger.info("Log diff = " + logdiff + " : " +  outputStr[2] + " : " + outputStr[3] + " : " + outputStr[4]);
                                 if (!stagePhase.equals(outputStr[3])) {
                                     pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline now in phase " + outputStr[3]);
                                     pse.setParam("indir", workDirName);
@@ -609,10 +604,10 @@ public class ObjectFS implements Runnable {
                                     pse.setParam("ssstep", String.valueOf(ssstep));
                                     plugin.sendMsgEvent(pse);
                                 }
-                                ObjectFS.stagePhase = outputStr[3];
+                                stagePhase = outputStr[3];
                             } else if (outputStr[0].toLowerCase().equals("error")) {
                                 logger.error("Pipeline Error : " + outputLine);
-                                pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Pipeline now in phase " + outputStr[3]);
+                                pse = plugin.genGMessage(MsgEvent.Type.ERROR, "");
                                 pse.setParam("indir", workDirName);
                                 pse.setParam("outdir", resultDirName);
                                 pse.setParam("req_id", reqId);
@@ -629,15 +624,43 @@ public class ObjectFS implements Runnable {
                             }
                         }
                         logger.debug(outputLine);
-
                     }
-
                     logger.trace("Waiting for Docker process to finish");
 
                     p.waitFor();
+
+                    ssstep = 5;
                     if (trackPerf) {
+                        logger.trace("Ending Performance Monitor");
                         pt.isActive = false;
+                        logger.trace("Sending Performance Information");
+                        pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Performance Information");
+                        pse.setParam("indir", workDirName);
+                        pse.setParam("req_id", reqId);
+                        pse.setParam("seq_id", seqId);
+                        pse.setParam("sample_id", sampleId);
+                        pse.setParam("transfer_status_file", transfer_status_file);
+                        pse.setParam("bucket_name", bucket_name);
+                        pse.setParam("results_bucket_name", results_bucket_name);
+                        pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                        pse.setParam("pathstage", pathStage);
+                        pse.setParam("ssstep", String.valueOf(ssstep));
+                        pse.setParam("perf_log", pt.getResults());
+                        plugin.sendMsgEvent(pse);
                     }
+                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Pipeline Output");
+                    pse.setParam("indir", workDirName);
+                    pse.setParam("req_id", reqId);
+                    pse.setParam("seq_id", seqId);
+                    pse.setParam("sample_id", sampleId);
+                    pse.setParam("transfer_status_file", transfer_status_file);
+                    pse.setParam("bucket_name", bucket_name);
+                    pse.setParam("results_bucket_name", results_bucket_name);
+                    pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    pse.setParam("pathstage", pathStage);
+                    pse.setParam("ssstep", String.valueOf(ssstep));
+                    pse.setParam("output_log", output.toString());
+                    plugin.sendMsgEvent(pse);
                 } catch (IOException ioe) {
                     // WHAT!?! DO SOMETHIN'!
                     logger.error("File read/write exception: {}", ioe.getMessage());
@@ -651,7 +674,6 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Pipeline has finished");
 
-                ssstep = 5;
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
                 pse.setParam("indir", workDirName);
                 pse.setParam("req_id", reqId);
@@ -663,7 +685,6 @@ public class ObjectFS implements Runnable {
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("ssstep", String.valueOf(ssstep));
-                pse.setParam("output_log", output.toString());
                 plugin.sendMsgEvent(pse);
 
                 ObjectEngine oe = new ObjectEngine(plugin);
@@ -684,19 +705,11 @@ public class ObjectFS implements Runnable {
                 pse.setParam("ssstep", String.valueOf(ssstep));
                 plugin.sendMsgEvent(pse);
 
-                oe.uploadDirectory(results_bucket_name, resultDirName, seqId + "/" + sampleId + "/");
+                oe.uploadSampleDirectory(results_bucket_name, resultDirName, seqId + "/" + sampleId + "/", seqId, sampleId, String.valueOf(ssstep));
 
                 List<String> filterList = new ArrayList<>();
                 logger.trace("Add [transfer_status_file] to [filterList]");
-            /*
-            filterList.add(transfer_status_file);
-            String inDir = incoming_directory;
-            if (!inDir.endsWith("/")) {
-                inDir = inDir + "/";
-            }
-            */
 
-                //logger.debug("[inDir = {}]", inDir);
                 oe = new ObjectEngine(plugin);
                 if (oe.isSyncDir(results_bucket_name, seqId + "/" + sampleId + "/", resultDirName, filterList)) {
                     ssstep = 7;
@@ -711,68 +724,25 @@ public class ObjectFS implements Runnable {
                     pse.setParam("sample_id", sampleId);
                     pse.setParam("transfer_status_file", transfer_status_file);
                     pse.setParam("bucket_name", bucket_name);
+                    pse.setParam("results_bucket_name", results_bucket_name);
                     pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     pse.setParam("pathstage", pathStage);
                     pse.setParam("ssstep", String.valueOf(ssstep));
                     plugin.sendMsgEvent(pse);
                 }
-
-/*
-            UUID id = UUID.randomUUID(); //create random tmp location
-            String tmpInput = incoming_directory + id.toString();
-            String tmpOutput = outgoing_directory + "/" + id.toString();
-            String tmpRemoteOutput = remoteDir + "/" + subDir + "/" + "primary";
-            tmpRemoteOutput = tmpRemoteOutput.replace("//","/");
-            File tmpOutputdir = new File(tmpOutput);
-            if (commands_main.exists()) {
-                deleteDirectory(tmpOutputdir);
-            }
-            tmpOutputdir.mkdir();
-
-            logger.trace("Creating tmp output location : " + tmpOutput);
-            logger.info("Launching processing container:");
-            logger.info("Input Location: " + tmpInput);
-            logger.info("Output Location: " + tmpOutput);
-            logger.info("Remote Output Location: " + tmpRemoteOutput);
-
-            //process data
-            //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
-            //String command = "docker run -t -v /home/gpackage:/gpackage -v " + tmpInput + ":/gdata/input -v " + tmpOutput + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
-            String command = "dir";
-            logger.info("Docker exec command: " + command);
-            executeCommand(command);
-            String content = "Hello File!";
-            String path = tmpOutput + "/testfile";
-            try {
-                Files.write(Paths.get(path), content.getBytes(), StandardOpenOption.CREATE);
-            }
-            catch (Exception ex) {
-                logger.error(ex.getMessage());
-            }
-            //transfer data
-            logger.info("Transfering " + tmpOutput + " to " + bucket_name + ":" + tmpRemoteOutput);
-            ObjectEngine oe = new ObjectEngine(plugin);
-            if (oe.uploadDirectory(bucket_name, tmpOutput, tmpRemoteOutput)) {
-                //cleanup
-                logger.trace("Removing tmp output location : " + tmpOutput);
-                deleteDirectory(tmpOutputdir);
-            } else {
-                logger.error("Skipping! : commands_main.sh and config_files not found in subdirectory " + dir + "/" + subDir);
-            }
-*/
             } catch (Exception e) {
                 logger.error("processSample {}", e.getMessage());
-                pse = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
+                pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
                 pse.setParam("req_id", reqId);
                 pse.setParam("seq_id", seqId);
                 pse.setParam("sample_id", sampleId);
-                pse.setParam("transfer_watch_file",transfer_watch_file);
+                pse.setParam("transfer_watch_file", transfer_watch_file);
                 pse.setParam("transfer_status_file", transfer_status_file);
-                pse.setParam("bucket_name",bucket_name);
+                pse.setParam("bucket_name", bucket_name);
                 pse.setParam("results_bucket_name", results_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                pse.setParam("pathstage",pathStage);
-                pse.setParam("error_message",e.getMessage());
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("error_message", e.getMessage());
                 pse.setParam("ssstep", String.valueOf(ssstep));
                 plugin.sendMsgEvent(pse);
             }
@@ -948,7 +918,7 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    private List<String> getWalkPath(String path) {
+    /*private List<String> getWalkPath(String path) {
         logger.debug("Call to getWalkPath [path = {}]", path);
         if (!path.endsWith("/")) {
             path = path + "/";
@@ -972,7 +942,7 @@ public class ObjectFS implements Runnable {
             }
         }
         return dirList;
-    }
+    }*/
 }
 
 

@@ -183,7 +183,7 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), false);
+                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
                         break;
                     case 3:
                         break;
