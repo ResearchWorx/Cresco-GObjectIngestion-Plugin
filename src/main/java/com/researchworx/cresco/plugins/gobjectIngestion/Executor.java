@@ -118,7 +118,7 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                            Plugin.objectToFSp.processSequence(seqId, reqId);
+                            Plugin.objectToFSp.processSequence(seqId, reqId, true);
                         break;
                     case 3:
                         break;

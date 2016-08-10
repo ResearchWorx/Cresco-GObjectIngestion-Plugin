@@ -118,9 +118,9 @@ public class ObjectFS implements Runnable {
                 workDirName += "/";
             }
             File workDir = new File(workDirName);
-            if (workDir.exists()) {
+            /*if (workDir.exists()) {
                 deleteDirectory(workDir);
-            }
+            }*/
             workDir.mkdir();
 
             String remoteDir = seqId + "/";
@@ -235,7 +235,7 @@ public class ObjectFS implements Runnable {
                 new File(researchResultsDirName).mkdir();
 
                 sstep = 4;
-                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Starting Pipeline via Docker Container");
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Starting Pre-Processor via Docker Container");
                 pse.setParam("indir", workDirName);
                 pse.setParam("outdir", resultDirName);
                 pse.setParam("req_id", reqId);
@@ -248,9 +248,12 @@ public class ObjectFS implements Runnable {
                 pse.setParam("sstep", String.valueOf(sstep));
                 plugin.sendMsgEvent(pse);
 
-                //String command = "docker run -t -v /mnt/localdata/gpackage:/gpackage -v " + workDirName + ":/gdata/input -v " + resultDirName + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
-
-                String command = "docker run -v " + researchResultsDirName + ":/gdata/output/research -v " + clinicalResultsDirName + ":/gdata/output/clinical -v " + workDirName + ":/gdata/input  -it intrepo.uky.edu:5000/gbase /opt/pretools/raw_data_processing_version-1.0.pl";
+                String command = "docker run " +
+                        "-v " + researchResultsDirName + ":/gdata/output/research " +
+                        "-v " + clinicalResultsDirName + ":/gdata/output/clinical " +
+                        "-v " + workDirName + ":/gdata/input " +
+                        "-e INPUT_FOLDER_PATH=\"/gdata/input/" + seqId + "\"" +
+                        "-t intrepo.uky.edu:5000/gbase /opt/pretools/raw_data_processing_version-1.0.pl";
 
                 logger.trace("Running Docker Command: {}", command);
 
@@ -289,7 +292,7 @@ public class ObjectFS implements Runnable {
                                 }
                                 stagePhase = outputStr[3];
                             } else if (outputStr[0].toLowerCase().equals("error")) {
-                                logger.error("Pipeline Error : " + outputLine);
+                                logger.error("Pre-Processing Error : " + outputLine);
                                 pse = plugin.genGMessage(MsgEvent.Type.ERROR, "");
                                 pse.setParam("indir", workDirName);
                                 pse.setParam("outdir", resultDirName);
@@ -354,6 +357,7 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Pipeline has finished");
 
+                sstep = 6;
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
                 pse.setParam("indir", workDirName);
                 pse.setParam("req_id", reqId);
@@ -408,7 +412,7 @@ public class ObjectFS implements Runnable {
                     plugin.sendMsgEvent(pse);
                 }*/
             } catch (Exception e) {
-                logger.error("processSample {}", e.getMessage());
+                logger.error("processSequence {}", e.getMessage());
                 pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
                 pse.setParam("req_id", reqId);
                 pse.setParam("seq_id", seqId);
@@ -837,7 +841,10 @@ public class ObjectFS implements Runnable {
                 pse.setParam("ssstep", String.valueOf(ssstep));
                 plugin.sendMsgEvent(pse);
 
-                String command = "docker run -t -v /mnt/localdata/gpackage:/gpackage -v " + workDirName + ":/gdata/input -v " + resultDirName + ":/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
+                String command = "docker run -t -v /mnt/localdata/gpackage:/gpackage " +
+                        "-v " + workDirName + ":/gdata/input " +
+                        "-v " + resultDirName + ":/gdata/output " +
+                        "intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
 
                 logger.trace("Running Docker Command: {}", command);
 
