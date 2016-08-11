@@ -93,6 +93,7 @@ public class ObjectFS implements Runnable {
         logger.debug("Call to processSequence seq_id: " + seqId, ", req_id: " + reqId);
 
         pstep = 3;
+        int sstep = 0;
         String objects_bucket_name = plugin.getConfig().getStringParam("objects_bucket");
         if (objects_bucket_name == null || objects_bucket_name.equals("")) {
             plugin.PathProcessorActive = false;
@@ -107,9 +108,9 @@ public class ObjectFS implements Runnable {
             plugin.sendMsgEvent(error);
             return;
         }
+        sstep = 1;
 
         MsgEvent pse;
-        int sstep = 1;
         String workDirName = null;
         try {
             workDirName = incoming_directory; //create random tmp location
@@ -141,10 +142,11 @@ public class ObjectFS implements Runnable {
             pse.setParam("pathstage", pathStage);
             pse.setParam("sstep", String.valueOf(sstep));
             plugin.sendMsgEvent(pse);
+            sstep = 2;
 
             oe.downloadDirectory(bucket_name, remoteDir, workDirName, seqId, null);
 
-            workDirName += remoteDir;
+            //workDirName += remoteDir;
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
@@ -158,8 +160,7 @@ public class ObjectFS implements Runnable {
 
             //logger.debug("[inDir = {}]", inDir);
             oe = new ObjectEngine(plugin);
-            if (oe.isSyncDir(bucket_name, remoteDir, workDirName, filterList)) {
-                sstep = 2;
+            if (oe.isSyncDir(bucket_name, remoteDir, workDirName + seqId, filterList)) {
                 logger.debug("Directory Sycned [inDir = {}]", workDirName);
                 //Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
                 //logger.trace("Set MD5 hash");
@@ -221,18 +222,18 @@ public class ObjectFS implements Runnable {
                 if (!resultDirName.endsWith("/")) {
                     resultDirName += "/";
                 }
-                resultDirName = resultDirName + seqId + "/";
+                /*resultDirName = resultDirName + seqId + "/";
                 File resultDir = new File(resultDirName);
                 if (resultDir.exists()) {
                     deleteDirectory(resultDir);
-                }
-                logger.trace("Creating output directory: {}", resultDirName);
-                resultDir.mkdir();
+                }*/
+                //logger.trace("Creating output directory: {}", resultDirName);
+                //resultDir.mkdir();
 
                 String clinicalResultsDirName = resultDirName + "/clinical/";
-                new File(clinicalResultsDirName).mkdir();
+                //new File(clinicalResultsDirName).mkdir();
                 String researchResultsDirName = resultDirName + "/research/";
-                new File(researchResultsDirName).mkdir();
+                //new File(researchResultsDirName).mkdir();
 
                 sstep = 4;
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Starting Pre-Processor via Docker Container");
