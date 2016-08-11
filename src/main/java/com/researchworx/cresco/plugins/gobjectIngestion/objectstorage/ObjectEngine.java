@@ -582,7 +582,7 @@ public class ObjectEngine {
             //check if bucket exist
             if (doesBucketExist(bucket)) {
                 logger.trace("isSync Grabbing [objects] from [bucket] [s3Dir]");
-                ObjectListing objects = conn.listObjects(bucket, s3Dir);
+                /*ObjectListing objects = conn.listObjects(bucket, s3Dir);
                 do {
                     for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
                         if (!mdhp.containsKey(objectSummary.getKey())) {
@@ -592,7 +592,11 @@ public class ObjectEngine {
                     }
                     logger.trace("Grabbing next batch of [objects]");
                     objects = conn.listNextBatchOfObjects(objects);
-                } while (objects.isTruncated());
+                } while (objects.isTruncated());*/
+
+                for (S3ObjectSummary objectSummary : S3Objects.withPrefix(conn, bucket, s3Dir)) {
+                    mdhp.put(objectSummary.getKey(), objectSummary.getETag());
+                }
 
                 //S3Object object = conn.getObject(new GetObjectRequest(bucketName, key));
 
