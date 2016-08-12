@@ -110,6 +110,9 @@ public class ObjectFS implements Runnable {
         }
         sstep = 1;
 
+
+        String remoteDir = seqId + "/";
+
         MsgEvent pse;
         String workDirName = null;
         try {
@@ -118,18 +121,29 @@ public class ObjectFS implements Runnable {
             if (!workDirName.endsWith("/")) {
                 workDirName += "/";
             }
-            File workDir = new File(workDirName);
-            /*if (workDir.exists()) {
+            /*File workDir = new File(workDirName);
+            if (workDir.exists()) {
                 deleteDirectory(workDir);
-            }*/
-            workDir.mkdir();
+            }
+            workDir.mkdir();*/
 
-            String remoteDir = seqId + "/";
+            List<String> filterList = new ArrayList<>();
+            logger.trace("Add [transfer_status_file] to [filterList]");
+            /*
+            filterList.add(transfer_status_file);
+            String inDir = incoming_directory;
+            if (!inDir.endsWith("/")) {
+                inDir = inDir + "/";
+            }
+
+            //workDirName += remoteDir;
+            */
 
             ObjectEngine oe = new ObjectEngine(plugin);
 
-            oe.createBucket(objects_bucket_name);
-
+            if (new File(workDirName + seqId).exists()) {
+                //deleteDirectory(new File(workDirName + seqId));
+            }
             pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfering");
             //me.setParam("inDir", remoteDir);
             //me.setParam("outDir", incoming_directory);
@@ -145,18 +159,6 @@ public class ObjectFS implements Runnable {
             sstep = 2;
 
             oe.downloadDirectory(bucket_name, remoteDir, workDirName, seqId, null);
-
-            //workDirName += remoteDir;
-
-            List<String> filterList = new ArrayList<>();
-            logger.trace("Add [transfer_status_file] to [filterList]");
-            /*
-            filterList.add(transfer_status_file);
-            String inDir = incoming_directory;
-            if (!inDir.endsWith("/")) {
-                inDir = inDir + "/";
-            }
-            */
 
             //logger.debug("[inDir = {}]", inDir);
             oe = new ObjectEngine(plugin);
@@ -222,18 +224,18 @@ public class ObjectFS implements Runnable {
                 if (!resultDirName.endsWith("/")) {
                     resultDirName += "/";
                 }
-                /*resultDirName = resultDirName + seqId + "/";
+                resultDirName = resultDirName + seqId + "/";
                 File resultDir = new File(resultDirName);
-                if (resultDir.exists()) {
+                /*if (resultDir.exists()) {
                     deleteDirectory(resultDir);
                 }*/
                 //logger.trace("Creating output directory: {}", resultDirName);
-                //resultDir.mkdir();
+                resultDir.mkdir();
 
-                String clinicalResultsDirName = resultDirName + "/clinical/";
-                //new File(clinicalResultsDirName).mkdir();
-                String researchResultsDirName = resultDirName + "/research/";
-                //new File(researchResultsDirName).mkdir();
+                String clinicalResultsDirName = resultDirName + "clinical/";
+                new File(clinicalResultsDirName).mkdir();
+                String researchResultsDirName = resultDirName + "research/";
+                new File(researchResultsDirName).mkdir();
 
                 sstep = 4;
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Starting Pre-Processor via Docker Container");
@@ -253,7 +255,7 @@ public class ObjectFS implements Runnable {
                         "-v " + researchResultsDirName + ":/gdata/output/research " +
                         "-v " + clinicalResultsDirName + ":/gdata/output/clinical " +
                         "-v " + workDirName + ":/gdata/input " +
-                        "-e INPUT_FOLDER_PATH=\"/gdata/input/" + seqId + "\"" +
+                        "-e INPUT_FOLDER_PATH=/gdata/input/" + remoteDir + " " +
                         "-t intrepo.uky.edu:5000/gbase /opt/pretools/raw_data_processing_version-1.0.pl";
 
                 logger.trace("Running Docker Command: {}", command);

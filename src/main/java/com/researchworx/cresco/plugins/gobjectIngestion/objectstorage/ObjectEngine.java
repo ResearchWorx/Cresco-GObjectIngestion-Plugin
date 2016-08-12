@@ -208,7 +208,7 @@ public class ObjectEngine {
 
                 logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
                 logger.debug("\t- Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
-                logger.debug("\t- Elapsed time : " + transferTime + " seconds");
+                logger.debug("\t- Elapsed time : " + (transferTime < 60 ? (transferTime + " seconds") : (transferTime / 60 + " minutes " + transferTime % 60 + " seconds")));
                 logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
 
                 MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
@@ -381,7 +381,7 @@ public class ObjectEngine {
 
                 logger.debug("Download Transfer Desc: " + myDownload.getDescription());
                 logger.debug("  Transfered : " + myDownload.getProgress().getBytesTransferred() + " bytes");
-                logger.debug("  Elapsed time : " + transferTime + " seconds");
+                logger.debug("  Elapsed time : {}", (transferTime < 60 ? transferTime + " seconds" : transferTime / 60.0 + " minutes " + transferTime % 60.0 + " seconds"));
                 logger.debug("  Transfer rate : " + transferRate + " MB/sec");
 
                 wasTransfered = true;
@@ -445,7 +445,7 @@ public class ObjectEngine {
                         progress = ((double) totalBytesDownloaded / (double) totalBytesToDownload) * 100.0;
                     logger.trace("Sending download progress metrics to controller");
                     logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload, true), percentFormatter.format(progress));
-                    logger.debug("\tElapsed time: {} seconds", transferTime);
+                    logger.debug("\tElapsed time: {}", (transferTime < 60 ? transferTime + " seconds" : transferTime / 60.0 + " minutes " + transferTime % 60.0 + " seconds"));
                     logger.debug("\tTransfer rate: {} MB/sec", transferRate);
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(progress) + "%)");
                     if (seqId != null)
