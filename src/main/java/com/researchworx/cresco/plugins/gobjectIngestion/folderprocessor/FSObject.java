@@ -143,7 +143,7 @@ public class FSObject implements Runnable {
         logger.debug("Call to transferStatus [dir = {}, statusString = {}]", dir.toString(), statusString);
         String status = "no";
         try {
-            if (dir.toString().toLowerCase().endsWith(transfer_watch_file.toLowerCase())) {
+            if (dir.toString().toLowerCase().endsWith(transfer_watch_file.toLowerCase()) && ! dir.toString().toLowerCase().endsWith(transfer_status_file.toLowerCase())) {
                 logger.trace("[dir] tail matches [transfer_watch_file]");
                 logger.trace("Replacing [transfer_watch_file] with [transfer_status_file]");
                 String tmpPath = dir.toString().replace(transfer_watch_file, transfer_status_file);
