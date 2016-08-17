@@ -28,7 +28,8 @@ public class FSObject implements Runnable {
 
     public FSObject(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = new CLogger(FSObject.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.logger = new CLogger(FSObject.class, plugin.getMsgOutQueue(), plugin.getRegion(),
+                plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
 
         logger.trace("FStoObject instantiated");
@@ -143,7 +144,8 @@ public class FSObject implements Runnable {
         logger.debug("Call to transferStatus [dir = {}, statusString = {}]", dir.toString(), statusString);
         String status = "no";
         try {
-            if (dir.toString().toLowerCase().endsWith(transfer_watch_file.toLowerCase()) && ! dir.toString().toLowerCase().endsWith(transfer_status_file.toLowerCase())) {
+            if (dir.toString().toLowerCase().endsWith(transfer_watch_file.toLowerCase()) &&
+                    !dir.toString().toLowerCase().endsWith(transfer_status_file.toLowerCase())) {
                 logger.trace("[dir] tail matches [transfer_watch_file]");
                 logger.trace("Replacing [transfer_watch_file] with [transfer_status_file]");
                 String tmpPath = dir.toString().replace(transfer_watch_file, transfer_status_file);
@@ -248,7 +250,8 @@ public class FSObject implements Runnable {
                 logger.trace("commands_main " + commands_main_filename + " exist : " + commands_main.exists());
                 logger.trace("config_files " + config_files_directoryname + " exist : " + config_files.exists());
 
-                if (commands_main.exists() && !commands_main.isDirectory() && config_files.exists() && config_files.isDirectory()) {
+                if (commands_main.exists() && !commands_main.isDirectory() &&
+                        config_files.exists() && config_files.isDirectory()) {
                     // do something
                     samples.add(subDirectory);
                     logger.trace("Found Sample: " + commands_main_filename + " and " + config_files_directoryname);

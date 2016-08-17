@@ -991,6 +991,9 @@ public class ObjectFS implements Runnable {
                 List<String> filterList = new ArrayList<>();
                 logger.trace("Add [transfer_status_file] to [filterList]");
 
+                logger.trace("Sleeping to ensure completion message is received last");
+                Thread.sleep(2000);
+
                 oe = new ObjectEngine(plugin);
                 if (oe.isSyncDir(results_bucket_name, seqId + "/" + sampleId + "/", resultDirName, filterList)) {
                     ssstep = 7;
@@ -1031,6 +1034,91 @@ public class ObjectFS implements Runnable {
         pstep = 2;
     }
 
+    public void downloadResults(String seqId, String reqId) {
+        logger.debug("Call to processSequence seq_id: " + seqId, ", req_id: " + reqId);
+
+        pstep = 3;
+        int sstep = 1;
+
+        String remoteDir = seqId + "/";
+
+        MsgEvent pse;
+
+        try {
+            String workDirName = incoming_directory; //create random tmp location
+            workDirName = workDirName.replace("//", "/");
+            if (!workDirName.endsWith("/")) {
+                workDirName += "/";
+            }
+            /*File workDir = new File(workDirName);
+            if (workDir.exists()) {
+                deleteDirectory(workDir);
+            }
+            workDir.mkdir();*/
+
+            List<String> filterList = new ArrayList<>();
+            logger.trace("Add [transfer_status_file] to [filterList]");
+            /*
+            filterList.add(transfer_status_file);
+            String inDir = incoming_directory;
+            if (!inDir.endsWith("/")) {
+                inDir = inDir + "/";
+            }
+
+            //workDirName += remoteDir;
+            */
+
+            ObjectEngine oe = new ObjectEngine(plugin);
+
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfering");
+            //me.setParam("inDir", remoteDir);
+            //me.setParam("outDir", incoming_directory);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("req_id", reqId);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("sstep", String.valueOf(sstep));
+            plugin.sendMsgEvent(pse);
+            sstep = 2;
+
+            oe.downloadDirectory(bucket_name, remoteDir, workDirName, seqId, null);
+
+            //logger.debug("[inDir = {}]", inDir);
+            oe = new ObjectEngine(plugin);
+            if (oe.isSyncDir(bucket_name, remoteDir, workDirName + seqId, filterList)) {
+                logger.debug("Directory Sycned [inDir = {}]", workDirName);
+                //Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
+                //logger.trace("Set MD5 hash");
+                //setTransferFileMD5(inDir + transfer_status_file, md5map);
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
+                pse.setParam("indir", workDirName);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("req_id", reqId);
+                pse.setParam("transfer_status_file", transfer_status_file);
+                pse.setParam("bucket_name", bucket_name);
+                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("sstep", String.valueOf(sstep));
+                plugin.sendMsgEvent(pse);
+                sstep = 3;
+            }
+        } catch (Exception ex) {
+            logger.error("run {}", ex.getMessage());
+            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
+            pse.setParam("seq_id", seqId);
+            pse.setParam("req_id", reqId);
+            pse.setParam("transfer_watch_file", transfer_watch_file);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("error_message", ex.getMessage());
+            pse.setParam("sstep", String.valueOf(sstep));
+            plugin.sendMsgEvent(pse);
+        }
+    }
 
     /*
     private void legacy() {
