@@ -104,7 +104,7 @@ public class ObjectFS implements Runnable {
             error.setParam("bucket_name", bucket_name);
             error.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             error.setParam("pathstage", pathStage);
-            error.setParam("sstep", "0");
+            error.setParam("sstep", String.valueOf(sstep));
             plugin.sendMsgEvent(error);
             return;
         }
@@ -142,7 +142,7 @@ public class ObjectFS implements Runnable {
             ObjectEngine oe = new ObjectEngine(plugin);
 
             if (new File(workDirName + seqId).exists()) {
-                //deleteDirectory(new File(workDirName + seqId));
+                deleteDirectory(new File(workDirName + seqId));
             }
             pse = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfering");
             //me.setParam("inDir", remoteDir);
@@ -220,15 +220,16 @@ public class ObjectFS implements Runnable {
                 plugin.sendMsgEvent(pse);
 
                 String resultDirName = outgoing_directory; //create random tmp location
+                logger.trace("Clearing/resetting output directory");
                 resultDirName = resultDirName.replace("//", "/");
                 if (!resultDirName.endsWith("/")) {
                     resultDirName += "/";
                 }
                 File resultDir = new File(resultDirName);
-                /*if (resultDir.exists()) {
+                if (resultDir.exists()) {
                     deleteDirectory(resultDir);
-                }*/
-                //logger.trace("Creating output directory: {}", resultDirName);
+                }
+                logger.trace("Creating output directory: {}", resultDirName);
                 resultDir.mkdir();
 
                 String clinicalResultsDirName = resultDirName + "clinical/" + seqId + "/";
