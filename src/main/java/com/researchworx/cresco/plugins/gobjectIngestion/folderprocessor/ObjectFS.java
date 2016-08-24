@@ -232,11 +232,11 @@ public class ObjectFS implements Runnable {
                 logger.trace("Creating output directory: {}", resultDirName);
                 resultDir.mkdir();
 
-                String clinicalResultsDirName = resultDirName + "clinical/" + seqId + "/";
+                String clinicalResultsDirName = resultDirName + "clinical/";
                 if (new File(clinicalResultsDirName).exists())
                     deleteDirectory(new File(clinicalResultsDirName));
                 new File(clinicalResultsDirName).mkdir();
-                String researchResultsDirName = resultDirName + "research/" + seqId + "/";
+                String researchResultsDirName = resultDirName + "research/";
                 if (new File(researchResultsDirName).exists())
                     deleteDirectory(new File(researchResultsDirName));
                 new File(researchResultsDirName).mkdir();
