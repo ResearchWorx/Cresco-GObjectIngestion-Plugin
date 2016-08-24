@@ -224,7 +224,6 @@ public class ObjectFS implements Runnable {
                 if (!resultDirName.endsWith("/")) {
                     resultDirName += "/";
                 }
-                resultDirName = resultDirName + seqId + "/";
                 File resultDir = new File(resultDirName);
                 /*if (resultDir.exists()) {
                     deleteDirectory(resultDir);
@@ -232,9 +231,13 @@ public class ObjectFS implements Runnable {
                 //logger.trace("Creating output directory: {}", resultDirName);
                 resultDir.mkdir();
 
-                String clinicalResultsDirName = resultDirName + "clinical/";
+                String clinicalResultsDirName = resultDirName + "clinical/" + seqId + "/";
+                if (new File(clinicalResultsDirName).exists())
+                    deleteDirectory(new File(clinicalResultsDirName));
                 new File(clinicalResultsDirName).mkdir();
-                String researchResultsDirName = resultDirName + "research/";
+                String researchResultsDirName = resultDirName + "research/" + seqId + "/";
+                if (new File(researchResultsDirName).exists())
+                    deleteDirectory(new File(researchResultsDirName));
                 new File(researchResultsDirName).mkdir();
 
                 sstep = 4;
