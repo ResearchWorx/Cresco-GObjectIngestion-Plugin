@@ -1129,6 +1129,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("sstep", String.valueOf(sstep));
             plugin.sendMsgEvent(pse);
         }
+        pstep = 2;
     }
 
     private String getSampleList(String inDir) {
