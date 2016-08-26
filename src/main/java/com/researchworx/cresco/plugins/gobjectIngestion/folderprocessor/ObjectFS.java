@@ -364,7 +364,6 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Pipeline has finished");
 
-                sstep = 6;
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
                 pse.setParam("indir", workDirName);
                 pse.setParam("req_id", reqId);
@@ -377,7 +376,7 @@ public class ObjectFS implements Runnable {
                 pse.setParam("sstep", String.valueOf(sstep));
                 plugin.sendMsgEvent(pse);
 
-                /*ObjectEngine oe = new ObjectEngine(plugin);
+                ObjectEngine oe = new ObjectEngine(plugin);
 
                 logger.trace("Uploading results to objectStore");
 
@@ -394,7 +393,7 @@ public class ObjectFS implements Runnable {
                 pse.setParam("sstep", String.valueOf(sstep));
                 plugin.sendMsgEvent(pse);
 
-                oe.uploadSampleDirectory(results_bucket_name, resultDirName, seqId + "/" + sampleId + "/", seqId, sampleId, String.valueOf(ssstep));
+                oe.uploadSequenceDirectory(objects_bucket_name, resultDirName, seqId, seqId, String.valueOf(sstep));
 
                 List<String> filterList = new ArrayList<>();
                 logger.trace("Add [transfer_status_file] to [filterList]");
@@ -403,6 +402,8 @@ public class ObjectFS implements Runnable {
                 if (oe.isSyncDir(objects_bucket_name, seqId + "/", resultDirName, filterList)) {
                     sstep = 7;
                     logger.debug("Results Directory Sycned [inDir = {}]", workDirName);
+                    logger.trace("Sample Directory: " + workDirName);
+                    String sampleList = getSampleList(workDirName);
                     //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                     //logger.trace("Set MD5 hash");
                     //setTransferFileMD5(workDirName + transfer_status_file, md5map);
@@ -412,12 +413,18 @@ public class ObjectFS implements Runnable {
                     pse.setParam("seq_id", seqId);
                     pse.setParam("transfer_status_file", transfer_status_file);
                     pse.setParam("bucket_name", bucket_name);
-                pse.setParam("objects_bucket_name", objects_bucket_name);
+                    pse.setParam("objects_bucket_name", objects_bucket_name);
                     pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     pse.setParam("pathstage", pathStage);
+                    if (sampleList != null) {
+                        logger.trace("Samples : " + sampleList);
+                        pse.setParam("sample_list", sampleList);
+                    } else {
+                        pse.setParam("sample_list", "");
+                    }
                     pse.setParam("sstep", String.valueOf(sstep));
                     plugin.sendMsgEvent(pse);
-                }*/
+                }
             } catch (Exception e) {
                 logger.error("processSequence {}", e.getMessage());
                 pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
@@ -1122,6 +1129,74 @@ public class ObjectFS implements Runnable {
             pse.setParam("sstep", String.valueOf(sstep));
             plugin.sendMsgEvent(pse);
         }
+    }
+
+    private String getSampleList(String inDir) {
+        String sampleList = null;
+        try {
+            if (!inDir.endsWith("/")) {
+                inDir += "/";
+            }
+            ArrayList<String> samples = new ArrayList();
+            logger.trace("Processing Sequence Directory : " + inDir);
+            File file = new File(inDir);
+            String[] directories = file.list(new FilenameFilter() {
+                @Override
+                public boolean accept(File current, String name) {
+                    return new File(current, name).isDirectory();
+                }
+            });
+
+            List<String> subDirectories = new ArrayList<>();
+
+            if (directories != null) {
+                for (String subDir : directories) {
+                    logger.trace("Searching for sub-directories of {}", inDir + "/" + subDir);
+                    subDirectories.add(subDir);
+                    File subFile = new File(inDir + "/" + subDir);
+                    String[] subSubDirs = subFile.list(new FilenameFilter() {
+                        @Override
+                        public boolean accept(File current, String name) {
+                            return new File(current, name).isDirectory();
+                        }
+                    });
+                    if (subSubDirs != null) {
+                        for (String subSubDir : subSubDirs) {
+                            logger.trace("Found sub-directory {}", inDir + "/" + subDir + "/" + subSubDir);
+                            subDirectories.add(subDir + "/" + subSubDir);
+                        }
+                    }
+                }
+            }
+
+            for (String subDirectory : subDirectories) {
+                logger.trace("Processing Sample SubDirectory : " + subDirectory);
+                String commands_main_filename = inDir + subDirectory + "/commands_main.sh";
+                String config_files_directoryname = inDir + subDirectory + "/config_files";
+                File commands_main = new File(commands_main_filename);
+                File config_files = new File(config_files_directoryname);
+                logger.trace("commands_main " + commands_main_filename + " exist : " + commands_main.exists());
+                logger.trace("config_files " + config_files_directoryname + " exist : " + config_files.exists());
+
+                if (commands_main.exists() && !commands_main.isDirectory() &&
+                        config_files.exists() && config_files.isDirectory()) {
+                    // do something
+                    samples.add(subDirectory);
+                    logger.trace("Found Sample: " + commands_main_filename + " and " + config_files_directoryname);
+                }
+            }
+            //build list
+            if (!samples.isEmpty()) {
+                sampleList = "";
+                for (String tSample : samples) {
+                    sampleList += tSample + ",";
+                }
+                sampleList = sampleList.substring(0, sampleList.length() - 1);
+            }
+        } catch (Exception ex) {
+            logger.error("getSameplList : " + ex.getMessage());
+        }
+        return sampleList;
     }
 
     /*
