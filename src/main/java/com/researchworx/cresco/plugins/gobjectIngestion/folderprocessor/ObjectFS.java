@@ -401,9 +401,9 @@ public class ObjectFS implements Runnable {
                 oe = new ObjectEngine(plugin);
                 if (oe.isSyncDir(objects_bucket_name, seqId + "/", resultDirName, filterList)) {
                     sstep = 7;
-                    logger.debug("Results Directory Sycned [inDir = {}]", workDirName);
-                    logger.trace("Sample Directory: " + workDirName);
-                    String sampleList = getSampleList(workDirName);
+                    logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
+                    logger.trace("Sample Directory: " + resultDirName);
+                    String sampleList = getSampleList(resultDirName);
                     //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                     //logger.trace("Set MD5 hash");
                     //setTransferFileMD5(workDirName + transfer_status_file, md5map);
