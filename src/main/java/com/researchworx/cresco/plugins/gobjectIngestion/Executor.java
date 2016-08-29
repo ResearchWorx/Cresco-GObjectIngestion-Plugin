@@ -191,6 +191,9 @@ public class Executor extends CExecutor {
                         break;
                     case 4:
                         break;
+                    case 7:
+                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        break;
                     default:
                         logger.error("Undefined pStep " + pathStageName + " !");
                         break;
