@@ -393,13 +393,13 @@ public class ObjectFS implements Runnable {
                 pse.setParam("sstep", String.valueOf(sstep));
                 plugin.sendMsgEvent(pse);
 
-                oe.uploadSequenceDirectory(objects_bucket_name, resultDirName, seqId, seqId, String.valueOf(sstep));
+                oe.uploadSequenceDirectory(objects_bucket_name, resultDirName + "clinical/" + seqId + "/", seqId, seqId, String.valueOf(sstep));
 
                 List<String> filterList = new ArrayList<>();
                 logger.trace("Add [transfer_status_file] to [filterList]");
 
                 oe = new ObjectEngine(plugin);
-                if (oe.isSyncDir(objects_bucket_name, seqId + "/", resultDirName, filterList)) {
+                if (oe.isSyncDir(objects_bucket_name, seqId + "/", resultDirName + "clinical/" + seqId + "/", filterList)) {
                     sstep = 7;
                     logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
                     logger.trace("Sample Directory: " + resultDirName + "clinical/" + seqId + "/");
