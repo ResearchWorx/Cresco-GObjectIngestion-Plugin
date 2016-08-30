@@ -65,7 +65,7 @@ public class ObjectEngine {
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
-        //clientConfig.setMaxConnections(100);
+        clientConfig.setMaxConnections(plugin.getConfig().getIntegerParam("maxconnections", 50));
 
 
         logger.trace("Connecting to Amazon S3");
