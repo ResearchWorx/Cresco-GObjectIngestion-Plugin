@@ -133,9 +133,9 @@ public class ObjectEngine {
                 float transferRate = (bytesTransfered / 1000000) / transferTime;
 
                 logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
-                logger.debug("\t- Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
+                logger.debug(" - Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
                 logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
-                logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
+                logger.debug(" - Transfer rate : " + transferRate + " MB/sec");
 
                 MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
                 me.setParam("indir", inDir);
@@ -198,8 +198,8 @@ public class ObjectEngine {
                 Thread.sleep(5000);
 
                 logger.debug("Transfer: " + myUpload.getDescription());
-                logger.debug("  - State: " + myUpload.getState());
-                logger.debug("  - Progress Bytes: "
+                logger.debug(" - State: " + myUpload.getState());
+                logger.debug(" - Progress Bytes: "
                         + myUpload.getProgress().getBytesTransferred());
 
                 float transferTime = (System.currentTimeMillis() - startUpload) / 1000;
@@ -207,7 +207,7 @@ public class ObjectEngine {
                 float transferRate = (bytesTransfered / 1000000) / transferTime;
 
                 logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
-                logger.debug(" - Transfered : " + humanReadableByteCount(myUpload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred() + ")"));
+                logger.debug(" - Transfered : " + humanReadableByteCount(myUpload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
                 logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
                 logger.debug(" - Transfer rate : " + percentFormatter.format(transferRate) + " MB/sec");
 
@@ -281,7 +281,7 @@ public class ObjectEngine {
                 float transferRate = (bytesTransfered / 1000000) / transferTime;
 
                 logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
-                logger.debug(" - Transfered : " + humanReadableByteCount(myUpload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred() + ")"));
+                logger.debug(" - Transfered : " + humanReadableByteCount(myUpload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
                 logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
                 logger.debug(" - Transfer rate : " + percentFormatter.format(transferRate) + " MB/sec");
 
@@ -380,9 +380,9 @@ public class ObjectEngine {
                 float transferRate = (bytesTransfered / 1000000) / transferTime;
 
                 logger.debug("Download Transfer Desc: " + myDownload.getDescription());
-                logger.debug("  Transfered : " + humanReadableByteCount(myDownload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myDownload.getProgress().getPercentTransferred()));
+                logger.debug(" - Transfered : " + humanReadableByteCount(myDownload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myDownload.getProgress().getPercentTransferred()) + "%)");
                 logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
-                logger.debug("  Transfer rate : " + transferRate + " MB/sec");
+                logger.debug(" - Transfer rate : " + transferRate + " MB/sec");
 
                 wasTransfered = true;
             } catch (Exception ex) {
