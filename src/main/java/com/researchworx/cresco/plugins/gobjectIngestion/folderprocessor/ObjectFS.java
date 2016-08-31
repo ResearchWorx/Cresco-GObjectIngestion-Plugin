@@ -94,10 +94,24 @@ public class ObjectFS implements Runnable {
 
         pstep = 3;
         int sstep = 0;
-        String objects_bucket_name = plugin.getConfig().getStringParam("objects_bucket");
-        if (objects_bucket_name == null || objects_bucket_name.equals("")) {
+        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        if (clinical_bucket_name == null || clinical_bucket_name.equals("")) {
             plugin.PathProcessorActive = false;
-            MsgEvent error = plugin.genGMessage(MsgEvent.Type.ERROR, "Configuration value [objects_bucket] is not properly set");
+            MsgEvent error = plugin.genGMessage(MsgEvent.Type.ERROR, "Configuration value [clinical_bucket] is not properly set");
+            error.setParam("req_id", reqId);
+            error.setParam("seq_id", seqId);
+            error.setParam("transfer_status_file", transfer_status_file);
+            error.setParam("bucket_name", bucket_name);
+            error.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            error.setParam("pathstage", pathStage);
+            error.setParam("sstep", String.valueOf(sstep));
+            plugin.sendMsgEvent(error);
+            return;
+        }
+        String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        if (research_bucket_name == null || research_bucket_name.equals("")) {
+            plugin.PathProcessorActive = false;
+            MsgEvent error = plugin.genGMessage(MsgEvent.Type.ERROR, "Configuration value [research_bucket] is not properly set");
             error.setParam("req_id", reqId);
             error.setParam("seq_id", seqId);
             error.setParam("transfer_status_file", transfer_status_file);
@@ -121,11 +135,11 @@ public class ObjectFS implements Runnable {
             if (!workDirName.endsWith("/")) {
                 workDirName += "/";
             }
-            /*File workDir = new File(workDirName);
+            File workDir = new File(workDirName);
             if (workDir.exists()) {
                 deleteDirectory(workDir);
             }
-            workDir.mkdir();*/
+            workDir.mkdir();
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
@@ -151,7 +165,6 @@ public class ObjectFS implements Runnable {
             pse.setParam("req_id", reqId);
             pse.setParam("transfer_status_file", transfer_status_file);
             pse.setParam("bucket_name", bucket_name);
-            pse.setParam("objects_bucket_name", objects_bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
             pse.setParam("sstep", String.valueOf(sstep));
@@ -173,7 +186,6 @@ public class ObjectFS implements Runnable {
                 pse.setParam("req_id", reqId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
-                pse.setParam("objects_bucket_name", objects_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("sstep", String.valueOf(sstep));
@@ -188,7 +200,6 @@ public class ObjectFS implements Runnable {
             pse.setParam("transfer_watch_file", transfer_watch_file);
             pse.setParam("transfer_status_file", transfer_status_file);
             pse.setParam("bucket_name", bucket_name);
-            pse.setParam("objects_bucket_name", objects_bucket_name);
             pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             pse.setParam("pathstage", pathStage);
             pse.setParam("error_message", ex.getMessage());
@@ -213,7 +224,6 @@ public class ObjectFS implements Runnable {
                 pse.setParam("seq_id", seqId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
-                pse.setParam("objects_bucket_name", objects_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("sstep", String.valueOf(sstep));
@@ -249,7 +259,6 @@ public class ObjectFS implements Runnable {
                 pse.setParam("seq_id", seqId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
-                pse.setParam("objects_bucket_name", objects_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("sstep", String.valueOf(sstep));
@@ -291,7 +300,6 @@ public class ObjectFS implements Runnable {
                                     pse.setParam("seq_id", seqId);
                                     pse.setParam("transfer_status_file", transfer_status_file);
                                     pse.setParam("bucket_name", bucket_name);
-                                    pse.setParam("objects_bucket_name", objects_bucket_name);
                                     pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                                     pse.setParam("pathstage", pathStage);
                                     pse.setParam("sstep", String.valueOf(sstep));
@@ -307,7 +315,6 @@ public class ObjectFS implements Runnable {
                                 pse.setParam("seq_id", seqId);
                                 pse.setParam("transfer_status_file", transfer_status_file);
                                 pse.setParam("bucket_name", bucket_name);
-                                pse.setParam("objects_bucket_name", objects_bucket_name);
                                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                                 pse.setParam("pathstage", pathStage);
                                 pse.setParam("sstep", String.valueOf(sstep));
@@ -332,7 +339,6 @@ public class ObjectFS implements Runnable {
                         pse.setParam("seq_id", seqId);
                         pse.setParam("transfer_status_file", transfer_status_file);
                         pse.setParam("bucket_name", bucket_name);
-                        pse.setParam("objects_bucket_name", objects_bucket_name);
                         pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                         pse.setParam("pathstage", pathStage);
                         pse.setParam("sstep", String.valueOf(sstep));
@@ -345,7 +351,6 @@ public class ObjectFS implements Runnable {
                     pse.setParam("seq_id", seqId);
                     pse.setParam("transfer_status_file", transfer_status_file);
                     pse.setParam("bucket_name", bucket_name);
-                    pse.setParam("objects_bucket_name", objects_bucket_name);
                     pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     pse.setParam("pathstage", pathStage);
                     pse.setParam("sstep", String.valueOf(sstep));
@@ -370,7 +375,6 @@ public class ObjectFS implements Runnable {
                 pse.setParam("seq_id", seqId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
-                pse.setParam("objects_bucket_name", objects_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("sstep", String.valueOf(sstep));
@@ -387,19 +391,18 @@ public class ObjectFS implements Runnable {
                 pse.setParam("seq_id", seqId);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
-                pse.setParam("objects_bucket_name", objects_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("sstep", String.valueOf(sstep));
                 plugin.sendMsgEvent(pse);
 
-                oe.uploadSequenceDirectory(objects_bucket_name, resultDirName + "clinical/" + seqId + "/", seqId, seqId, String.valueOf(sstep));
+                oe.uploadSequenceDirectory(clinical_bucket_name, resultDirName + "clinical/" + seqId + "/", seqId, seqId, String.valueOf(sstep));
 
                 List<String> filterList = new ArrayList<>();
                 logger.trace("Add [transfer_status_file] to [filterList]");
 
                 oe = new ObjectEngine(plugin);
-                if (oe.isSyncDir(objects_bucket_name, seqId + "/", resultDirName + "clinical/" + seqId + "/", filterList)) {
+                if (oe.isSyncDir(clinical_bucket_name, seqId + "/", resultDirName + "clinical/" + seqId + "/", filterList)) {
                     sstep = 7;
                     logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
                     logger.trace("Sample Directory: " + resultDirName + "clinical/" + seqId + "/");
@@ -413,7 +416,6 @@ public class ObjectFS implements Runnable {
                     pse.setParam("seq_id", seqId);
                     pse.setParam("transfer_status_file", transfer_status_file);
                     pse.setParam("bucket_name", bucket_name);
-                    pse.setParam("objects_bucket_name", objects_bucket_name);
                     pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                     pse.setParam("pathstage", pathStage);
                     if (sampleList != null) {
@@ -425,6 +427,27 @@ public class ObjectFS implements Runnable {
                     pse.setParam("sstep", String.valueOf(sstep));
                     plugin.sendMsgEvent(pse);
                 }
+
+                oe.uploadSequenceDirectory(research_bucket_name, resultDirName + "research/" + seqId + "/", seqId, seqId, String.valueOf(sstep));
+
+                oe = new ObjectEngine(plugin);
+                if (oe.isSyncDir(research_bucket_name, seqId + "/", resultDirName + "research/" + seqId + "/", filterList)) {
+                    sstep = 7;
+                    logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
+                    //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
+                    //logger.trace("Set MD5 hash");
+                    //setTransferFileMD5(workDirName + transfer_status_file, md5map);
+                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Results Directory Transferred");
+                    pse.setParam("indir", workDirName);
+                    pse.setParam("req_id", reqId);
+                    pse.setParam("seq_id", seqId);
+                    pse.setParam("transfer_status_file", transfer_status_file);
+                    pse.setParam("bucket_name", bucket_name);
+                    pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    pse.setParam("pathstage", pathStage);
+                    pse.setParam("sstep", String.valueOf(sstep));
+                    plugin.sendMsgEvent(pse);
+                }
             } catch (Exception e) {
                 logger.error("processSequence {}", e.getMessage());
                 pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
@@ -433,7 +456,6 @@ public class ObjectFS implements Runnable {
                 pse.setParam("transfer_watch_file", transfer_watch_file);
                 pse.setParam("transfer_status_file", transfer_status_file);
                 pse.setParam("bucket_name", bucket_name);
-                pse.setParam("objects_bucket_name", objects_bucket_name);
                 pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                 pse.setParam("pathstage", pathStage);
                 pse.setParam("error_message", e.getMessage());
