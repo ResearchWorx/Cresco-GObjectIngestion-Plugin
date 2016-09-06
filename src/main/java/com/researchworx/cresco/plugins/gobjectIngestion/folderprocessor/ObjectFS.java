@@ -264,11 +264,15 @@ public class ObjectFS implements Runnable {
                 pse.setParam("sstep", String.valueOf(sstep));
                 plugin.sendMsgEvent(pse);
 
+                Process clear = Runtime.getRuntime().exec("docker kill procsec. " + seqId + " && docker rm procseq." + seqId);
+                clear.waitFor();
+
                 String command = "docker run " +
                         "-v " + researchResultsDirName + ":/gdata/output/research " +
                         "-v " + clinicalResultsDirName + ":/gdata/output/clinical " +
                         "-v " + workDirName + ":/gdata/input " +
                         "-e INPUT_FOLDER_PATH=/gdata/input/" + remoteDir + " " +
+                        "--name procseq." + seqId + " " +
                         "-t intrepo.uky.edu:5000/gbase /opt/pretools/raw_data_processing_version-1.0.pl";
 
                 logger.trace("Running Docker Command: {}", command);
@@ -327,6 +331,8 @@ public class ObjectFS implements Runnable {
                     logger.trace("Waiting for Docker process to finish");
 
                     p.waitFor();
+
+                    logger.trace("Docker Exit Code: {}", p.exitValue());
 
                     sstep = 5;
                     if (trackPerf) {
@@ -410,7 +416,7 @@ public class ObjectFS implements Runnable {
                     //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                     //logger.trace("Set MD5 hash");
                     //setTransferFileMD5(workDirName + transfer_status_file, md5map);
-                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Results Directory Transferred");
+                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Clinical Results Directory Transferred");
                     pse.setParam("indir", workDirName);
                     pse.setParam("req_id", reqId);
                     pse.setParam("seq_id", seqId);
@@ -437,7 +443,7 @@ public class ObjectFS implements Runnable {
                     //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                     //logger.trace("Set MD5 hash");
                     //setTransferFileMD5(workDirName + transfer_status_file, md5map);
-                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Results Directory Transferred");
+                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Research Results Directory Transferred");
                     pse.setParam("indir", workDirName);
                     pse.setParam("req_id", reqId);
                     pse.setParam("seq_id", seqId);
@@ -464,6 +470,46 @@ public class ObjectFS implements Runnable {
             }
         }
         pstep = 2;
+    }
+
+    public void endProcessSequence(String seqId, String reqId) {
+        MsgEvent pse;
+        try {
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Canceling pre-processing");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("sstep", String.valueOf(0));
+            plugin.sendMsgEvent(pse);
+            Process clear = Runtime.getRuntime().exec("docker kill procsec. " + seqId + " && docker rm procseq." + seqId);
+            clear.waitFor();
+            Thread.sleep(500);
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing canceled");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("sstep", String.valueOf(0));
+            plugin.sendMsgEvent(pse);
+        } catch (Exception e) {
+            logger.error("processSequence {}", e.getMessage());
+            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("transfer_watch_file", transfer_watch_file);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("error_message", e.getMessage());
+            pse.setParam("sstep", String.valueOf(0));
+            plugin.sendMsgEvent(pse);
+        }
     }
 
     private boolean deleteDirectory(File path) {
@@ -877,9 +923,13 @@ public class ObjectFS implements Runnable {
                 pse.setParam("ssstep", String.valueOf(ssstep));
                 plugin.sendMsgEvent(pse);
 
+                Process clear = Runtime.getRuntime().exec("docker kill procsam. " + sampleId.replace("/", ".") + " && docker rm procsam." + sampleId.replace("/", "."));
+                clear.waitFor();
+
                 String command = "docker run -t -v /mnt/localdata/gpackage:/gpackage " +
                         "-v " + workDirName + ":/gdata/input " +
                         "-v " + resultDirName + ":/gdata/output " +
+                        "--name procsam." + sampleId.replace("/", ".") + " " +
                         "intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
 
                 logger.trace("Running Docker Command: {}", command);
@@ -942,6 +992,8 @@ public class ObjectFS implements Runnable {
                     logger.trace("Waiting for Docker process to finish");
 
                     p.waitFor();
+
+                    logger.trace("Docker exit code = {}", p.exitValue());
 
                     ssstep = 5;
                     if (trackPerf) {
@@ -1065,6 +1117,49 @@ public class ObjectFS implements Runnable {
             }
         }
         pstep = 2;
+    }
+
+    public void endProcessSample(String seqId, String sampleId, String reqId) {
+        MsgEvent pse;
+        try {
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Canceling processing");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("sample_id", sampleId);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("sstep", String.valueOf(0));
+            plugin.sendMsgEvent(pse);
+            Process clear = Runtime.getRuntime().exec("docker kill procsam. " + sampleId.replace("/", ".") + " && docker rm procsam." + sampleId.replace("/", "."));
+            clear.waitFor();
+            Thread.sleep(500);
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing canceled");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("sample_id", sampleId);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("sstep", String.valueOf(0));
+            plugin.sendMsgEvent(pse);
+        } catch (Exception e) {
+            logger.error("processSequence {}", e.getMessage());
+            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("sample_id", sampleId);
+            pse.setParam("transfer_watch_file", transfer_watch_file);
+            pse.setParam("transfer_status_file", transfer_status_file);
+            pse.setParam("bucket_name", bucket_name);
+            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("error_message", e.getMessage());
+            pse.setParam("sstep", String.valueOf(0));
+            plugin.sendMsgEvent(pse);
+        }
     }
 
     public void downloadResults(String seqId, String reqId) {

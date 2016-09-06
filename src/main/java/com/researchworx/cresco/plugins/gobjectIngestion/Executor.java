@@ -35,6 +35,7 @@ public class Executor extends CExecutor {
                         break;
                     case 5:
                         pathStage5(msg,pathStage);
+                        break;
                     default:
                         logger.error("Undefined pathStage!");
                         break;
@@ -126,6 +127,9 @@ public class Executor extends CExecutor {
                         break;
                     case 4:
                         break;
+                    case 999:
+                        Plugin.objectToFSp.endProcessSequence(seqId, reqId);
+                        break;
                     default:
                         logger.error("Undefined pStep " + pathStageName + " !");
                         break;
@@ -193,6 +197,9 @@ public class Executor extends CExecutor {
                         break;
                     case 7:
                         Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        break;
+                    case 999:
+                        Plugin.objectToFSp.endProcessSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"));
                         break;
                     default:
                         logger.error("Undefined pStep " + pathStageName + " !");
