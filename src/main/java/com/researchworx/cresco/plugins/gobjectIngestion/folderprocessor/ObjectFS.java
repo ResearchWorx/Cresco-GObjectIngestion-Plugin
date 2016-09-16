@@ -923,7 +923,9 @@ public class ObjectFS implements Runnable {
                 pse.setParam("ssstep", String.valueOf(ssstep));
                 plugin.sendMsgEvent(pse);
 
-                Process clear = Runtime.getRuntime().exec("docker kill procsam. " + sampleId.replace("/", ".") + " && docker rm procsam." + sampleId.replace("/", "."));
+                String containerName = "procsam." + sampleId.replace("/", ".");
+
+                Process clear = Runtime.getRuntime().exec("docker kill " + containerName + " && docker rm procsam." + containerName);
                 clear.waitFor();
 
                 String command = "docker run -t -v /mnt/localdata/gpackage:/gpackage " +
