@@ -255,7 +255,10 @@ public class ObjectFS implements Runnable {
 
                 String containerName = "procseq." + seqId;
 
-                Process clear = Runtime.getRuntime().exec("docker kill " + containerName + " && docker rm " + containerName);
+                Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
+                kill.waitFor();
+
+                Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
                 clear.waitFor();
 
                 String command = "docker run " +
@@ -324,7 +327,6 @@ public class ObjectFS implements Runnable {
                     p.waitFor();
                     logger.trace("Docker Exit Code: {}", p.exitValue());
 
-                    sstep = 5;
                     if (trackPerf) {
                         logger.trace("Ending Performance Monitor");
                         pt.isActive = false;
@@ -365,20 +367,24 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Pipeline has finished");
 
-                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
-                pse.setParam("indir", workDirName);
-                pse.setParam("req_id", reqId);
-                pse.setParam("seq_id", seqId);
-                pse.setParam("transfer_status_file", transfer_status_file);
-                pse.setParam("bucket_name", bucket_name);
-                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                pse.setParam("pathstage", pathStage);
-                pse.setParam("sstep", String.valueOf(sstep));
-                plugin.sendMsgEvent(pse);
+                Thread.sleep(500);
 
                 if (p != null) {
                     switch (p.exitValue()) {
                         case 0:     // Container finished successfully
+
+                            sstep = 5;
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
+                            pse.setParam("indir", workDirName);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("sstep", String.valueOf(sstep));
+                            plugin.sendMsgEvent(pse);
+
                             ObjectEngine oe = new ObjectEngine(plugin);
 
                             logger.trace("Uploading results to objectStore");
@@ -533,7 +539,24 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                     }
+                } else {
+                    pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error retrieving return code from container");
+                    pse.setParam("indir", workDirName);
+                    pse.setParam("req_id", reqId);
+                    pse.setParam("seq_id", seqId);
+                    pse.setParam("transfer_status_file", transfer_status_file);
+                    pse.setParam("bucket_name", bucket_name);
+                    pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    pse.setParam("pathstage", pathStage);
+                    pse.setParam("sstep", String.valueOf(sstep));
+                    plugin.sendMsgEvent(pse);
                 }
+
+                Process postKill = Runtime.getRuntime().exec("docker kill " + containerName);
+                postKill.waitFor();
+
+                Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
+                postClear.waitFor();
             } catch (Exception e) {
                 logger.error("processSequence {}", e.getMessage());
                 pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
@@ -556,9 +579,14 @@ public class ObjectFS implements Runnable {
         MsgEvent pse;
         try {
             String containerName = "procseq." + seqId;
-            Process clear = Runtime.getRuntime().exec("docker kill " + containerName + " && docker rm " + containerName);
+
+            Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
+            kill.waitFor();
+
+            Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
             clear.waitFor();
-            if (clear.exitValue() == 0) {
+
+            if (kill.exitValue() == 0) {
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing canceled");
                 pse.setParam("req_id", reqId);
                 pse.setParam("seq_id", seqId);
@@ -985,7 +1013,10 @@ public class ObjectFS implements Runnable {
 
                 String containerName = "procsam." + sampleId.replace("/", ".");
 
-                Process clear = Runtime.getRuntime().exec("docker kill " + containerName + " && docker rm " + containerName);
+                Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
+                kill.waitFor();
+
+                Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
                 clear.waitFor();
 
                 String command = "docker run -t -v /mnt/localdata/gpackage:/gpackage " +
@@ -1058,7 +1089,6 @@ public class ObjectFS implements Runnable {
                     p.waitFor();
                     logger.trace("Docker exit code = {}", p.exitValue());
 
-                    ssstep = 5;
                     if (trackPerf) {
                         logger.trace("Ending Performance Monitor");
                         pt.isActive = false;
@@ -1103,22 +1133,25 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Pipeline has finished");
 
-                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
-                pse.setParam("indir", workDirName);
-                pse.setParam("req_id", reqId);
-                pse.setParam("seq_id", seqId);
-                pse.setParam("sample_id", sampleId);
-                pse.setParam("transfer_status_file", transfer_status_file);
-                pse.setParam("bucket_name", bucket_name);
-                pse.setParam("results_bucket_name", results_bucket_name);
-                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                pse.setParam("pathstage", pathStage);
-                pse.setParam("ssstep", String.valueOf(ssstep));
-                plugin.sendMsgEvent(pse);
+                Thread.sleep(500);
 
                 if (p != null) {
                     switch (p.exitValue()) {
                         case 0:     // Container finished successfully
+                            ssstep = 5;
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
+                            pse.setParam("indir", workDirName);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("sample_id", sampleId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("results_bucket_name", results_bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("ssstep", String.valueOf(ssstep));
+                            plugin.sendMsgEvent(pse);
+
                             ObjectEngine oe = new ObjectEngine(plugin);
 
                             logger.trace("Uploading results to objectStore");
@@ -1167,7 +1200,7 @@ public class ObjectFS implements Runnable {
                             }
                             break;
                         case 1:     // Container error encountered
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "General Docker Error Encountered (Err: 1)");
+                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "General Docker Error Encountered (Err: 1)");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -1181,7 +1214,7 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                         case 100:   // Script failure encountered
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Processing Pipeline encountered an error (Err: 100)");
+                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Processing Pipeline encountered an error (Err: 100)");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -1195,7 +1228,7 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                         case 125:   // Container failed to run
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Container failed to run (Err: 125)");
+                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Container failed to run (Err: 125)");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -1209,7 +1242,7 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                         case 126:   // Container command cannot be invoked
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Container command failed to be invoked (Err: 126)");
+                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Container command failed to be invoked (Err: 126)");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -1223,7 +1256,7 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                         case 127:   // Container command cannot be found
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Container command could not be found (Err: 127)");
+                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Container command could not be found (Err: 127)");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -1237,7 +1270,7 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                         case 137:   // Container was killed
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Container was manually stopped (Err: 137)");
+                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Container was manually stopped (Err: 137)");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -1251,7 +1284,7 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                         default:    // Other return code encountered
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Unknown container return code (Err: " + p.exitValue() + ")");
+                            pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Unknown container return code (Err: " + p.exitValue() + ")");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -1265,7 +1298,26 @@ public class ObjectFS implements Runnable {
                             plugin.sendMsgEvent(pse);
                             break;
                     }
+                } else {
+                    pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error retrieving exit code of container");
+                    pse.setParam("indir", workDirName);
+                    pse.setParam("req_id", reqId);
+                    pse.setParam("seq_id", seqId);
+                    pse.setParam("sample_id", sampleId);
+                    pse.setParam("transfer_status_file", transfer_status_file);
+                    pse.setParam("bucket_name", bucket_name);
+                    pse.setParam("results_bucket_name", results_bucket_name);
+                    pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    pse.setParam("pathstage", pathStage);
+                    pse.setParam("ssstep", String.valueOf(ssstep));
+                    plugin.sendMsgEvent(pse);
                 }
+
+                Process postKill = Runtime.getRuntime().exec("docker kill " + containerName);
+                postKill.waitFor();
+
+                Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
+                postClear.waitFor();
             } catch (Exception e) {
                 logger.error("processSample {}", e.getMessage());
                 pse = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
@@ -1290,9 +1342,14 @@ public class ObjectFS implements Runnable {
         MsgEvent pse;
         try {
             String containerName = "procsam." + sampleId.replace("/", ".");
-            Process clear = Runtime.getRuntime().exec("docker kill " + containerName + " && docker rm " + containerName);
+
+            Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
+            kill.waitFor();
+
+            Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
             clear.waitFor();
-            if (clear.exitValue() == 0) {
+
+            if (kill.exitValue() == 0) {
                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing canceled");
                 pse.setParam("req_id", reqId);
                 pse.setParam("seq_id", seqId);
