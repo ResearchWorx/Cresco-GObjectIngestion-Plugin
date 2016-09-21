@@ -1322,7 +1322,7 @@ public class ObjectFS implements Runnable {
     }
 
     public void downloadResults(String seqId, String reqId) {
-        logger.debug("Call to processSequence seq_id: " + seqId, ", req_id: " + reqId);
+        logger.debug("Call to downloadResults seq_id: " + seqId, ", req_id: " + reqId);
 
         pstep = 3;
         int sstep = 1;

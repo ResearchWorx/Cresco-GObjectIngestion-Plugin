@@ -202,7 +202,7 @@ public class Executor extends CExecutor {
                         Plugin.objectToFSp.endProcessSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"));
                         break;
                     default:
-                        logger.error("Undefined pStep " + pathStageName + " !");
+                        logger.error("Undefined sStep " + pathStageName + " !");
                         break;
                 }
             } else if(eventType.equals(MsgEvent.Type.ERROR)) {
