@@ -367,12 +367,11 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Pipeline has finished");
 
-                Thread.sleep(500);
+                Thread.sleep(2000);
 
                 if (p != null) {
                     switch (p.exitValue()) {
                         case 0:     // Container finished successfully
-
                             sstep = 5;
                             pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pipeline has completed");
                             pse.setParam("indir", workDirName);
@@ -1150,7 +1149,7 @@ public class ObjectFS implements Runnable {
 
                 logger.trace("Pipeline has finished");
 
-                Thread.sleep(500);
+                Thread.sleep(2000);
 
                 if (p != null) {
                     switch (p.exitValue()) {
