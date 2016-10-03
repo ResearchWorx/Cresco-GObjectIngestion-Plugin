@@ -1426,11 +1426,6 @@ public class ObjectFS implements Runnable {
             if (!workDirName.endsWith("/")) {
                 workDirName += "/";
             }
-            /*File workDir = new File(workDirName);
-            if (workDir.exists()) {
-                deleteDirectory(workDir);
-            }
-            workDir.mkdir();*/
 
             List<String> filterList = new ArrayList<>();
             logger.trace("Add [transfer_status_file] to [filterList]");
@@ -1443,6 +1438,11 @@ public class ObjectFS implements Runnable {
 
             //workDirName += remoteDir;
             */
+            File seqDir = new File(workDirName + seqId);
+            if (seqDir.exists()) {
+                deleteDirectory(seqDir);
+            }
+            //workDir.mkdir();
 
             ObjectEngine oe = new ObjectEngine(plugin);
 
