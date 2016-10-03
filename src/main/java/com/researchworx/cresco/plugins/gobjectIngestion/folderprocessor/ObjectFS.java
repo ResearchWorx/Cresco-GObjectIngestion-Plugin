@@ -381,6 +381,23 @@ public class ObjectFS implements Runnable {
                         case 0:     // Container finished successfully
                             ObjectEngine oe = new ObjectEngine(plugin);
 
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Deleting old pre-processed files from Object Store");
+                            //me.setParam("inDir", remoteDir);
+                            //me.setParam("outDir", incoming_directory);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("sstep", String.valueOf(sstep));
+                            plugin.sendMsgEvent(pse);
+
+                            logger.trace("Deleting old clinical files");
+                            oe.deleteBucketDirectoryContents(clinical_bucket_name, seqId);
+                            logger.trace("Deleting old research files");
+                            oe.deleteBucketDirectoryContents(research_bucket_name, seqId);
+
                             logger.trace("Uploading results to objectStore");
 
                             sstep = 6;
@@ -1120,6 +1137,22 @@ public class ObjectFS implements Runnable {
                     switch (p.exitValue()) {
                         case 0:     // Container finished successfully
                             ObjectEngine oe = new ObjectEngine(plugin);
+
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Cleaning out old results from Object Store");
+                            //me.setParam("inDir", remoteDir);
+                            //me.setParam("outDir", incoming_directory);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("sample_id", sampleId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("results_bucket_name", results_bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("ssstep", String.valueOf(ssstep));
+                            plugin.sendMsgEvent(pse);
+
+                            oe.deleteBucketDirectoryContents(results_bucket_name, seqId + "/" + sampleId + "/");
 
                             logger.trace("Uploading results to objectStore");
 

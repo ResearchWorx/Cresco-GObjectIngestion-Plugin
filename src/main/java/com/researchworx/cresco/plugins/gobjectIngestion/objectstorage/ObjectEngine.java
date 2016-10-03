@@ -795,6 +795,22 @@ public class ObjectEngine {
         } while (objects.isTruncated());
     }
 
+    public void deleteBucketDirectoryContents(String bucket, String prefixKey) {
+        if (!prefixKey.endsWith("/"))
+            prefixKey = prefixKey + "/";
+        logger.debug("Call to deleteBucketDirectoryContents [bucket = {}, prefixKey = {}]", bucket, prefixKey);
+        try {
+            if (doesBucketExist(bucket)) {
+                for (S3ObjectSummary objectSummary : S3Objects.withPrefix(conn, bucket, prefixKey)) {
+                    logger.trace("Deleting [{}] from bucket [{}]", objectSummary.getKey(), bucket);
+                    conn.deleteObject(bucket, objectSummary.getKey());
+                }
+            }
+        } catch (Exception e) {
+            logger.error("deleteBucketDirectoryContents {}", e.getMessage());
+        }
+    }
+
     public static String humanReadableByteCount(long bytes, boolean si) {
         int unit = si ? 1000 : 1024;
         if (bytes < unit) return bytes + " B";
