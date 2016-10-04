@@ -592,9 +592,6 @@ public class ObjectFS implements Runnable {
                     plugin.sendMsgEvent(pse);
                 }
 
-                Process postKill = Runtime.getRuntime().exec("docker kill " + containerName);
-                postKill.waitFor();
-
                 Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
                 postClear.waitFor();
             } catch (Exception e) {
@@ -622,6 +619,8 @@ public class ObjectFS implements Runnable {
 
             Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
             kill.waitFor();
+
+            Thread.sleep(500);
 
             Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
             clear.waitFor();
@@ -1056,6 +1055,8 @@ public class ObjectFS implements Runnable {
                 Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
                 kill.waitFor();
 
+                Thread.sleep(500);
+
                 Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
                 clear.waitFor();
 
@@ -1369,8 +1370,7 @@ public class ObjectFS implements Runnable {
                     plugin.sendMsgEvent(pse);
                 }
 
-                Process postKill = Runtime.getRuntime().exec("docker kill " + containerName);
-                postKill.waitFor();
+                Thread.sleep(500);
 
                 Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
                 postClear.waitFor();
@@ -1401,6 +1401,8 @@ public class ObjectFS implements Runnable {
 
             Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
             kill.waitFor();
+
+            Thread.sleep(500);
 
             Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
             clear.waitFor();
