@@ -422,8 +422,13 @@ public class ObjectFS implements Runnable {
                             List<String> filterList = new ArrayList<>();
                             logger.trace("Add [transfer_status_file] to [filterList]");
 
+                            boolean clinicalSynced = false;
+                            boolean researchSynced = false;
+
                             oe = new ObjectEngine(plugin);
                             if (oe.isSyncDir(clinical_bucket_name, seqId + "/", resultDirName + "clinical/" + seqId + "/", filterList)) {
+                                clinicalSynced = true;
+                                sstep = 7;
                                 logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
                                 logger.trace("Sample Directory: " + resultDirName + "clinical/" + seqId + "/");
                                 String sampleList = getSampleList(resultDirName + "clinical/" + seqId + "/");
@@ -452,6 +457,7 @@ public class ObjectFS implements Runnable {
 
                             oe = new ObjectEngine(plugin);
                             if (oe.isSyncDir(research_bucket_name, seqId + "/", resultDirName + "research/" + seqId + "/", filterList)) {
+                                researchSynced = true;
                                 logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
                                 //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                                 //logger.trace("Set MD5 hash");
@@ -468,30 +474,31 @@ public class ObjectFS implements Runnable {
                                 plugin.sendMsgEvent(pse);
                             }
 
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Removing RAW files from Object Store");
-                            pse.setParam("indir", workDirName);
-                            pse.setParam("req_id", reqId);
-                            pse.setParam("seq_id", seqId);
-                            pse.setParam("transfer_status_file", transfer_status_file);
-                            pse.setParam("bucket_name", bucket_name);
-                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                            pse.setParam("pathstage", pathStage);
-                            pse.setParam("sstep", String.valueOf(sstep));
-                            plugin.sendMsgEvent(pse);
+                            if (clinicalSynced && researchSynced) {
+                                pstep = 2;
+                                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Removing RAW files from Object Store");
+                                pse.setParam("indir", workDirName);
+                                pse.setParam("req_id", reqId);
+                                pse.setParam("seq_id", seqId);
+                                pse.setParam("transfer_status_file", transfer_status_file);
+                                pse.setParam("bucket_name", bucket_name);
+                                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                                pse.setParam("pathstage", pathStage);
+                                pse.setParam("sstep", String.valueOf(sstep));
+                                plugin.sendMsgEvent(pse);
 
-                            oe.deleteBucketDirectoryContents(bucket_name, seqId);
-
-                            sstep = 7;
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing has completed successfully");
-                            pse.setParam("indir", workDirName);
-                            pse.setParam("req_id", reqId);
-                            pse.setParam("seq_id", seqId);
-                            pse.setParam("transfer_status_file", transfer_status_file);
-                            pse.setParam("bucket_name", bucket_name);
-                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                            pse.setParam("pathstage", pathStage);
-                            pse.setParam("sstep", String.valueOf(sstep));
-                            plugin.sendMsgEvent(pse);
+                                oe.deleteBucketDirectoryContents(bucket_name, seqId);
+                                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing has completed successfully");
+                                pse.setParam("indir", workDirName);
+                                pse.setParam("req_id", reqId);
+                                pse.setParam("seq_id", seqId);
+                                pse.setParam("transfer_status_file", transfer_status_file);
+                                pse.setParam("bucket_name", bucket_name);
+                                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                                pse.setParam("pathstage", pathStage);
+                                pse.setParam("sstep", String.valueOf(sstep));
+                                plugin.sendMsgEvent(pse);
+                            }
 
                             break;
                         case 1:     // Container error encountered
@@ -877,6 +884,7 @@ public class ObjectFS implements Runnable {
         pstep = 3;
         String results_bucket_name = plugin.getConfig().getStringParam("results_bucket");
         if (results_bucket_name == null || results_bucket_name.equals("")) {
+            logger.error("Configuration value [results_bucket] is not properly set, halting agent");
             MsgEvent error = plugin.genGMessage(MsgEvent.Type.ERROR, "Configuration value [results_bucket] is not properly set");
             error.setParam("req_id", reqId);
             error.setParam("seq_id", seqId);
