@@ -475,19 +475,6 @@ public class ObjectFS implements Runnable {
                             }
 
                             if (clinicalSynced && researchSynced) {
-                                /*pstep = 2;
-                                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Removing RAW files from Object Store");
-                                pse.setParam("indir", workDirName);
-                                pse.setParam("req_id", reqId);
-                                pse.setParam("seq_id", seqId);
-                                pse.setParam("transfer_status_file", transfer_status_file);
-                                pse.setParam("bucket_name", bucket_name);
-                                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                                pse.setParam("pathstage", pathStage);
-                                pse.setParam("sstep", String.valueOf(sstep));
-                                plugin.sendMsgEvent(pse);
-
-                                oe.deleteBucketDirectoryContents(bucket_name, seqId);*/
                                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing has completed successfully");
                                 pse.setParam("indir", workDirName);
                                 pse.setParam("req_id", reqId);
@@ -1217,7 +1204,7 @@ public class ObjectFS implements Runnable {
                             pse.setParam("ssstep", String.valueOf(ssstep));
                             plugin.sendMsgEvent(pse);
 
-                            oe.deleteBucketDirectoryContents(results_bucket_name, seqId + "/" + sampleId + "/");
+                            oe.deleteBucketDirectoryContents(results_bucket_name, sampleId + "/");
 
                             logger.trace("Uploading results to objectStore");
 
@@ -1235,7 +1222,7 @@ public class ObjectFS implements Runnable {
                             pse.setParam("ssstep", String.valueOf(ssstep));
                             plugin.sendMsgEvent(pse);
 
-                            oe.uploadSampleDirectory(results_bucket_name, resultDirName, seqId + "/" + sampleId + "/", seqId, sampleId, String.valueOf(ssstep));
+                            oe.uploadSampleDirectory(results_bucket_name, resultDirName, "/", seqId, sampleId, String.valueOf(ssstep));
 
                             List<String> filterList = new ArrayList<>();
                             logger.trace("Add [transfer_status_file] to [filterList]");
