@@ -475,7 +475,7 @@ public class ObjectFS implements Runnable {
                             }
 
                             if (clinicalSynced && researchSynced) {
-                                pstep = 2;
+                                /*pstep = 2;
                                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Removing RAW files from Object Store");
                                 pse.setParam("indir", workDirName);
                                 pse.setParam("req_id", reqId);
@@ -487,7 +487,7 @@ public class ObjectFS implements Runnable {
                                 pse.setParam("sstep", String.valueOf(sstep));
                                 plugin.sendMsgEvent(pse);
 
-                                oe.deleteBucketDirectoryContents(bucket_name, seqId);
+                                oe.deleteBucketDirectoryContents(bucket_name, seqId);*/
                                 pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing has completed successfully");
                                 pse.setParam("indir", workDirName);
                                 pse.setParam("req_id", reqId);
