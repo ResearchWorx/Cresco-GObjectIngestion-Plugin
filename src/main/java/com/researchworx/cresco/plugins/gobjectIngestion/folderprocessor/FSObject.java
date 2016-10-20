@@ -25,7 +25,6 @@ public class FSObject implements Runnable {
     private MsgEvent me;
     private String pathStage;
 
-
     public FSObject(Plugin plugin) {
         this.plugin = plugin;
         this.logger = new CLogger(FSObject.class, plugin.getMsgOutQueue(), plugin.getRegion(),
