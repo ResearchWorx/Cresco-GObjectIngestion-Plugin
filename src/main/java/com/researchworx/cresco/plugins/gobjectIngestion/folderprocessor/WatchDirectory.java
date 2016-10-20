@@ -40,6 +40,8 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.nio.file.StandardWatchEventKinds.*;
@@ -56,6 +58,11 @@ public class WatchDirectory implements Runnable {
     private boolean trace = false;
     private Plugin plugin;
     private CLogger logger;
+    public Timer timer;
+    private int scanTime;
+    private Path scanPath;
+
+
 
     @SuppressWarnings("unchecked")
     private static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -113,6 +120,7 @@ public class WatchDirectory implements Runnable {
         this.recursive = recursive;
         this.plugin = plugin;
         this.logger = new CLogger(WatchDirectory.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        this.scanPath = dir;
 
         //process existing files before registering
         walkPath(dir.toFile(), 2);
@@ -125,7 +133,24 @@ public class WatchDirectory implements Runnable {
 
         // enable trace after initial registration
         this.trace = true;
+
+        //create timer scan process
+        scanTime = plugin.getConfig().getIntegerParam("filescantime",900000);
+        timer = new Timer();
+        timer.scheduleAtFixedRate(new FileScanTask(), 500, scanTime);
     }
+
+    class FileScanTask extends TimerTask {
+        public void run() {
+            try {
+                walkPath(scanPath.toFile(), 2);
+            } catch (Exception ex) {
+                logger.error("Run {}", ex.getMessage());
+                ex.printStackTrace();
+            }
+        }
+    }
+
 
     /**
      * Process all events for keys queued to the watcher
