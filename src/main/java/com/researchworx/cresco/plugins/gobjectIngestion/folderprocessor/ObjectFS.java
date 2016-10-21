@@ -1254,7 +1254,7 @@ public class ObjectFS implements Runnable {
                             pse.setParam("ssstep", String.valueOf(ssstep));
                             plugin.sendMsgEvent(pse);
 
-                            oe.uploadSampleDirectory(results_bucket_name, resultDirName, "/", seqId, sampleId, String.valueOf(ssstep));
+                            oe.uploadSampleDirectory(results_bucket_name, resultDirName, "", seqId, sampleId, String.valueOf(ssstep));
 
                             List<String> filterList = new ArrayList<>();
                             filterList.add("pipeline_log.txt");
@@ -1264,9 +1264,9 @@ public class ObjectFS implements Runnable {
                             Thread.sleep(2000);
 
                             oe = new ObjectEngine(plugin);
-                            if (oe.isSyncDir(results_bucket_name, "/", resultDirName, filterList)) {
+                            if (oe.isSyncDir(results_bucket_name, "", resultDirName, filterList)) {
                                 ssstep = 7;
-                                logger.debug("Results Directory Sycned [inDir = {}]", workDirName);
+                                logger.debug("Results Directory Sycned [inDir = {}]", resultDirName);
                                 //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                                 //logger.trace("Set MD5 hash");
                                 //setTransferFileMD5(workDirName + transfer_status_file, md5map);
