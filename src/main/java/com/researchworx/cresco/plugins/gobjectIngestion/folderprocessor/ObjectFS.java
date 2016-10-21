@@ -1257,6 +1257,7 @@ public class ObjectFS implements Runnable {
                             oe.uploadSampleDirectory(results_bucket_name, resultDirName, "/", seqId, sampleId, String.valueOf(ssstep));
 
                             List<String> filterList = new ArrayList<>();
+                            filterList.add("pipeline_log.txt");
                             logger.trace("Add [transfer_status_file] to [filterList]");
 
                             logger.trace("Sleeping to ensure completion message is received last");
