@@ -1059,7 +1059,6 @@ public class ObjectFS implements Runnable {
                 if (resultDir.exists()) {
                     deleteDirectory(resultDir);
                 }
-                resultDirName = resultDirName + seqId + "/" + sampleId + "/";
                 logger.trace("Creating output directory: {}", resultDirName);
                 resultDir.mkdir();
 
@@ -1264,7 +1263,7 @@ public class ObjectFS implements Runnable {
                             Thread.sleep(2000);
 
                             oe = new ObjectEngine(plugin);
-                            if (oe.isSyncDir(results_bucket_name, seqId + "/" + sampleId + "/", resultDirName, filterList)) {
+                            if (oe.isSyncDir(results_bucket_name, "/", resultDirName, filterList)) {
                                 ssstep = 7;
                                 logger.debug("Results Directory Sycned [inDir = {}]", workDirName);
                                 //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
