@@ -406,7 +406,12 @@ public class ObjectFS implements Runnable {
                             logger.trace("Uploading results to objectStore");
 
                             sstep = 6;
-                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Uploading Results Directory");
+
+                            List<String> filterList = new ArrayList<>();
+                            logger.trace("Add [transfer_status_file] to [filterList]");
+
+                            logger.trace("Transferring Clinical Results Directory");
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Transferring Clinical Results Directory");
                             pse.setParam("indir", workDirName);
                             pse.setParam("req_id", reqId);
                             pse.setParam("seq_id", seqId);
@@ -419,23 +424,29 @@ public class ObjectFS implements Runnable {
 
                             oe.uploadSequenceDirectory(clinical_bucket_name, resultDirName + "clinical/" + seqId + "/", seqId, seqId, String.valueOf(sstep));
 
-                            List<String> filterList = new ArrayList<>();
-                            logger.trace("Add [transfer_status_file] to [filterList]");
+                            logger.trace("Checking if Clinical Results are Synced Properly");
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Checking if Clinical Results are Synced Properly");
+                            pse.setParam("indir", workDirName);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("sstep", String.valueOf(sstep));
+                            plugin.sendMsgEvent(pse);
 
-                            boolean clinicalSynced = false;
-                            boolean researchSynced = false;
+                            sstep = 7;
 
                             oe = new ObjectEngine(plugin);
                             if (oe.isSyncDir(clinical_bucket_name, seqId + "/", resultDirName + "clinical/" + seqId + "/", filterList)) {
-                                clinicalSynced = true;
-                                sstep = 7;
                                 logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
                                 logger.trace("Sample Directory: " + resultDirName + "clinical/" + seqId + "/");
                                 String sampleList = getSampleList(resultDirName + "clinical/" + seqId + "/");
                                 //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                                 //logger.trace("Set MD5 hash");
                                 //setTransferFileMD5(workDirName + transfer_status_file, md5map);
-                                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Clinical Results Directory Transferred");
+                                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Clinical Results Directory Transfer Complete");
                                 pse.setParam("indir", workDirName);
                                 pse.setParam("req_id", reqId);
                                 pse.setParam("seq_id", seqId);
@@ -453,11 +464,34 @@ public class ObjectFS implements Runnable {
                                 plugin.sendMsgEvent(pse);
                             }
 
+                            logger.trace("Transferring Research Results Directory");
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Transferring Research Results Directory");
+                            pse.setParam("indir", workDirName);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("sstep", String.valueOf(sstep));
+                            plugin.sendMsgEvent(pse);
+
                             oe.uploadSequenceDirectory(research_bucket_name, resultDirName + "research/" + seqId + "/", seqId, seqId, String.valueOf(sstep));
+
+                            logger.trace("Checking if Research Results are Synced Properly");
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Checking if Research Results are Synced Properly");
+                            pse.setParam("indir", workDirName);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("sstep", String.valueOf(sstep));
+                            plugin.sendMsgEvent(pse);
 
                             oe = new ObjectEngine(plugin);
                             if (oe.isSyncDir(research_bucket_name, seqId + "/", resultDirName + "research/" + seqId + "/", filterList)) {
-                                researchSynced = true;
                                 logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
                                 //Map<String, String> md5map = oe.getDirMD5(workDirName, filterList);
                                 //logger.trace("Set MD5 hash");
@@ -474,18 +508,17 @@ public class ObjectFS implements Runnable {
                                 plugin.sendMsgEvent(pse);
                             }
 
-                            if (clinicalSynced && researchSynced) {
-                                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing has completed successfully");
-                                pse.setParam("indir", workDirName);
-                                pse.setParam("req_id", reqId);
-                                pse.setParam("seq_id", seqId);
-                                pse.setParam("transfer_status_file", transfer_status_file);
-                                pse.setParam("bucket_name", bucket_name);
-                                pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                                pse.setParam("pathstage", pathStage);
-                                pse.setParam("sstep", String.valueOf(sstep));
-                                plugin.sendMsgEvent(pse);
-                            }
+                            logger.trace("Pre-processing is complete");
+                            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Pre-processing is complete");
+                            pse.setParam("indir", workDirName);
+                            pse.setParam("req_id", reqId);
+                            pse.setParam("seq_id", seqId);
+                            pse.setParam("transfer_status_file", transfer_status_file);
+                            pse.setParam("bucket_name", bucket_name);
+                            pse.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                            pse.setParam("pathstage", pathStage);
+                            pse.setParam("sstep", String.valueOf(sstep));
+                            plugin.sendMsgEvent(pse);
 
                             break;
                         case 1:     // Container error encountered
