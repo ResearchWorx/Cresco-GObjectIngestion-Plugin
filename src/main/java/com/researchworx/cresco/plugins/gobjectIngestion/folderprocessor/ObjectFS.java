@@ -1470,7 +1470,7 @@ public class ObjectFS implements Runnable {
         pstep = 3;
         int sstep = 1;
 
-        String remoteDir = seqId + "/" + seqId + "/";
+        String remoteDir = seqId + "/";
 
         MsgEvent pse;
 
