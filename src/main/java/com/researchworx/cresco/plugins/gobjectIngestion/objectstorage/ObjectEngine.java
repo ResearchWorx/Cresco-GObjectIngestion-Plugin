@@ -609,13 +609,13 @@ public class ObjectEngine {
                         logger.debug("[bucket_key = {}]", bucket_key);
                         String md5hash;
                         if (mdhp.containsKey(bucket_key)) {
-                            logger.trace("[mdhp] contains [bucket_key]");
+                            logger.debug("[mdhp] contains [bucket_key]");
                             String checkhash = mdhp.get(bucket_key);
                             if (checkhash.contains("-")) {
-                                logger.trace("Grabbing multipart-checksum for large/multipart file");
+                                logger.debug("Grabbing multipart-checksum for large/multipart file");
                                 md5hash = md5t.getMultiCheckSum(file.getAbsolutePath());
                             } else {
-                                logger.trace("Grabbing direct checksum for small/non-multipart file");
+                                logger.debug("Grabbing direct checksum for small/non-multipart file");
                                 md5hash = md5t.getCheckSum(file.getAbsolutePath());
                             }
                             if (!md5hash.equals(checkhash)) {
