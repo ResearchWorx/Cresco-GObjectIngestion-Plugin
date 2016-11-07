@@ -45,7 +45,7 @@ class MD5Tools {
 
             //for(int i = 0; i < inputFile.length(); i = i + size)
             boolean isReading = true;
-            int bytesRead = 0;
+            long bytesRead = 0;
             while (isReading) {
                 byte[] bs;
 
