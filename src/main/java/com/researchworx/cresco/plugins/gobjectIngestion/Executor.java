@@ -33,6 +33,9 @@ public class Executor extends CExecutor {
                     case 4:
                         pathStage4(msg,pathStage);
                         break;
+                    case 5:
+                        pathStage5(msg,pathStage);
+                        break;
                     default:
                         logger.error("Undefined pathStage!");
                         break;
@@ -118,11 +121,14 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                            Plugin.objectToFSp.processSequence(seqId, reqId);
+                            Plugin.objectToFSp.processSequence(seqId, reqId, true);
                         break;
                     case 3:
                         break;
                     case 4:
+                        break;
+                    case 999:
+                        Plugin.objectToFSp.endProcessSequence(seqId, reqId);
                         break;
                     default:
                         logger.error("Undefined pStep " + pathStageName + " !");
@@ -183,7 +189,46 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"),pme.getParam("sample_id"),pme.getParam("req_id"));
+                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        break;
+                    case 3:
+                        break;
+                    case 4:
+                        break;
+                    case 7:
+                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        break;
+                    case 999:
+                        Plugin.objectToFSp.endProcessSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"));
+                        break;
+                    default:
+                        logger.error("Undefined sStep " + pathStageName + " !");
+                        break;
+                }
+            } else if(eventType.equals(MsgEvent.Type.ERROR)) {
+
+            } else {
+                logger.error("Unknown MsgEvent.Type : " + pathStageName);
+            }
+        }
+        catch(Exception ex) {
+            logger.error("main " + pathStageName + " : " + ex.getMessage() + " " + pme.getParams().toString());
+            ex.printStackTrace();
+        }
+    }
+
+    private void pathStage5 (MsgEvent pme, int pathStage) {
+        String pathStageName = "pathStage" + String.valueOf(pathStage);
+        try {
+            MsgEvent.Type eventType = MsgEvent.Type.valueOf(pme.getParam("gmsg_type"));
+            logger.info(pathStageName + " " + eventType.name() + " message");
+            if(eventType.equals(MsgEvent.Type.INFO)) {
+                int sStep = Integer.parseInt(pme.getParam("sstep"));
+                switch (sStep) {
+                    case 1:
+                        break;
+                    case 2:
+                        Plugin.objectToFSp.downloadResults(pme.getParam("seq_id"), pme.getParam("req_id"));
                         break;
                     case 3:
                         break;

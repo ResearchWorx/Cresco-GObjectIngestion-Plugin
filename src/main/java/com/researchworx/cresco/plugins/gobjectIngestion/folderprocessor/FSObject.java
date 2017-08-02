@@ -25,10 +25,10 @@ public class FSObject implements Runnable {
     private MsgEvent me;
     private String pathStage;
 
-
     public FSObject(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = new CLogger(FSObject.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
+        this.logger = new CLogger(FSObject.class, plugin.getMsgOutQueue(), plugin.getRegion(),
+                plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
         this.pathStage = String.valueOf(plugin.pathStage);
 
         logger.trace("FStoObject instantiated");
@@ -38,13 +38,13 @@ public class FSObject implements Runnable {
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_status_file\" from config [{}]", transfer_status_file);
         bucket_name = plugin.getConfig().getStringParam("bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"bucket_name\" from config [{}]", bucket_name);
-        me = plugin.genGMessage(MsgEvent.Type.INFO,"InPathPreProcessor instantiated");
-        me.setParam("transfer_watch_file",transfer_watch_file);
+        me = plugin.genGMessage(MsgEvent.Type.INFO, "InPathPreProcessor instantiated");
+        me.setParam("transfer_watch_file", transfer_watch_file);
         me.setParam("transfer_status_file", transfer_status_file);
-        me.setParam("bucket_name",bucket_name);
+        me.setParam("bucket_name", bucket_name);
         me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-        me.setParam("pathstage",pathStage);
-        me.setParam("pstep","1");
+        me.setParam("pathstage", pathStage);
+        me.setParam("pstep", "1");
 
         plugin.sendMsgEvent(me);
     }
@@ -70,30 +70,29 @@ public class FSObject implements Runnable {
                         if (status != null && status.equals("yes")) {
                             logger.trace("Transfer file exists, processing");
 
-                            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Filesystem Scan");
-                            me.setParam("transfer_watch_file",transfer_watch_file);
+                            me = plugin.genGMessage(MsgEvent.Type.INFO, "Start Filesystem Scan");
+                            me.setParam("transfer_watch_file", transfer_watch_file);
                             me.setParam("transfer_status_file", transfer_status_file);
-                            me.setParam("bucket_name",bucket_name);
+                            me.setParam("bucket_name", bucket_name);
                             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                            me.setParam("pathstage",pathStage);
-                            me.setParam("pstep","2");
+                            me.setParam("pathstage", pathStage);
+                            me.setParam("pstep", "2");
                             plugin.sendMsgEvent(me);
 
                             processDir(dir);
 
                             //message end of scan
-                            me = plugin.genGMessage(MsgEvent.Type.INFO,"End Filesystem Scan");
-                            me.setParam("transfer_watch_file",transfer_watch_file);
+                            me = plugin.genGMessage(MsgEvent.Type.INFO, "End Filesystem Scan");
+                            me.setParam("transfer_watch_file", transfer_watch_file);
                             me.setParam("transfer_status_file", transfer_status_file);
-                            me.setParam("bucket_name",bucket_name);
+                            me.setParam("bucket_name", bucket_name);
                             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                            me.setParam("pathstage",pathStage);
-                            me.setParam("pstep","3");
+                            me.setParam("pathstage", pathStage);
+                            me.setParam("pstep", "3");
                             plugin.sendMsgEvent(me);
 
                         }
-                    }
-                    else {
+                    } else {
 
                         me = plugin.genGMessage(MsgEvent.Type.INFO, "Idle");
                         me.setParam("transfer_watch_file", transfer_watch_file);
@@ -101,39 +100,38 @@ public class FSObject implements Runnable {
                         me.setParam("bucket_name", bucket_name);
                         me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
                         me.setParam("pathstage", pathStage);
-                        me.setParam("pstep","3");
+                        me.setParam("pstep", "3");
                         plugin.sendMsgEvent(me);
 
-                        Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
+                        Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval", 5000));
                     }
                 } catch (Exception ex) {
                     logger.error("run : while {}", ex.getMessage());
                     //message start of scan
-                    me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error during Filesystem scan");
-                    me.setParam("transfer_watch_file",transfer_watch_file);
+                    me = plugin.genGMessage(MsgEvent.Type.ERROR, "Error during Filesystem scan");
+                    me.setParam("transfer_watch_file", transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
-                    me.setParam("bucket_name",bucket_name);
+                    me.setParam("bucket_name", bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathstage",pathStage);
-                    me.setParam("error_message",ex.getMessage());
-                    me.setParam("pstep","2");
+                    me.setParam("pathstage", pathStage);
+                    me.setParam("error_message", ex.getMessage());
+                    me.setParam("pstep", "2");
                     plugin.sendMsgEvent(me);
-                    Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval",5000));
+                    Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval", 5000));
                 }
-
 
 
             }
         } catch (Exception ex) {
             logger.error("run {}", ex.getMessage());
-            me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            me.setParam("transfer_watch_file",transfer_watch_file);
+            me = plugin.genGMessage(MsgEvent.Type.ERROR, "Error Path Run");
+            me.setParam("transfer_watch_file", transfer_watch_file);
             me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name",bucket_name);
+            me.setParam("bucket_name", bucket_name);
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathstage",pathStage);
-            me.setParam("error_message",ex.getMessage());
-            me.setParam("pstep","2");
+            me.setParam("pathstage", pathStage);
+            me.setParam("error_message", ex.getMessage());
+            me.setParam("pstep", "2");
             plugin.sendMsgEvent(me);
 
         }
@@ -143,7 +141,8 @@ public class FSObject implements Runnable {
         logger.debug("Call to transferStatus [dir = {}, statusString = {}]", dir.toString(), statusString);
         String status = "no";
         try {
-            if (dir.toString().toLowerCase().endsWith(transfer_watch_file.toLowerCase())) {
+            if (dir.toString().toLowerCase().endsWith(transfer_watch_file.toLowerCase()) &&
+                    !dir.toString().toLowerCase().endsWith(transfer_status_file.toLowerCase())) {
                 logger.trace("[dir] tail matches [transfer_watch_file]");
                 logger.trace("Replacing [transfer_watch_file] with [transfer_status_file]");
                 String tmpPath = dir.toString().replace(transfer_watch_file, transfer_status_file);
@@ -204,7 +203,7 @@ public class FSObject implements Runnable {
     private String getSampleList(String inDir) {
         String sampleList = null;
         try {
-            if(!inDir.endsWith("/")) {
+            if (!inDir.endsWith("/")) {
                 inDir += "/";
             }
             ArrayList<String> samples = new ArrayList();
@@ -217,31 +216,53 @@ public class FSObject implements Runnable {
                 }
             });
 
-            for (String subDir : directories) {
-                logger.trace("Processing Sample SubDirectory : " + subDir);
-                String commands_main_filename = inDir + subDir + "/commands_main.sh";
-                String config_files_directoryname = inDir + subDir + "/config_files";
+            List<String> subDirectories = new ArrayList<>();
+
+            if (directories != null) {
+                for (String subDir : directories) {
+                    logger.trace("Searching for sub-directories of {}", inDir + "/" + subDir);
+                    subDirectories.add(subDir);
+                    File subFile = new File(inDir + "/" + subDir);
+                    String[] subSubDirs = subFile.list(new FilenameFilter() {
+                        @Override
+                        public boolean accept(File current, String name) {
+                            return new File(current, name).isDirectory();
+                        }
+                    });
+                    if (subSubDirs != null) {
+                        for (String subSubDir : subSubDirs) {
+                            logger.trace("Found sub-directory {}", inDir + "/" + subDir + "/" + subSubDir);
+                            subDirectories.add(subDir + "/" + subSubDir);
+                        }
+                    }
+                }
+            }
+
+            for (String subDirectory : subDirectories) {
+                logger.trace("Processing Sample SubDirectory : " + subDirectory);
+                String commands_main_filename = inDir + subDirectory + "/commands_main.sh";
+                String config_files_directoryname = inDir + subDirectory + "/config_files";
                 File commands_main = new File(commands_main_filename);
                 File config_files = new File(config_files_directoryname);
-                logger.trace("commands_main " + commands_main_filename  + " exist : " + commands_main.exists());
+                logger.trace("commands_main " + commands_main_filename + " exist : " + commands_main.exists());
                 logger.trace("config_files " + config_files_directoryname + " exist : " + config_files.exists());
 
-                if (commands_main.exists() && !commands_main.isDirectory() && config_files.exists() && config_files.isDirectory()) {
+                if (commands_main.exists() && !commands_main.isDirectory() &&
+                        config_files.exists() && config_files.isDirectory()) {
                     // do something
-                    samples.add(subDir);
+                    samples.add(subDirectory);
                     logger.trace("Found Sample: " + commands_main_filename + " and " + config_files_directoryname);
                 }
             }
             //build list
-            if(!samples.isEmpty()) {
+            if (!samples.isEmpty()) {
                 sampleList = "";
-                for(String tSample : samples) {
+                for (String tSample : samples) {
                     sampleList += tSample + ",";
                 }
-                sampleList = sampleList.substring(0,sampleList.length() - 1);
+                sampleList = sampleList.substring(0, sampleList.length() - 1);
             }
-        }
-        catch(Exception ex) {
+        } catch (Exception ex) {
             logger.error("getSameplList : " + ex.getMessage());
         }
         return sampleList;
@@ -251,8 +272,8 @@ public class FSObject implements Runnable {
         logger.debug("Call to processDir [dir = {}]", dir.toString());
 
         String inDir = dir.toString();
-        if(inDir.contains("\\")) {
-            inDir = inDir.replaceAll("\\\\","/");
+        if (inDir.contains("\\")) {
+            inDir = inDir.replaceAll("\\\\", "/");
         }
         inDir = inDir.substring(0, inDir.length() - transfer_status_file.length() - 1);
         logger.debug("[inDir = {}]", inDir);
@@ -273,16 +294,16 @@ public class FSObject implements Runnable {
 
         if (status.equals("no")) {
 
-            me = plugin.genGMessage(MsgEvent.Type.INFO,"Start transfer directory");
+            me = plugin.genGMessage(MsgEvent.Type.INFO, "Start transfer directory");
             me.setParam("indir", inDir);
             me.setParam("outdir", outDir);
             me.setParam("seq_id", seqId);
-            me.setParam("transfer_watch_file",transfer_watch_file);
+            me.setParam("transfer_watch_file", transfer_watch_file);
             me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name",bucket_name);
+            me.setParam("bucket_name", bucket_name);
             me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathstage",pathStage);
-            me.setParam("sstep","1");
+            me.setParam("pathstage", pathStage);
+            me.setParam("sstep", "1");
             plugin.sendMsgEvent(me);
 
 
@@ -290,50 +311,51 @@ public class FSObject implements Runnable {
             //Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
             //logger.trace("Setting MD5 hash");
             //setTransferFileMD5(dir, md5map);
+            logger.trace("Deleting any old files");
+            oe.deleteBucketDirectoryContents(bucket_name, outDir);
             logger.trace("Transferring directory");
             if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
                 if (setTransferFile(dir)) {
 
                     logger.debug("Directory Transfered [inDir = {}, outDir = {}]", inDir, outDir);
-                    me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
+                    me = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
                     me.setParam("seq_id", seqId);
-                    me.setParam("transfer_watch_file",transfer_watch_file);
+                    me.setParam("transfer_watch_file", transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
-                    me.setParam("bucket_name",bucket_name);
+                    me.setParam("bucket_name", bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathstage",pathStage);
+                    me.setParam("pathstage", pathStage);
                     //if pathstage 3 we need to submit jobs for processing
                     logger.trace("pathStage = " + pathStage);
-                    if(pathStage.equals("3")) {
+                    if (pathStage.equals("3")) {
                         logger.trace("Sample Directory: " + inDir);
                         String sampleList = getSampleList(inDir);
 
-                        if(sampleList != null) {
+                        if (sampleList != null) {
                             logger.trace("Samples : " + sampleList);
-                            me.setParam("sample_list",sampleList);
-                        }
-                        else {
-                            me.setParam("sample_list","");
+                            me.setParam("sample_list", sampleList);
+                        } else {
+                            me.setParam("sample_list", "");
                         }
                     }
-                    me.setParam("sstep","2");
+                    me.setParam("sstep", "2");
                     plugin.sendMsgEvent(me);
 
                     //end
                 } else {
                     logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
-                    me = plugin.genGMessage(MsgEvent.Type.ERROR,"Failed Directory Transfer");
+                    me = plugin.genGMessage(MsgEvent.Type.ERROR, "Failed Directory Transfer");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
                     me.setParam("seq_id", seqId);
-                    me.setParam("transfer_watch_file",transfer_watch_file);
+                    me.setParam("transfer_watch_file", transfer_watch_file);
                     me.setParam("transfer_status_file", transfer_status_file);
-                    me.setParam("bucket_name",bucket_name);
+                    me.setParam("bucket_name", bucket_name);
                     me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathstage",pathStage);
-                    me.setParam("sstep","2");
+                    me.setParam("pathstage", pathStage);
+                    me.setParam("sstep", "2");
                     plugin.sendMsgEvent(me);
                 }
             }

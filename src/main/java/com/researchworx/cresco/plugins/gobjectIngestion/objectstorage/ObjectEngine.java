@@ -31,10 +31,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-//import java.io.InputStream;
-//import com.amazonaws.services.s3.model.ObjectMetadata;
-//import com.amazonaws.services.s3.model.PutObjectRequest;
-
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
     private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 10;
@@ -47,11 +43,9 @@ public class ObjectEngine {
     private Plugin plugin;
 
     public ObjectEngine(Plugin plugin) {
-        this.logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
-        //this.logger = new CLogger(plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID());
+        this.logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
 
         this.plugin = plugin;
-        //logger.trace("ObjectEngine instantiated [group = {}]", group);
         String accessKey = plugin.getConfig().getStringParam("accesskey");
         logger.debug("\"accesskey\" from config [{}]", accessKey);
         String secretKey = plugin.getConfig().getStringParam("secretkey");
@@ -61,9 +55,6 @@ public class ObjectEngine {
         this.partSize = plugin.getConfig().getIntegerParam("uploadpartsizemb");
         logger.debug("\"uploadpartsizemb\" from config [{}]", this.partSize);
 
-        //String accessKey = PluginEngine.config.getParam("s3","accesskey");
-        //String secretKey = PluginEngine.config.getParam("s3","secretkey");
-        //String endpoint = PluginEngine.config.getParam("s3","endpoint");
         logger.trace("Building AWS Credentials");
         AWSCredentials credentials = new BasicAWSCredentials(accessKey, secretKey);
 
@@ -71,7 +62,7 @@ public class ObjectEngine {
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
-        //clientConfig.setMaxConnections(100);
+        clientConfig.setMaxConnections(plugin.getConfig().getIntegerParam("maxconnections", 50));
 
 
         logger.trace("Connecting to Amazon S3");
@@ -124,26 +115,26 @@ public class ObjectEngine {
             logger.info("Beginning upload [bucket = {}, outDir = {}, uploadDir = {}]", bucket, outDir, uploadDir);
             MultipleFileUpload myUpload = tx.uploadDirectory(bucket, outDir, uploadDir, true);
 
-            // You can poll your transfer's status to check its progress
+            DecimalFormat percentFormatter = new DecimalFormat("#.##");
+
             while (!myUpload.isDone()) {
+                Thread.sleep(5000);
 
                 logger.debug("Transfer: " + myUpload.getDescription());
                 logger.debug("  - State: " + myUpload.getState());
                 logger.debug("  - Progress Bytes: "
                         + myUpload.getProgress().getBytesTransferred());
 
-                //logger.trace("Calculating upload statistics");
                 float transferTime = (System.currentTimeMillis() - startUpload) / 1000;
                 long bytesTransfered = myUpload.getProgress().getBytesTransferred();
                 float transferRate = (bytesTransfered / 1000000) / transferTime;
 
                 logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
-                logger.debug("\t- Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
-                logger.debug("\t- Elapsed time : " + transferTime + " seconds");
-                logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
+                logger.debug(" - Transfered : " + myUpload.getProgress().getBytesTransferred() + " bytes");
+                logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
+                logger.debug(" - Transfer rate : " + transferRate + " MB/sec");
 
-                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + (int) myUpload.getProgress().getPercentTransferred() + "%)");
-                //me.setParam("pathstage",pathStage);
+                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
                 me.setParam("indir", inDir);
                 me.setParam("outdir", outDir);
                 me.setParam("seq_id", outDir);
@@ -153,30 +144,7 @@ public class ObjectEngine {
                 me.setParam("xfer_bytes", String.valueOf(myUpload.getProgress().getBytesTransferred()));
                 me.setParam("xfer_percent", String.valueOf(myUpload.getProgress().getPercentTransferred()));
                 plugin.sendMsgEvent(me);
-
-
-                Thread.sleep(5000);
             }
-
-
-			/*
-               System.out.println("Transfer: " + myUpload.getDescription());
-			   System.out.println("  - State: " + myUpload.getState());
-			   System.out.println("  - Progress: "
-							   + myUpload.getProgress().getBytesTransferred());
-			*/
-            // Transfers also allow you to set a <code>ProgressListener</code> to receive
-            // asynchronous notifications about your transfer's progress.
-            //myUpload.addProgressListener(myProgressListener);
-
-            // Or you can block the current thread and wait for your transfer to
-            // to complete. If the transfer fails, this method will throw an
-            // AmazonClientException or AmazonServiceException detailing the reason.
-            //myUpload.waitForCompletion();
-
-            // After the upload is complete, call shutdownNow to release the resources.
-
-
             wasTransfered = true;
         } catch (Exception ex) {
             logger.error("uploadDirectory {}", ex.getMessage());
@@ -191,7 +159,155 @@ public class ObjectEngine {
         return wasTransfered;
     }
 
-    //	downloadDirectory(String bucketName, String keyPrefix, File destinationDirectory)
+    public boolean uploadSequenceDirectory(String bucket, String inDir, String outDir, String seqId, String sstep) {
+        logger.debug("Call to uploadSequenceDirectory [bucket = {}, inDir = {}, outDir = {}, seqId = {}, sstep = {}]", bucket, inDir, outDir, seqId, sstep);
+        boolean wasTransfered = false;
+        TransferManager tx = null;
+
+        try {
+            logger.trace("Building new TransferManager");
+            tx = new TransferManager(conn);
+
+            logger.trace("Building new TransferManagerConfiguration");
+            TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
+            logger.trace("Setting up minimum part size");
+
+            // Sets the minimum part size for upload parts.
+            tmConfig.setMinimumUploadPartSize(partSize * 1024 * 1024);
+            logger.trace("Setting up size threshold for multipart uploads");
+            // Sets the size threshold in bytes for when to use multipart uploads.
+            tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
+            logger.trace("Setting configuration on TransferManager");
+            tx.setConfiguration(tmConfig);
+
+            logger.trace("[uploadDir] set to [inDir]");
+            File uploadDir = new File(inDir);
+
+            logger.trace("Starting timer");
+            long startUpload = System.currentTimeMillis();
+
+            logger.info("Beginning upload [bucket = {}, outDir = {}, uploadDir = {}]", bucket, outDir, uploadDir);
+            MultipleFileUpload myUpload = tx.uploadDirectory(bucket, outDir, uploadDir, true);
+
+            DecimalFormat percentFormatter = new DecimalFormat("#.##");
+
+            while (!myUpload.isDone()) {
+                Thread.sleep(5000);
+
+                logger.debug("Transfer: " + myUpload.getDescription());
+                logger.debug(" - State: " + myUpload.getState());
+                logger.debug(" - Progress Bytes: "
+                        + myUpload.getProgress().getBytesTransferred());
+
+                float transferTime = (System.currentTimeMillis() - startUpload) / 1000;
+                long bytesTransfered = myUpload.getProgress().getBytesTransferred();
+                float transferRate = (bytesTransfered / 1000000) / transferTime;
+
+                logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
+                logger.debug(" - Transfered : " + humanReadableByteCount(myUpload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
+                logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
+                logger.debug(" - Transfer rate : " + percentFormatter.format(transferRate) + " MB/sec");
+
+                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
+                me.setParam("indir", inDir);
+                me.setParam("outdir", outDir);
+                me.setParam("seq_id", seqId);
+                me.setParam("pathstage", String.valueOf(plugin.pathStage));
+                me.setParam("sstep", sstep);
+                me.setParam("xfer_rate", String.valueOf(transferRate));
+                me.setParam("xfer_bytes", String.valueOf(myUpload.getProgress().getBytesTransferred()));
+                me.setParam("xfer_percent", String.valueOf(myUpload.getProgress().getPercentTransferred()));
+                plugin.sendMsgEvent(me);
+            }
+            wasTransfered = true;
+        } catch (Exception ex) {
+            logger.error("uploadDirectory {}", ex.getMessage());
+        } finally {
+            try {
+                assert tx != null;
+                tx.shutdownNow();
+            } catch (AssertionError e) {
+                logger.error("uploadDirectory - TransferManager was pre-emptively shutdown");
+            }
+        }
+        return wasTransfered;
+    }
+
+    public boolean uploadSampleDirectory(String bucket, String inDir, String outDir, String seqId, String sampleId, String ssstep) {
+        logger.debug("Call to uploadSampleDirectory [bucket = {}, inDir = {}, outDir = {}, seqId = {}, sampleId = {}, ssstep = {}]", bucket, inDir, outDir, seqId, sampleId, ssstep);
+        boolean wasTransfered = false;
+        TransferManager tx = null;
+
+        try {
+            logger.trace("Building new TransferManager");
+            tx = new TransferManager(conn);
+
+            logger.trace("Building new TransferManagerConfiguration");
+            TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
+            logger.trace("Setting up minimum part size");
+
+            // Sets the minimum part size for upload parts.
+            tmConfig.setMinimumUploadPartSize(partSize * 1024 * 1024);
+            logger.trace("Setting up size threshold for multipart uploads");
+            // Sets the size threshold in bytes for when to use multipart uploads.
+            tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
+            logger.trace("Setting configuration on TransferManager");
+            tx.setConfiguration(tmConfig);
+
+            logger.trace("[uploadDir] set to [inDir]");
+            File uploadDir = new File(inDir);
+
+            logger.trace("Starting timer");
+            long startUpload = System.currentTimeMillis();
+
+            logger.info("Beginning upload [bucket = {}, outDir = {}, uploadDir = {}]", bucket, outDir, uploadDir);
+            MultipleFileUpload myUpload = tx.uploadDirectory(bucket, outDir, uploadDir, true);
+
+            DecimalFormat percentFormatter = new DecimalFormat("#.##");
+
+            while (!myUpload.isDone()) {
+                Thread.sleep(5000);
+
+                logger.debug("Transfer: " + myUpload.getDescription());
+                logger.debug("  - State: " + myUpload.getState());
+                logger.debug("  - Progress Bytes: "
+                        + myUpload.getProgress().getBytesTransferred());
+
+                float transferTime = (System.currentTimeMillis() - startUpload) / 1000;
+                long bytesTransfered = myUpload.getProgress().getBytesTransferred();
+                float transferRate = (bytesTransfered / 1000000) / transferTime;
+
+                logger.debug("Upload Transfer Desc: " + myUpload.getDescription());
+                logger.debug(" - Transfered : " + humanReadableByteCount(myUpload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
+                logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
+                logger.debug(" - Transfer rate : " + percentFormatter.format(transferRate) + " MB/sec");
+
+                MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(myUpload.getProgress().getPercentTransferred()) + "%)");
+                me.setParam("indir", inDir);
+                me.setParam("outdir", outDir);
+                me.setParam("seq_id", seqId);
+                me.setParam("sample_id", sampleId);
+                me.setParam("pathstage", String.valueOf(plugin.pathStage));
+                me.setParam("ssstep", ssstep);
+                me.setParam("xfer_rate", String.valueOf(transferRate));
+                me.setParam("xfer_bytes", String.valueOf(myUpload.getProgress().getBytesTransferred()));
+                me.setParam("xfer_percent", String.valueOf(myUpload.getProgress().getPercentTransferred()));
+                plugin.sendMsgEvent(me);
+            }
+            wasTransfered = true;
+        } catch (Exception ex) {
+            logger.error("uploadDirectory {}", ex.getMessage());
+        } finally {
+            try {
+                assert tx != null;
+                tx.shutdownNow();
+            } catch (AssertionError e) {
+                logger.error("uploadDirectory - TransferManager was pre-emptively shutdown");
+            }
+        }
+        return wasTransfered;
+    }
+
     public boolean downloadDirectory(String bucketName, String keyPrefix, String destinationDirectory, String seqId, String sampleId) {
         logger.debug("Call to downloadDirectory [bucketName = {}, keyPrefix = {}, destinationDirectory = {}", bucketName, keyPrefix, destinationDirectory);
         boolean wasTransfered = false;
@@ -221,11 +337,13 @@ public class ObjectEngine {
                 logger.info("Beginning download [bucketName = {}, keyPrefix = {}, downloadDir = {}", bucketName, keyPrefix, downloadDir);
                 MultipleFileDownload myDownload = tx.downloadDirectory(bucketName, keyPrefix, downloadDir);
 
+                DecimalFormat percentFormatter = new DecimalFormat("#.##");
                 while (!myDownload.isDone()) {
+                    Thread.sleep(5000);
 
                     logger.debug("Transfer: " + myDownload.getDescription());
-                    logger.debug("  - State: " + myDownload.getState());
-                    logger.debug("  - Progress Bytes: "
+                    logger.debug("  State: " + myDownload.getState());
+                    logger.debug("  Progress Bytes: "
                             + myDownload.getProgress().getBytesTransferred());
 
                     float transferTime = (System.currentTimeMillis() - startDownload) / 1000;
@@ -233,24 +351,24 @@ public class ObjectEngine {
                     float transferRate = (bytesTransfered / 1000000) / transferTime;
 
                     logger.debug("Download Transfer Desc: " + myDownload.getDescription());
-                    logger.debug("\t- Transfered : " + myDownload.getProgress().getBytesTransferred() + " bytes");
-                    logger.debug("\t- Elapsed time : " + transferTime + " seconds");
-                    logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
+                    logger.debug("  Transfered : " + myDownload.getProgress().getBytesTransferred() + " bytes");
+                    logger.debug("  Elapsed time : " + transferTime + " seconds");
+                    logger.debug("  Transfer rate : " + transferRate + " MB/sec");
 
-                    MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + (int) myDownload.getProgress().getPercentTransferred() + "%)");
+                    MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(myDownload.getProgress().getPercentTransferred()) + "%)");
                     if (seqId != null)
                         me.setParam("seq_id", seqId);
                     if (sampleId != null)
                         me.setParam("sample_id", sampleId);
                     me.setParam("pathstage", String.valueOf(plugin.pathStage));
-                    me.setParam("sstep", "1");
+                    if (sampleId == null)
+                        me.setParam("sstep", "1");
+                    else
+                        me.setParam("ssstep", "1");
                     me.setParam("xfer_rate", String.valueOf(transferRate));
                     me.setParam("xfer_bytes", String.valueOf(myDownload.getProgress().getBytesTransferred()));
                     me.setParam("xfer_percent", String.valueOf(myDownload.getProgress().getPercentTransferred()));
                     plugin.sendMsgEvent(me);
-
-
-                    Thread.sleep(5000);
                 }
 
                 logger.trace("Calculating download statistics");
@@ -259,9 +377,9 @@ public class ObjectEngine {
                 float transferRate = (bytesTransfered / 1000000) / transferTime;
 
                 logger.debug("Download Transfer Desc: " + myDownload.getDescription());
-                logger.debug("\t- Transfered : " + myDownload.getProgress().getBytesTransferred() + " bytes");
-                logger.debug("\t- Elapsed time : " + transferTime + " seconds");
-                logger.debug("\t- Transfer rate : " + transferRate + " MB/sec");
+                logger.debug(" - Transfered : " + humanReadableByteCount(myDownload.getProgress().getBytesTransferred(), true) + " (" + percentFormatter.format(myDownload.getProgress().getPercentTransferred()) + "%)");
+                logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
+                logger.debug(" - Transfer rate : " + transferRate + " MB/sec");
 
                 wasTransfered = true;
             } catch (Exception ex) {
@@ -274,8 +392,6 @@ public class ObjectEngine {
                     logger.error("downloadDirectory - TransferManager was pre-emptively shutdown");
                 }
             }
-
-
         } else {
             try {
                 logger.trace("Beginning Large FileSet Download routine");
@@ -294,7 +410,7 @@ public class ObjectEngine {
 
                     if (!directory.exists()) {
                         if (createDir(directory)) {
-                            //logger.trace("created directory : " + directory.getAbsolutePath());
+                            logger.trace("created directory : " + directory.getAbsolutePath());
                         } else {
                             logger.error("failed creating directory : " + directory.getAbsolutePath());
                         }
@@ -325,16 +441,19 @@ public class ObjectEngine {
                     if (totalBytesToDownload > 0L)
                         progress = ((double) totalBytesDownloaded / (double) totalBytesToDownload) * 100.0;
                     logger.trace("Sending download progress metrics to controller");
-                    logger.debug("\tTransferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload, true), percentFormatter.format(progress));
-                    logger.debug("\tElapsed time: {} seconds", transferTime);
-                    logger.debug("\tTransfer rate: {} MB/sec", transferRate);
+                    logger.debug(" - Transferred: {} / {} ({}%)", humanReadableByteCount(totalBytesDownloaded, true), humanReadableByteCount(totalBytesToDownload, true), percentFormatter.format(progress));
+                    logger.debug(" - Elapsed time : " + (transferTime < 60 ? ((int)transferTime + " seconds") : ((int)(transferTime / 60) + " minutes " + ((transferTime % 60 > 0) ? transferTime % 60 + " seconds" : ""))));
+                    logger.debug(" - Transfer rate: {} MB/sec", transferRate);
                     MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "Transfer in progress (" + percentFormatter.format(progress) + "%)");
                     if (seqId != null)
                         me.setParam("seq_id", seqId);
                     if (sampleId != null)
                         me.setParam("sample_id", sampleId);
                     me.setParam("pathstage", String.valueOf(plugin.pathStage));
-                    me.setParam("sstep", "1");
+                    if (sampleId == null)
+                        me.setParam("sstep", "1");
+                    else
+                        me.setParam("ssstep", "1");
                     me.setParam("xfer_rate", String.valueOf(transferRate));
                     me.setParam("xfer_bytes", String.valueOf(totalBytesDownloaded));
                     me.setParam("xfer_percent", String.valueOf(progress));
@@ -460,7 +579,7 @@ public class ObjectEngine {
             //check if bucket exist
             if (doesBucketExist(bucket)) {
                 logger.trace("isSync Grabbing [objects] from [bucket] [s3Dir]");
-                ObjectListing objects = conn.listObjects(bucket, s3Dir);
+                /*ObjectListing objects = conn.listObjects(bucket, s3Dir);
                 do {
                     for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
                         if (!mdhp.containsKey(objectSummary.getKey())) {
@@ -470,7 +589,11 @@ public class ObjectEngine {
                     }
                     logger.trace("Grabbing next batch of [objects]");
                     objects = conn.listNextBatchOfObjects(objects);
-                } while (objects.isTruncated());
+                } while (objects.isTruncated());*/
+
+                for (S3ObjectSummary objectSummary : S3Objects.withPrefix(conn, bucket, s3Dir)) {
+                    mdhp.put(objectSummary.getKey(), objectSummary.getETag());
+                }
 
                 //S3Object object = conn.getObject(new GetObjectRequest(bucketName, key));
 
@@ -483,13 +606,13 @@ public class ObjectEngine {
                         logger.debug("[bucket_key = {}]", bucket_key);
                         String md5hash;
                         if (mdhp.containsKey(bucket_key)) {
-                            logger.trace("[mdhp] contains [bucket_key]");
+                            logger.debug("[mdhp] contains [bucket_key]");
                             String checkhash = mdhp.get(bucket_key);
                             if (checkhash.contains("-")) {
-                                logger.trace("Grabbing multipart-checksum for large/multipart file");
+                                logger.debug("Grabbing multipart-checksum for large/multipart file");
                                 md5hash = md5t.getMultiCheckSum(file.getAbsolutePath());
                             } else {
-                                logger.trace("Grabbing direct checksum for small/non-multipart file");
+                                logger.debug("Grabbing direct checksum for small/non-multipart file");
                                 md5hash = md5t.getCheckSum(file.getAbsolutePath());
                             }
                             if (!md5hash.equals(checkhash)) {
@@ -691,6 +814,22 @@ public class ObjectEngine {
             }
             objects = conn.listNextBatchOfObjects(objects);
         } while (objects.isTruncated());
+    }
+
+    public void deleteBucketDirectoryContents(String bucket, String prefixKey) {
+        if (!prefixKey.endsWith("/"))
+            prefixKey = prefixKey + "/";
+        logger.debug("Call to deleteBucketDirectoryContents [bucket = {}, prefixKey = {}]", bucket, prefixKey);
+        try {
+            if (doesBucketExist(bucket)) {
+                for (S3ObjectSummary objectSummary : S3Objects.withPrefix(conn, bucket, prefixKey)) {
+                    logger.trace("Deleting [{}] from bucket [{}]", objectSummary.getKey(), bucket);
+                    conn.deleteObject(bucket, objectSummary.getKey());
+                }
+            }
+        } catch (Exception e) {
+            logger.error("deleteBucketDirectoryContents {}", e.getMessage());
+        }
     }
 
     public static String humanReadableByteCount(long bytes, boolean si) {

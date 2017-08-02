@@ -45,7 +45,7 @@ class MD5Tools {
 
             //for(int i = 0; i < inputFile.length(); i = i + size)
             boolean isReading = true;
-            int bytesRead = 0;
+            long bytesRead = 0;
             while (isReading) {
                 byte[] bs;
 
@@ -143,9 +143,9 @@ class MD5Tools {
 
             //Using MessageDigest update() method to provide input
             byte[] buffer = new byte[8192];
-            int numOfBytesRead;
+            long numOfBytesRead;
             while ((numOfBytesRead = fis.read(buffer)) > 0) {
-                md.update(buffer, 0, numOfBytesRead);
+                md.update(buffer, 0, (int) numOfBytesRead);
             }
             byte[] hash = md.digest();
             checksum = new BigInteger(1, hash).toString(16); //don't use this, truncates leading zero

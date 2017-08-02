@@ -3,7 +3,6 @@ package com.researchworx.cresco.plugins.gobjectIngestion;
 import com.google.auto.service.AutoService;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
-import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.FSObject;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.ObjectFS;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.WatchDirectory;
@@ -14,9 +13,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 @AutoService(CPlugin.class)
 public class Plugin extends CPlugin {
-
-
-    //private static final Logger logger = LoggerFactory.getLogger(Plugin.class);
     private static String watchDirectoryName;
 
     public static ConcurrentLinkedQueue<Path> pathQueue;
@@ -35,9 +31,8 @@ public class Plugin extends CPlugin {
     }
 
     public void start() {
-        //this.logger = new CLogger(getMsgOutQueue(), getRegion(), getAgent(), getPluginID(), CLogger.Level.Trace);
         setExec(new Executor(this));
-        logger.setLogLevel(CLogger.Level.Debug);
+        //logger.setLogLevel(CLogger.Level.Debug);
         logger.trace("Building new ConcurrentLinkedQueue");
         pathQueue = new ConcurrentLinkedQueue<>();
 
@@ -55,8 +50,8 @@ public class Plugin extends CPlugin {
         genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
 
 
-        logger.debug("[pathStage] == {}", String.valueOf(pathStage));
-        logger.info("Building Stage [{}]", String.valueOf(pathStage));
+        logger.debug("[pathStage] == {}", pathStage);
+        logger.info("Building Stage [{}]", pathStage);
         switch (pathStage) {
             case 1:
                 logger.trace("Grabbing [pathstage1 --> watchdirectory] string and setting to [watchDirectoryName]");
@@ -101,6 +96,10 @@ public class Plugin extends CPlugin {
 
                 break;
             case 5:
+                logger.debug("Generating new [OutPathDeliverer] runnable");
+                objectToFSp = new ObjectFS(this);
+                logger.trace("Building ppThread around new [OutPathDeliverer] runnable");
+                ppThread = new Thread(objectToFSp);
                 //String command = "docker run -t -v /home/gpackage:/gpackage -v /home/gdata/input/160427_D00765_0033_AHKM2CBCXX/Sample3:/gdata/input -v /home/gdata/output/f8de921b-fdfa-4365-bf7d-39817b9d1883:/gdata/output  intrepo.uky.edu:5000/gbase /gdata/input/commands_main.sh";
                 //System.out.println(command);
                 //executeCommand(command);
@@ -115,7 +114,7 @@ public class Plugin extends CPlugin {
             logger.error("PreProcessing Thread failed to generate, exiting...");
             return;
         }
-        logger.info("Starting Stage [{}] Object Ingestion");
+        logger.info("Starting Stage [{}] Object Ingestion", pathStage);
         ppThread.start();
 
         logger.trace("Checking [watchDirectoryName] for null");
@@ -123,7 +122,7 @@ public class Plugin extends CPlugin {
             logger.trace("Grabbing path for [watchDirectoryName]");
             Path dir = Paths.get(watchDirectoryName);
             logger.trace("Instantiating new [WatchDirectory] from [watchDirectoryName] path");
-            WatchDirectory wd = null;
+            WatchDirectory wd;
             try {
                 wd = new WatchDirectory(dir, true, this);
                 Thread wdt = new Thread(wd);
@@ -136,8 +135,7 @@ public class Plugin extends CPlugin {
         }
     }
 
-    public String getSysInfoPlugin() {
-
+    private String getSysInfoPlugin() {
         String sysPlugin = null;
         try {
 
@@ -196,7 +194,7 @@ public class Plugin extends CPlugin {
         }
     }
 
-    public MsgEvent genAgentMessage() {
+    private MsgEvent genAgentMessage() {
         MsgEvent me = null;
         try {
             logger.trace("Generated Agent Message");
