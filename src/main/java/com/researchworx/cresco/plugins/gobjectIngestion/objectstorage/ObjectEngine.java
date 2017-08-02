@@ -20,10 +20,7 @@ import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -517,6 +514,30 @@ public class ObjectEngine {
         mdhp.clear();
         return isSync;
 
+    }
+
+    public boolean setDirMD5File(String localDir, List<String> ignoreList) {
+        if(!localDir.endsWith("/")) {
+            localDir += "/";
+        }
+        logger.debug("Call to getDirMD5 [localDir = {}]", localDir);
+
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(localDir + "md5hashes.txt", "UTF-8");
+            logger.trace("Grabbing [listOfFiles] from [localDir]");
+            File folder = new File(localDir);
+            for (File file : folder.listFiles()) {
+                if ((file.isFile()) && (!ignoreList.contains(file.getName()))) {
+                    writer.println(file.getAbsolutePath() + "," + md5t.getCheckSum(file.getAbsolutePath()));
+                }
+            }
+        } catch (Exception ex) {
+            logger.error("setDirMD5File {}", ex.getMessage());
+            return false;
+        }
+        writer.close();
+        return true;
     }
 
     public Map<String, String> getDirMD5(String localDir, List<String> ignoreList) {

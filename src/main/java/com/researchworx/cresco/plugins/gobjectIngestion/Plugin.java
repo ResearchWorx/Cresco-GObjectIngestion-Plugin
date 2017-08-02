@@ -50,8 +50,8 @@ public class Plugin extends CPlugin {
             System.exit(0);
         }
         pathStage = getConfig().getIntegerParam("pathstage");
-        genomicControllerRegion = getConfig().getStringParam("genomic_controller_region");
-        genomicControllerAgent = getConfig().getStringParam("genomic_controller_agent");
+        genomicControllerRegion = getConfig().getStringParam("genomic_controller_region",getRegion());
+        genomicControllerAgent = getConfig().getStringParam("genomic_controller_agent",getAgent());
         genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
 
 
