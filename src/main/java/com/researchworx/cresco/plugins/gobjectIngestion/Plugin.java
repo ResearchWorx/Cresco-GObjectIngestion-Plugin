@@ -174,7 +174,6 @@ public class Plugin extends CPlugin {
         return rm;
     }
 
-
     private class StaticRunner extends Thread {
 
         public void run(){

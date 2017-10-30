@@ -5,9 +5,12 @@ package com.researchworx.cresco.plugins.gobjectIngestion.objectstorage;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.iterable.S3Objects;
 import com.amazonaws.services.s3.model.*;
@@ -43,7 +46,7 @@ public class ObjectEngine {
     private Plugin plugin;
 
     public ObjectEngine(Plugin plugin) {
-        this.logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Debug);
+        this.logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
 
         this.plugin = plugin;
         String accessKey = plugin.getConfig().getStringParam("accesskey");
@@ -52,24 +55,31 @@ public class ObjectEngine {
         logger.debug("\"secretkey\" from config [{}]", secretKey);
         String endpoint = plugin.getConfig().getStringParam("endpoint");
         logger.debug("\"endpoint\" from config [{}]", endpoint);
+        String s3Region = plugin.getConfig().getStringParam("s3region");
+
         this.partSize = plugin.getConfig().getIntegerParam("uploadpartsizemb");
         logger.debug("\"uploadpartsizemb\" from config [{}]", this.partSize);
 
         logger.trace("Building AWS Credentials");
         AWSCredentials credentials = new BasicAWSCredentials(accessKey, secretKey);
 
+        /*
         logger.trace("Building ClientConfiguration");
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
         clientConfig.setMaxConnections(plugin.getConfig().getIntegerParam("maxconnections", 50));
-
+        */
 
         logger.trace("Connecting to Amazon S3");
-        conn = new AmazonS3Client(credentials, clientConfig);
+        //BasicAWSCredentials creds = new BasicAWSCredentials(accessKey, secretKey);
+        conn = AmazonS3ClientBuilder.standard().withRegion(s3Region).withCredentials(new AWSStaticCredentialsProvider(credentials)).build();
+
         //conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
         //S3ClientOptions(boolean pathStyleAccess, boolean chunkedEncodingDisabled, boolean accelerateModeEnabled, boolean payloadSigningEnabled)
         //conn.setS3ClientOptions(S3ClientOptions.);
+
+        /*
         S3ClientOptions s3ops = S3ClientOptions.builder()
                 .setAccelerateModeEnabled(false)
                 .setPathStyleAccess(true)
@@ -77,8 +87,9 @@ public class ObjectEngine {
                 .build();
         conn.setS3ClientOptions(s3ops);
 
-        conn.setEndpoint(endpoint);
 
+        conn.setEndpoint(endpoint);
+        */
 
         logger.trace("Building new MD5Tools");
         md5t = new MD5Tools(plugin);

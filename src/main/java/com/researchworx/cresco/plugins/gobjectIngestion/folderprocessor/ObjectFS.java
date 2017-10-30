@@ -267,7 +267,7 @@ public class ObjectFS implements Runnable {
                         "-v " + workDirName + ":/gdata/input " +
                         "-e INPUT_FOLDER_PATH=/gdata/input/" + remoteDir + " " +
                         "--name " + containerName + " " +
-                        "-t intrepo.uky.edu:5000/gbase /opt/pretools/raw_data_processing_version-1.0.pl";
+                        "-t intrepo.uky.edu:5000/gbase /opt/pretools/raw_data_processing.pl";
 
                 logger.trace("Running Docker Command: {}", command);
 
