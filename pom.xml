@@ -50,7 +50,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk</artifactId>
-            <version>1.11.189</version>
+            <version>1.11.15</version>
         </dependency>
         <dependency>
             <groupId>commons-configuration</groupId>
