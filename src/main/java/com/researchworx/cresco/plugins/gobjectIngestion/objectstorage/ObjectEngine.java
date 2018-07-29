@@ -2,28 +2,31 @@ package com.researchworx.cresco.plugins.gobjectIngestion.objectstorage;
 
 //import java.io.ByteArrayInputStream;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.event.ProgressEvent;
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.iterable.S3Objects;
 import com.amazonaws.services.s3.model.*;
-import com.amazonaws.services.s3.transfer.MultipleFileDownload;
-import com.amazonaws.services.s3.transfer.MultipleFileUpload;
-import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
+import com.amazonaws.services.s3.transfer.*;
+import com.amazonaws.services.s3.transfer.model.UploadResult;
 import com.amazonaws.util.StringUtils;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +40,11 @@ import java.util.concurrent.Executors;
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
     private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 10;
+
+    private static final String bagit = "standard";
+    private static final String hashing = "md5";
+    private static final boolean hiddenFiles = true;
+    private static final String compression = "gzip";
 
     private CLogger logger;
     private static AmazonS3 conn;
@@ -121,6 +129,97 @@ public class ObjectEngine {
         logger.trace("Building new MD5Tools");
         md5t = new MD5Tools(plugin);
 
+    }
+
+    public boolean uploadBaggedSequence(String bucket, String inFile, String s3Prefix, String seqId, String sstep) {
+        logger.debug("uploadBaggedSequence('{}','{}','{}','{}','{}')",
+                bucket, inFile, s3Prefix, seqId, sstep);
+        if (bucket == null || bucket.equals("") || !doesBucketExist(bucket)) {
+            logger.error("You must supply a valid bucket name.");
+            return false;
+        }
+        if (s3Prefix == null)
+            s3Prefix = "";
+        if (!s3Prefix.equals("") && !s3Prefix.endsWith("/"))
+            s3Prefix += "/";
+        logger.debug("Bagging up [{}]", inFile);
+        String toUpload = Encapsulation.encapsulate(inFile, bagit, hashing, hiddenFiles, compression);
+        if (toUpload == null) {
+            logger.error("Failed to bag up [{}]", inFile);
+            return false;
+        }
+        if (toUpload == null || toUpload.equals("") || !(new File(toUpload).exists())) {
+            logger.error("You must supply something to upload.");
+            return false;
+        }
+        boolean success = false;
+        TransferManager manager = null;
+        logger.trace("Building TransferManager");
+        try {
+            manager = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * 5L)
+                    .withMinimumUploadPartSize(1024L * 1024L * 5L)
+                    .build();
+            logger.trace("Checking that inDirectory exists");
+            File uploadFile = new File(toUpload);
+            if (!uploadFile.exists()) {
+                logger.error("Input directory [{}] does not exist!");
+                return false;
+            }
+            inFile = Paths.get(inFile).toString();
+            logger.trace("New inFile: {}", inFile);
+            logger.trace("file.seperator: {}", File.separatorChar);
+            s3Prefix += inFile.substring((inFile.lastIndexOf(File.separatorChar) > -1 ? inFile.lastIndexOf(File.separatorChar) + 1 : 0));
+            logger.trace("s3Prefix: {}", s3Prefix);
+            PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, uploadFile);
+            request.setGeneralProgressListener(new LoggingProgressListener(uploadFile.length()));
+            logger.trace("Building upload montior and starting upload");
+            //Upload transfer = manager.upload(bucket, s3Prefix, uploadFile);
+            Upload transfer = manager.upload(request);
+            UploadResult result = transfer.waitForUploadResult();
+            String s3Checksum = result.getETag();
+            logger.trace("s3Checksum: {}", result.getETag());
+            String localChecksum;
+            if (s3Checksum.contains("-"))
+                localChecksum = md5t.getMultiCheckSum(inFile);
+            else
+                localChecksum = md5t.getCheckSum(inFile);
+            logger.trace("localChecksum: {}", localChecksum);
+            if (!localChecksum.equals(result.getETag()))
+                logger.error("Checksums don't match [local: {}, S3: {}]", localChecksum, result.getETag());
+            if (!compression.equals("none") && (toUpload.endsWith(".tar") || toUpload.endsWith(".tar.bz2") ||
+                    toUpload.endsWith(".tar.gz") || toUpload.endsWith(".tar.xz") ||
+                    toUpload.endsWith(".zip")))
+                Files.delete(new File(toUpload).toPath());
+            success = localChecksum.equals(result.getETag());
+        } catch (AmazonServiceException ase) {
+            logger.error("Caught an AmazonServiceException, which means your request made it "
+                    + "to Amazon S3, but was rejected with an error response for some reason.");
+            logger.error("Error Message:    " + ase.getMessage());
+            logger.error("HTTP Status Code: " + ase.getStatusCode());
+            logger.error("AWS Error Code:   " + ase.getErrorCode());
+            logger.error("Error Type:       " + ase.getErrorType());
+            logger.error("Request ID:       " + ase.getRequestId());
+        } catch (SdkClientException ace) {
+            logger.error("Caught an AmazonClientException, which means the client encountered "
+                    + "a serious internal problem while trying to communicate with S3, "
+                    + "such as not being able to access the network.");
+            logger.error("Error Message: " + ace.getMessage());
+        } catch (InterruptedException ie) {
+            logger.error("Interrupted error");
+        } catch (IOException ioe) {
+            logger.error("IOException error: {}", ioe.getMessage());
+        } finally {
+            try {
+                assert manager != null;
+                manager.shutdownNow();
+            } catch (AssertionError ae) {
+                logger.error("uploadFile : TransferManager was pre-emptively shut down.");
+                return false;
+            }
+        }
+        return success;
     }
 
     public boolean uploadDirectory(String bucket, String inDir, String outDir) {
@@ -867,6 +966,38 @@ public class ObjectEngine {
             }
         } catch (Exception e) {
             logger.error("deleteBucketDirectoryContents {}", e.getMessage());
+        }
+    }
+
+    private class LoggingProgressListener implements ProgressListener {
+        private final Logger logger = LoggerFactory.getLogger(LoggingProgressListener.class);
+        private int updatePercentStep = 5;
+        private long startTimestamp = 0L;
+        private long totalTransferred = 0L;
+        private long totalBytes = 0L;
+        private int nextUpdate = updatePercentStep;
+        private DecimalFormat toPercent = new DecimalFormat("#.##");
+
+        public LoggingProgressListener(long totalBytes) {
+            this.startTimestamp = System.currentTimeMillis();
+            this.totalBytes = totalBytes;
+        }
+
+        @Override
+        public void progressChanged(ProgressEvent progressEvent) {
+            Thread.currentThread().setName("TransferListener");
+            long currentTimestamp = System.currentTimeMillis();
+            long transferTime = (currentTimestamp - startTimestamp) / 1000L;
+            long currentBytesTransferred = progressEvent.getBytesTransferred();
+            float currentTransferRate = (totalTransferred / (float)1000000) / transferTime;
+            this.totalTransferred += currentBytesTransferred;
+            float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
+            if (currentTransferPercentage > (float)nextUpdate) {
+                logger.debug("Transferred in progress ({}/{} {}%) at {} MB/s",
+                        humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
+                        (int)currentTransferPercentage, toPercent.format(currentTransferRate));
+                nextUpdate += updatePercentStep;
+            }
         }
     }
 

@@ -1,0 +1,525 @@
+package com.researchworx.cresco.plugins.gobjectIngestion.objectstorage;
+
+import com.researchworx.cresco.library.messaging.MsgEvent;
+import com.researchworx.cresco.library.plugin.core.CPlugin;
+import com.researchworx.cresco.library.utilities.CLogger;
+import gov.loc.repository.bagit.creator.BagCreator;
+import gov.loc.repository.bagit.domain.Bag;
+import gov.loc.repository.bagit.exceptions.*;
+import gov.loc.repository.bagit.hash.StandardSupportedAlgorithms;
+import gov.loc.repository.bagit.hash.SupportedAlgorithm;
+import gov.loc.repository.bagit.reader.BagReader;
+import net.java.truevfs.access.TArchiveDetector;
+import net.java.truevfs.access.TConfig;
+import net.java.truevfs.access.TFile;
+import net.java.truevfs.access.TVFS;
+import net.java.truevfs.comp.tardriver.TarDriver;
+import net.java.truevfs.comp.zipdriver.JarDriver;
+import net.java.truevfs.comp.zipdriver.ZipDriver;
+import net.java.truevfs.kernel.spec.FsAccessOption;
+import net.java.truevfs.kernel.spec.FsSyncException;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+public class Encapsulation {
+    private static CLogger logger = new CLogger(Encapsulation.class, new ConcurrentLinkedQueue<MsgEvent>(),
+            "", "", "");
+
+    public static void setLogger(CPlugin plugin) {
+        logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(),
+                plugin.getPluginID(), CLogger.Level.Trace);
+    }
+
+    /**
+     * Function to encapusulate a directory into the selected BagIt and compression formats
+     * @param src Directory to encapsulate
+     * @param bagItMode Mode of BagIt to use (none, dotfile, standard)
+     * @param hashing Hash method to use for BagIt verification
+     * @param includeHiddenFiles Whether to include hidden files in the BagIt bag
+     * @param boxItExtension Compression method to use (tar, bzip2, gzip, xz, zip)
+     * @return The absolute file path to the resulting encapsulation (directory or compressed file)
+     */
+    public static String encapsulate(String src, String bagItMode, String hashing,
+                                     boolean includeHiddenFiles, String boxItExtension) {
+        logger.trace("Call to encapsulate({}, {}, {}, {}, {})", src, bagItMode, hashing, includeHiddenFiles,
+                boxItExtension);
+        File capsule = new File(src);
+        if (!capsule.exists())
+            return null;
+        if (capsule.isFile())
+            return src;
+        if (!bagItMode.equals("none"))
+            capsule = bagItUp(capsule, bagItMode, hashing, includeHiddenFiles);
+        logger.trace("Path post bagItUp: {}", capsule.getAbsolutePath());
+        if (!boxItExtension.equals("none"))
+            capsule = boxItUp(capsule, boxItExtension);
+        logger.trace("Path post boxItUp: {}", capsule.getAbsolutePath());
+        if (!boxItExtension.equals("none")) {
+            debagify(src);
+        }
+        return (capsule != null) ? capsule.getAbsolutePath() : null;
+    }
+
+    /**
+     * Function to restore an encapsulated file
+     * @param src File to restore
+     * @return The absolute file path to the restored
+     */
+    public static String restore(String src) {
+        String unboxed = unBoxIt(src);
+        if (unboxed == null)
+            unboxed = src;
+        else
+            new File(src).delete();
+        if (isBag(unboxed)) {
+            if (!verifyBag(unboxed, true))
+                return null;
+            debagify(unboxed);
+        }
+        return unboxed;
+    }
+
+    public static boolean isBag(String src) {
+        logger.trace("Call to isBag('{}')", src);
+        File bag = new File(src);
+        logger.debug("bag.exists(): {}", bag.exists());
+        if (!bag.exists())
+            return false;
+        logger.debug("bag.isFile(): {}", bag.isFile());
+        if (bag.isFile())
+            return false;
+        if (!src.endsWith("/"))
+            src += "/";
+        File bagitFile = new File(src + ".bagit");
+        logger.debug(".bagit.exists(): {}", bagitFile.exists());
+        if (new File(src + ".bagit").exists())
+            return true;
+        File data = new File(src + "data");
+        logger.debug("{} : exists() = {}, isDirectory() = {}", data.getAbsolutePath(), data.exists(),
+                data.isDirectory());
+        boolean hasBagitTxt = new File(src + "bagit.txt").exists();
+        logger.debug("hasBagitTxt : {}", hasBagitTxt);
+        boolean hasBagitInfo = new File(src + "bag-info.txt").exists();
+        logger.debug("hasBagitInfo : {}", hasBagitInfo);
+        boolean manifestSHA512 = new File(src + "manifest-sha512.txt").exists();
+        logger.debug("manifestSHA512 : {}", manifestSHA512);
+        boolean tagmanifestSHA512 = new File(src + "tagmanifest-sha512.txt").exists();
+        logger.debug("tagmanifestSHA512 : {}", tagmanifestSHA512);
+        boolean hasSHA512 = manifestSHA512 && tagmanifestSHA512;
+        logger.debug("hasSHA512 : {}", hasSHA512);
+        boolean manifestSHA256 = new File(src + "manifest-sha256.txt").exists();
+        logger.debug("hasSmanifestSHA256HA512 : {}", manifestSHA256);
+        boolean tagmanifestSHA256 = new File(src + "tagmanifest-sha256.txt").exists();
+        logger.debug("tagmanifestSHA256 : {}", tagmanifestSHA256);
+        boolean hasSHA256 = manifestSHA256 && tagmanifestSHA256;
+        logger.debug("hasSHA256 : {}", hasSHA256);
+        boolean manifestSHA1 = new File(src + "manifest-sha1.txt").exists();
+        logger.debug("manifestSHA1 : {}", manifestSHA1);
+        boolean tagmanifestSHA1 = new File(src + "tagmanifest-sha1.txt").exists();
+        logger.debug("tagmanifestSHA1 : {}", tagmanifestSHA1);
+        boolean hasSHA1 = manifestSHA1 && tagmanifestSHA1;
+        logger.debug("hasSHA1 : {}", hasSHA1);
+        boolean manifestMD5 = new File(src + "manifest-md5.txt").exists();
+        logger.debug("manifestMD5 : {}", manifestMD5);
+        boolean tagmanifestMD5 = new File(src + "tagmanifest-md5.txt").exists();
+        logger.debug("tagmanifestMD5 : {}", tagmanifestMD5);
+        boolean hasMD5 = manifestMD5 && tagmanifestMD5;
+        logger.debug("hasMD5 : {}", hasMD5);
+        if (data.exists() && data.isDirectory() && hasBagitTxt && hasBagitInfo &&
+                (hasSHA512 || hasSHA256 || hasSHA1 || hasMD5))
+            return true;
+        return false;
+    }
+
+    /**
+     * Build BagIt bag from directory
+     * @param folder Directory to bag up
+     * @param mode Mode of BagIt bag creation
+     * @param hashing Hashing method to use for file verification
+     * @param includeHiddenFiles Whether to include hidden files
+     * @return The resulting bag path
+     */
+    private static File bagItUp(File folder, String mode, String hashing, boolean includeHiddenFiles) {
+        logger.trace("Call to bagItUp({}, {}, {}, {})", folder.getAbsolutePath(), mode, hashing,
+                includeHiddenFiles);
+        if (verifyBag(folder, includeHiddenFiles))
+            debagify(folder.getAbsolutePath());
+        List<SupportedAlgorithm> algorithms = new ArrayList<>();
+        if (hashing.equals("sha512"))
+            algorithms.add(StandardSupportedAlgorithms.SHA512);
+        if (hashing.equals("sha256"))
+            algorithms.add(StandardSupportedAlgorithms.SHA256);
+        if (hashing.equals("sha1"))
+            algorithms.add(StandardSupportedAlgorithms.SHA1);
+        if (hashing.equals("md5"))
+            algorithms.add(StandardSupportedAlgorithms.MD5);
+        switch (mode) {
+            case "dotfile":
+                try {
+                    BagCreator.createDotBagit(folder.toPath(), algorithms, includeHiddenFiles);
+                } catch (IOException e) {
+                    logger.error("bagItUp : File error encountered while creating BagIt bag : {}, {}",
+                            folder.getAbsolutePath(), e.getMessage());
+                    return null;
+                } catch (NoSuchAlgorithmException e) {
+                    logger.error("bagItUp : Unsupported algorithm selected.");
+                    return null;
+                }
+                break;
+            case "standard":
+                try {
+                    BagCreator.bagInPlace(folder.toPath(), algorithms, includeHiddenFiles);
+                } catch (IOException e) {
+                    logger.error("bagItUp : File error encountered while creating BagIt bag : {}, {}",
+                            folder.getAbsolutePath(), e.getMessage());
+                    return null;
+                } catch (NoSuchAlgorithmException e) {
+                    logger.error("bagItUp : Unsupported algorithm selected.");
+                    return null;
+                }
+                break;
+        }
+        if (verifyBag(folder, includeHiddenFiles))
+            return folder;
+        return null;
+    }
+
+    /**
+     * Cleans up from the BagIt bag creation
+     * @param src The path to the bag to clean up
+     */
+    public static void debagify(String src) {
+        logger.trace("Call to debagify({})", src);
+        File bag = new File(src);
+        if (bag.isFile())
+            return;
+        File bagIt = new File(src + "/.bagit");
+        if (bagIt.exists())
+            try {
+                deleteFolder(bagIt.toPath());
+            } catch (IOException e) {
+                logger.error("Failed to delete the .bagit directory for bag: {}", src);
+            }
+        new File(src + "/bagit.txt").delete();
+        new File(src + "/bag-info.txt").delete();
+        new File(src + "/manifest-sha512.txt").delete();
+        new File(src + "/manifest-sha256.txt").delete();
+        new File(src + "/manifest-sha1.txt").delete();
+        new File(src + "/manifest-md5.txt").delete();
+        new File(src + "/tagmanifest-sha512.txt").delete();
+        new File(src + "/tagmanifest-sha256.txt").delete();
+        new File(src + "/tagmanifest-sha1.txt").delete();
+        new File(src + "/tagmanifest-md5.txt").delete();
+        File data = new File(src + "/data");
+        if (data.exists()) {
+            String tmpDataPath = src + "/" + UUID.randomUUID().toString();
+            data.renameTo(new File(tmpDataPath));
+            try {
+                copyFolderContents(new File(tmpDataPath), new File(src));
+                deleteFolder(new File(tmpDataPath).toPath());
+                new File(src + "/bag-info.txt").delete();
+            } catch (IOException e) {
+                logger.error("Failed to move files from {} to {}", src + "/data", src);
+            }
+        }
+    }
+
+    /**
+     * Build a compressed file from the given directory
+     * @param capsule Directory to compress
+     * @param extension Compression method to use
+     * @return Path to the compressed file
+     */
+    private static File boxItUp(File capsule, String extension) {
+        logger.trace("Call to boxItUp({}, {})", capsule.getAbsolutePath(), extension);
+        if (capsule == null || !capsule.exists())
+            return null;
+        TConfig.current().setLenient(false);
+        TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.NULL, new Object[][] {
+                { "jar", new JarDriver() },
+                { "tar|tar.bz2|tar.gz|tar.xz", new TarDriver() },
+                { "zip", new ZipDriver() },
+        }));
+        TConfig.current().setAccessPreference(FsAccessOption.GROW, true);
+        String archiveName = capsule.getAbsolutePath();
+        switch (extension) {
+            case "tar":
+                archiveName = archiveName + ".tar";
+                break;
+            case "bzip2":
+                archiveName = archiveName + ".tar.bz2";
+                break;
+            case "gzip":
+                archiveName = archiveName + ".tar.gz";
+                break;
+            case "xz":
+                archiveName = archiveName + ".tar.xz";
+                break;
+            case "zip":
+                archiveName = archiveName + ".zip";
+                break;
+            default:
+                return null;
+        }
+        TFile bag = new TFile(capsule);
+        TFile archive;
+        try {
+            archive = new TFile(archiveName);
+            if (archive.exists())
+                archive.rm_r();
+            archive.mkdir(false);
+        } catch (IOException e) {
+            logger.error("boxItUp : Failed to create archive directory. {}:{}", e.getClass().getName(),
+                    e.getMessage());
+            return null;
+        }
+        if (TConfig.current().isLenient() && archive.isArchive() || archive.isDirectory())
+            archive = new TFile(archive, bag.getName());
+        try {
+            bag.cp_rp(archive);
+        } catch (IOException e) {
+            logger.error("boxItUp : Failed to write files into archive: {}", e.getMessage());
+            return null;
+        }
+        try {
+            TVFS.umount();
+        } catch (FsSyncException e) {
+            logger.error("boxItUp : Failed to sync changes to the filesystem: ", e.getMessage());
+            return null;
+        }
+
+        return new File(archiveName);
+    }
+
+    public static String unBoxIt(String filePath) {
+        logger.trace("unBoxIt('{}')", filePath);
+        if (filePath == null || filePath.equals("")) {
+            logger.error("Empty filepath given");
+            return null;
+        }
+        TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.ALL, new Object[][] {
+                { "jar", new JarDriver() },
+                { "tar|tar.bz2|tar.gz|tar.xz", new TarDriver() },
+                { "zip", new ZipDriver() },
+        }));
+        TConfig.current().setAccessPreference(FsAccessOption.GROW, true);
+        TConfig.current().setAccessPreference(FsAccessOption.STORE, true);
+        TFile archive = new TFile(new File(filePath));
+        if (!archive.exists()) {
+            logger.error("[{}] does not exist", archive.getAbsolutePath());
+            return null;
+        }
+        if (!archive.isArchive()) {
+            logger.error("[{}] is not an archive", archive.getAbsolutePath());
+            return null;
+        }
+        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" +
+                archive.list()[0]).getAbsolutePath();
+        if (folder == null || folder.equals("")) {
+            logger.error("Improperly formatted archive lacking internal top level directory");
+            return null;
+        }
+        logger.debug("folder: {}", folder);
+        TFile folderFS = new TFile(folder);
+        if (folderFS.exists()) {
+            logger.trace("Archive top level directory already exists, deleting");
+            try {
+                folderFS.rm_r();
+                TVFS.umount();
+            } catch (IOException e) {
+                logger.error("Failed to remove existing directory [{}] {}:{}", folder,
+                        e.getClass().getName(), e.getMessage());
+                return null;
+            }
+        }
+        try {
+            TFile bag = archive.getParentFile();
+            logger.debug("archive: {}", archive.getAbsolutePath());
+            logger.debug("bag: {}", bag.getAbsolutePath());
+            TFile.cp_rp(archive, bag, TConfig.current().getArchiveDetector(), TArchiveDetector.NULL);
+            try {
+                TVFS.umount();
+                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(),
+                        new File(folder).getAbsolutePath());
+                return folder;
+            } catch (FsSyncException e) {
+                logger.error("unBoxIt : Failed to sync changes to the filesystem: ", e.getMessage());
+                return null;
+            }
+        } catch (IOException ioe) {
+            logger.error("Failed to unbox [{}]: {}: {}", archive.getAbsolutePath(),
+                    ioe.getClass().getCanonicalName(), ioe.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Reads a directory to a Bag object
+     * @param path Path to the bag directory
+     * @return Resulting Bag object
+     */
+    private static Bag readBag(Path path) {
+        logger.trace("Call to readBag({})", path.toAbsolutePath());
+        BagReader reader = new BagReader();
+        try {
+            return reader.read(path);
+        } catch (IOException e) {
+            logger.error("readBag : Failed to load BagIt bag: {}", path.toAbsolutePath());
+            return null;
+        } catch (UnparsableVersionException e) {
+            logger.error("readBag : Cannot parse this version of BagIt.");
+            return null;
+        } catch (MaliciousPathException e) {
+            logger.error("readBag : Invalid BagIt bag path encountered.");
+            return null;
+        } catch (UnsupportedAlgorithmException e) {
+            logger.error("readBag : BagIt bag requires an unsupported hashing algorithm.");
+            return null;
+        } catch (InvalidBagitFileFormatException e) {
+            logger.error("readBag : The format of this BagIt bag is invalid.");
+            return null;
+        }
+    }
+
+    /**
+     * Reads a directory to a Bag object
+     * @param path Path to the bag directory
+     * @return Resulting Bag object
+     */
+    private static Bag readBag(File path) {
+        return readBag(path.toPath());
+    }
+
+    /**
+     * Reads a directory to a Bag object
+     * @param path Path to the bag directory
+     * @return Resulting Bag object
+     */
+    private static Bag readBag(String path) {
+        return readBag(new File(path));
+    }
+
+    /**
+     * Verifies the bag at the given path
+     * @param path Path of the bag to verify
+     * @param includeHiddenFiles Whether the bag included hidden files
+     * @return Whether the bag is valid or not
+     */
+    private static boolean verifyBag(Path path, boolean includeHiddenFiles) {
+        logger.trace("Call to verifyBag({}, {})", path.toAbsolutePath(), includeHiddenFiles);
+        LargeBagVerifier verifier = new LargeBagVerifier();
+        Bag bag = readBag(path);
+        if (bag == null)
+            return false;
+        try {
+            verifier.isValid(bag, includeHiddenFiles);
+            verifier.close();
+            return true;
+        } catch (IOException e) {
+            logger.error("verifyBag : Failed to read a file in BagIt bag : {}", e.getMessage());
+            return false;
+        } catch (UnsupportedAlgorithmException e) {
+            logger.error("verifyBag : BagIt bag requires an unsupported hashing algorithm.");
+            return false;
+        } catch (MissingPayloadManifestException e) {
+            logger.error("verifyBag : BagIt bag is missing a payload manifest.");
+            return false;
+        } catch (MissingBagitFileException e) {
+            logger.error("verifyBag : BagIt bag is missing a file: {}", e.getMessage());
+            return false;
+        } catch (MissingPayloadDirectoryException e) {
+            logger.error("verifyBag : BagIt bag is missing a payload directory.");
+            return false;
+        } catch (FileNotInPayloadDirectoryException e) {
+            logger.error("verifyBag : BagIt bag is missing a file from its payload directory: {}",
+                    e.getMessage());
+            return false;
+        } catch (InterruptedException e) {
+            logger.error("verifyBag : Verification process was interrupted.");
+            return false;
+        } catch (MaliciousPathException e) {
+            logger.error("verifyBag : Invalid BagIt bag path encountered.");
+            return false;
+        } catch (CorruptChecksumException e) {
+            logger.error("verifyBag : BagIt bag contains a corrupt checksum: {}", e.getMessage());
+            return false;
+        } catch (VerificationException e) {
+            logger.error("verifyBag : BagIt bag encountered an unknown verification issue.");
+            return false;
+        } catch (InvalidBagitFileFormatException e) {
+            logger.error("verifyBag : BagIt bag is in an invalid format.");
+            return false;
+        }
+    }
+
+    /**
+     * Verifies the bag at the given path
+     * @param path Path of the bag to verify
+     * @param includeHiddenFiles Whether the bag included hidden files
+     * @return Whether the bag is valid or not
+     */
+    private static boolean verifyBag(File path, boolean includeHiddenFiles) {
+        return verifyBag(path.toPath(), includeHiddenFiles);
+    }
+
+    /**
+     * Verifies the bag at the given path
+     * @param path Path of the bag to verify
+     * @param includeHiddenFiles Whether the bag included hidden files
+     * @return Whether the bag is valid or not
+     */
+    private static boolean verifyBag(String path, boolean includeHiddenFiles) {
+        return verifyBag(new File(path), includeHiddenFiles);
+    }
+
+    /**
+     * Copies the files from one directory to another
+     * @param src Source directory to copy files from
+     * @param dst Destination directory to copy files to
+     * @throws IOException
+     */
+    private static void copyFolderContents(File src, File dst) throws IOException {
+        logger.trace("Call to copyFolderContents({},{})", src.getAbsolutePath(), dst.getAbsolutePath());
+        if (src.isDirectory()) {
+            if (!dst.exists())
+                dst.mkdir();
+            String files[] = src.list();
+            for (String file : files) {
+                File srcFile = new File(src, file);
+                File destFile = new File(dst, file);
+                copyFolderContents(srcFile,destFile);
+            }
+        } else
+            Files.move(Paths.get(src.toURI()), Paths.get(dst.toURI()));
+    }
+
+    /**
+     * Deletes an entire folder structure
+     * @param folder Path of the folder to delete
+     * @throws IOException Thrown from sub-routines
+     */
+    private static void deleteFolder(Path folder) throws IOException {
+        logger.trace("Call to deleteFolder({})", folder.toAbsolutePath());
+        Files.walkFileTree(folder, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+}
