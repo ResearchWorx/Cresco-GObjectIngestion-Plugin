@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -131,27 +130,46 @@ public class ObjectEngine {
 
     }
 
-    public boolean uploadBaggedSequence(String bucket, String inFile, String s3Prefix, String seqId, String sstep) {
+    public boolean uploadBaggedSequence(String bucket, String inPath, String s3Prefix, String seqId, String sstep) {
         logger.debug("uploadBaggedSequence('{}','{}','{}','{}','{}')",
-                bucket, inFile, s3Prefix, seqId, sstep);
+                bucket, inPath, s3Prefix, seqId, sstep);
         if (bucket == null || bucket.equals("") || !doesBucketExist(bucket)) {
-            logger.error("You must supply a valid bucket name.");
+            sendSequenceUpdateErrorMessage(seqId, sstep, "You must supply a valid bucket name");
+            return false;
+        }
+        if (inPath == null || inPath.equals("")) {
+            sendSequenceUpdateErrorMessage(seqId, sstep, "You must supply a valid sequence folder to upload");
+            return false;
+        }
+        File inFile = new File(inPath);
+        if (!inFile.exists()) {
+            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Sequence to upload [%s] does not exist", inFile.getAbsolutePath()));
+            return false;
+        }
+        if (!inFile.isDirectory()) {
+            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Sequence to upload [%s] is not a directory", inFile.getAbsolutePath()));
             return false;
         }
         if (s3Prefix == null)
             s3Prefix = "";
         if (!s3Prefix.equals("") && !s3Prefix.endsWith("/"))
             s3Prefix += "/";
-        logger.debug("Bagging up [{}]", inFile);
-        String toUpload = Encapsulation.encapsulate(inFile, bagit, hashing, hiddenFiles, compression);
-        if (toUpload == null) {
-            logger.error("Failed to bag up [{}]", inFile);
+        sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Bagging up [%s]", inFile.getAbsolutePath()));
+        File bagged = Encapsulation.bagItUp(inFile, bagit, hashing, hiddenFiles);
+        if (bagged == null || !bagged.exists()) {
+            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Failed to bag up sequence directory [%s]", inFile.getAbsolutePath()));
             return false;
         }
-        if (toUpload == null || toUpload.equals("") || !(new File(toUpload).exists())) {
-            logger.error("You must supply something to upload.");
+        sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Boxing up [%s]", inFile.getAbsolutePath()));
+        File boxed = Encapsulation.boxItUp(bagged, compression);
+        if (boxed == null || !boxed.exists()) {
+            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Failed to box up sequence directory [%s]", inFile.getAbsolutePath()));
+            Encapsulation.debagify(inPath);
             return false;
         }
+        sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Reverting bagging on sequence directory [%s]", inFile.getAbsolutePath()));
+        Encapsulation.debagify(inPath);
+        String toUpload = boxed.getAbsolutePath();
         boolean success = false;
         TransferManager manager = null;
         logger.trace("Building TransferManager");
@@ -161,37 +179,25 @@ public class ObjectEngine {
                     .withMultipartUploadThreshold(1024L * 1024L * 5L)
                     .withMinimumUploadPartSize(1024L * 1024L * 5L)
                     .build();
-            logger.trace("Checking that inDirectory exists");
-            File uploadFile = new File(toUpload);
-            if (!uploadFile.exists()) {
-                logger.error("Input directory [{}] does not exist!");
-                return false;
-            }
-            inFile = Paths.get(inFile).toString();
-            logger.trace("New inFile: {}", inFile);
-            logger.trace("file.seperator: {}", File.separatorChar);
-            s3Prefix += inFile.substring((inFile.lastIndexOf(File.separatorChar) > -1 ? inFile.lastIndexOf(File.separatorChar) + 1 : 0));
-            logger.trace("s3Prefix: {}", s3Prefix);
-            PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, uploadFile);
-            request.setGeneralProgressListener(new LoggingProgressListener(uploadFile.length()));
-            logger.trace("Building upload montior and starting upload");
-            //Upload transfer = manager.upload(bucket, s3Prefix, uploadFile);
+            s3Prefix += inPath.substring(inPath.lastIndexOf(File.separatorChar) > -1 ?
+                    inPath.lastIndexOf(File.separatorChar) + 1 : 0);
+            sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Starting Upload to S3: ('%s','%s','%s')", bucket, s3Prefix, boxed.getAbsolutePath()));
+            PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, boxed);
+            request.setGeneralProgressListener(new SequenceLoggingProgressListener(seqId, sstep, boxed.length()));
+            logger.trace("Starting upload to S3");
             Upload transfer = manager.upload(request);
             UploadResult result = transfer.waitForUploadResult();
             String s3Checksum = result.getETag();
             logger.trace("s3Checksum: {}", result.getETag());
             String localChecksum;
             if (s3Checksum.contains("-"))
-                localChecksum = md5t.getMultiCheckSum(inFile);
+                localChecksum = md5t.getMultiCheckSum(toUpload);
             else
-                localChecksum = md5t.getCheckSum(inFile);
+                localChecksum = md5t.getCheckSum(toUpload);
             logger.trace("localChecksum: {}", localChecksum);
             if (!localChecksum.equals(result.getETag()))
-                logger.error("Checksums don't match [local: {}, S3: {}]", localChecksum, result.getETag());
-            if (!compression.equals("none") && (toUpload.endsWith(".tar") || toUpload.endsWith(".tar.bz2") ||
-                    toUpload.endsWith(".tar.gz") || toUpload.endsWith(".tar.xz") ||
-                    toUpload.endsWith(".zip")))
-                Files.delete(new File(toUpload).toPath());
+                sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Checksums don't match [local: %s, S3: %s]", localChecksum, result.getETag()));
+            Files.delete(boxed.toPath());
             success = localChecksum.equals(result.getETag());
         } catch (AmazonServiceException ase) {
             logger.error("Caught an AmazonServiceException, which means your request made it "
@@ -220,6 +226,24 @@ public class ObjectEngine {
             }
         }
         return success;
+    }
+
+    private void sendSequenceUpdateInfoMessage(String seqId, String step, String message) {
+        logger.info("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        msgEvent.setParam("sstep", step);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    private void sendSequenceUpdateErrorMessage(String seqId, String step, String message) {
+        logger.error("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        msgEvent.setParam("sstep", step);
+        plugin.sendMsgEvent(msgEvent);
     }
 
     public boolean uploadDirectory(String bucket, String inDir, String outDir) {
@@ -1001,7 +1025,42 @@ public class ObjectEngine {
         }
     }
 
-    public static String humanReadableByteCount(long bytes, boolean si) {
+    private class SequenceLoggingProgressListener implements ProgressListener {
+        private final Logger logger = LoggerFactory.getLogger(SequenceLoggingProgressListener.class);
+        private int updatePercentStep = 5;
+        private long startTimestamp = 0L;
+        private long totalTransferred = 0L;
+        private long totalBytes = 0L;
+        private int nextUpdate = updatePercentStep;
+        private String seqId;
+        private String step;
+
+        public SequenceLoggingProgressListener(String seqId, String step, long totalBytes) {
+            this.startTimestamp = System.currentTimeMillis();
+            this.seqId = seqId;
+            this.step = step;
+            this.totalBytes = totalBytes;
+        }
+
+        @Override
+        public void progressChanged(ProgressEvent progressEvent) {
+            Thread.currentThread().setName("TransferListener");
+            long currentTimestamp = System.currentTimeMillis();
+            long transferTime = (currentTimestamp - startTimestamp) / 1000L;
+            long currentBytesTransferred = progressEvent.getBytesTransferred();
+            float currentTransferRate = (totalTransferred / (float)1000000) / transferTime;
+            this.totalTransferred += currentBytesTransferred;
+            float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
+            if (currentTransferPercentage > (float)nextUpdate) {
+                sendSequenceUpdateInfoMessage(seqId, step, String.format("Transferred in progress (%s/%s %d%%) at %.2f MB/s",
+                        humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
+                        (int)currentTransferPercentage, currentTransferRate));
+                nextUpdate += updatePercentStep;
+            }
+        }
+    }
+
+    private static String humanReadableByteCount(long bytes, boolean si) {
         int unit = si ? 1000 : 1024;
         if (bytes < unit) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(unit));

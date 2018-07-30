@@ -147,7 +147,7 @@ public class Encapsulation {
      * @param includeHiddenFiles Whether to include hidden files
      * @return The resulting bag path
      */
-    private static File bagItUp(File folder, String mode, String hashing, boolean includeHiddenFiles) {
+    public static File bagItUp(File folder, String mode, String hashing, boolean includeHiddenFiles) {
         logger.trace("Call to bagItUp({}, {}, {}, {})", folder.getAbsolutePath(), mode, hashing,
                 includeHiddenFiles);
         if (verifyBag(folder, includeHiddenFiles))
@@ -235,11 +235,11 @@ public class Encapsulation {
     /**
      * Build a compressed file from the given directory
      * @param capsule Directory to compress
-     * @param extension Compression method to use
+     * @param type Compression type to use
      * @return Path to the compressed file
      */
-    private static File boxItUp(File capsule, String extension) {
-        logger.trace("Call to boxItUp({}, {})", capsule.getAbsolutePath(), extension);
+    public static File boxItUp(File capsule, String type) {
+        logger.trace("Call to boxItUp({}, {})", capsule.getAbsolutePath(), type);
         if (capsule == null || !capsule.exists())
             return null;
         TConfig.current().setLenient(false);
@@ -250,7 +250,7 @@ public class Encapsulation {
         }));
         TConfig.current().setAccessPreference(FsAccessOption.GROW, true);
         String archiveName = capsule.getAbsolutePath();
-        switch (extension) {
+        switch (type) {
             case "tar":
                 archiveName = archiveName + ".tar";
                 break;
