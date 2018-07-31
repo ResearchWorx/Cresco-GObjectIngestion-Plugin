@@ -47,10 +47,28 @@ public class Encapsulation {
      * @param boxItExtension Compression method to use (tar, bzip2, gzip, xz, zip)
      * @return The absolute file path to the resulting encapsulation (directory or compressed file)
      */
-    public static String encapsulate(String src, String bagItMode, String hashing,
-                                     boolean includeHiddenFiles, String boxItExtension) {
-        logger.trace("Call to encapsulate({}, {}, {}, {}, {})", src, bagItMode, hashing, includeHiddenFiles,
-                boxItExtension);
+    static String encapsulate(String src, String bagItMode, String hashing,
+                              boolean includeHiddenFiles, String boxItExtension) {
+        logger.trace("Call to encapsulate({}, {}, {}, {}, {})",
+                src != null ? src : "NULL", bagItMode != null ? bagItMode : "NULL",
+                hashing != null ? hashing : "NULL", includeHiddenFiles,
+                boxItExtension != null ? boxItExtension : "NULL");
+        if (src == null || src.equals("")) {
+            logger.error("No valid src given");
+            return null;
+        }
+        if (bagItMode == null || bagItMode.equals("")) {
+            logger.error("No valid bagItMode given");
+            return null;
+        }
+        if (hashing == null || hashing.equals("")) {
+            logger.error("No valid hashing given");
+            return null;
+        }
+        if (boxItExtension == null || boxItExtension.equals("")) {
+            logger.error("No valid boxItExtension given");
+            return null;
+        }
         File capsule = new File(src);
         if (!capsule.exists())
             return null;
@@ -58,14 +76,22 @@ public class Encapsulation {
             return src;
         if (!bagItMode.equals("none"))
             capsule = bagItUp(capsule, bagItMode, hashing, includeHiddenFiles);
+        if (capsule == null) {
+            logger.error("Failed to bag up [{}]", new File(src).getAbsolutePath());
+            return null;
+        }
         logger.trace("Path post bagItUp: {}", capsule.getAbsolutePath());
         if (!boxItExtension.equals("none"))
             capsule = boxItUp(capsule, boxItExtension);
+        if (capsule == null) {
+            logger.error("Failed to box up [{}]", new File(src).getAbsolutePath());
+            return null;
+        }
         logger.trace("Path post boxItUp: {}", capsule.getAbsolutePath());
         if (!boxItExtension.equals("none")) {
             debagify(src);
         }
-        return (capsule != null) ? capsule.getAbsolutePath() : null;
+        return capsule.getAbsolutePath();
     }
 
     /**
@@ -73,7 +99,7 @@ public class Encapsulation {
      * @param src File to restore
      * @return The absolute file path to the restored
      */
-    public static String restore(String src) {
+    static String restore(String src) {
         String unboxed = unBoxIt(src);
         if (unboxed == null)
             unboxed = src;
@@ -87,7 +113,7 @@ public class Encapsulation {
         return unboxed;
     }
 
-    public static boolean isBag(String src) {
+    private static boolean isBag(String src) {
         logger.trace("Call to isBag('{}')", src);
         File bag = new File(src);
         logger.debug("bag.exists(): {}", bag.exists());
@@ -103,8 +129,7 @@ public class Encapsulation {
         if (new File(src + ".bagit").exists())
             return true;
         File data = new File(src + "data");
-        logger.debug("{} : exists() = {}, isDirectory() = {}", data.getAbsolutePath(), data.exists(),
-                data.isDirectory());
+        logger.debug("{} : exists() = {}, isDirectory() = {}", data.getAbsolutePath(), data.exists(), data.isDirectory());
         boolean hasBagitTxt = new File(src + "bagit.txt").exists();
         logger.debug("hasBagitTxt : {}", hasBagitTxt);
         boolean hasBagitInfo = new File(src + "bag-info.txt").exists();
@@ -133,10 +158,10 @@ public class Encapsulation {
         logger.debug("tagmanifestMD5 : {}", tagmanifestMD5);
         boolean hasMD5 = manifestMD5 && tagmanifestMD5;
         logger.debug("hasMD5 : {}", hasMD5);
-        if (data.exists() && data.isDirectory() && hasBagitTxt && hasBagitInfo &&
-                (hasSHA512 || hasSHA256 || hasSHA1 || hasMD5))
-            return true;
-        return false;
+        return (data.exists() && data.isDirectory() && hasBagitTxt && hasBagitInfo &&
+                (hasSHA512 || hasSHA256 || hasSHA1 || hasMD5));
+        //    return true;
+        //return false;
     }
 
     /**
@@ -147,10 +172,9 @@ public class Encapsulation {
      * @param includeHiddenFiles Whether to include hidden files
      * @return The resulting bag path
      */
-    public static File bagItUp(File folder, String mode, String hashing, boolean includeHiddenFiles) {
-        logger.trace("Call to bagItUp({}, {}, {}, {})", folder.getAbsolutePath(), mode, hashing,
-                includeHiddenFiles);
-        if (verifyBag(folder, includeHiddenFiles))
+    static File bagItUp(File folder, String mode, String hashing, boolean includeHiddenFiles) {
+        logger.trace("Call to bagItUp({}, {}, {}, {})", folder.getAbsolutePath(), mode, hashing, includeHiddenFiles);
+        if (isBag(folder.getAbsolutePath()))
             debagify(folder.getAbsolutePath());
         List<SupportedAlgorithm> algorithms = new ArrayList<>();
         if (hashing.equals("sha512"))
@@ -166,8 +190,7 @@ public class Encapsulation {
                 try {
                     BagCreator.createDotBagit(folder.toPath(), algorithms, includeHiddenFiles);
                 } catch (IOException e) {
-                    logger.error("bagItUp : File error encountered while creating BagIt bag : {}, {}",
-                            folder.getAbsolutePath(), e.getMessage());
+                    logger.error("bagItUp : File error encountered while creating BagIt bag : {}, {}", folder.getAbsolutePath(), e.getMessage());
                     return null;
                 } catch (NoSuchAlgorithmException e) {
                     logger.error("bagItUp : Unsupported algorithm selected.");
@@ -178,8 +201,7 @@ public class Encapsulation {
                 try {
                     BagCreator.bagInPlace(folder.toPath(), algorithms, includeHiddenFiles);
                 } catch (IOException e) {
-                    logger.error("bagItUp : File error encountered while creating BagIt bag : {}, {}",
-                            folder.getAbsolutePath(), e.getMessage());
+                    logger.error("bagItUp : File error encountered while creating BagIt bag : {}, {}", folder.getAbsolutePath(), e.getMessage());
                     return null;
                 } catch (NoSuchAlgorithmException e) {
                     logger.error("bagItUp : Unsupported algorithm selected.");
@@ -196,7 +218,7 @@ public class Encapsulation {
      * Cleans up from the BagIt bag creation
      * @param src The path to the bag to clean up
      */
-    public static void debagify(String src) {
+    static void debagify(String src) {
         logger.trace("Call to debagify({})", src);
         File bag = new File(src);
         if (bag.isFile())
@@ -235,12 +257,12 @@ public class Encapsulation {
     /**
      * Build a compressed file from the given directory
      * @param capsule Directory to compress
-     * @param type Compression type to use
+     * @param extension Compression method to use
      * @return Path to the compressed file
      */
-    public static File boxItUp(File capsule, String type) {
-        logger.trace("Call to boxItUp({}, {})", capsule.getAbsolutePath(), type);
-        if (capsule == null || !capsule.exists())
+    static File boxItUp(File capsule, String extension) {
+        logger.trace("Call to boxItUp({}, {})", capsule.getAbsolutePath(), extension);
+        if (!capsule.exists())
             return null;
         TConfig.current().setLenient(false);
         TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.NULL, new Object[][] {
@@ -250,7 +272,7 @@ public class Encapsulation {
         }));
         TConfig.current().setAccessPreference(FsAccessOption.GROW, true);
         String archiveName = capsule.getAbsolutePath();
-        switch (type) {
+        switch (extension) {
             case "tar":
                 archiveName = archiveName + ".tar";
                 break;
@@ -277,8 +299,7 @@ public class Encapsulation {
                 archive.rm_r();
             archive.mkdir(false);
         } catch (IOException e) {
-            logger.error("boxItUp : Failed to create archive directory. {}:{}", e.getClass().getName(),
-                    e.getMessage());
+            logger.error("boxItUp : Failed to create archive directory. {}:{}", e.getClass().getName(), e.getMessage());
             return null;
         }
         if (TConfig.current().isLenient() && archive.isArchive() || archive.isDirectory())
@@ -299,7 +320,7 @@ public class Encapsulation {
         return new File(archiveName);
     }
 
-    public static String unBoxIt(String filePath) {
+    private static String unBoxIt(String filePath) {
         logger.trace("unBoxIt('{}')", filePath);
         if (filePath == null || filePath.equals("")) {
             logger.error("Empty filepath given");
@@ -321,8 +342,7 @@ public class Encapsulation {
             logger.error("[{}] is not an archive", archive.getAbsolutePath());
             return null;
         }
-        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" +
-                archive.list()[0]).getAbsolutePath();
+        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + archive.list()[0]).getAbsolutePath();
         if (folder == null || folder.equals("")) {
             logger.error("Improperly formatted archive lacking internal top level directory");
             return null;
@@ -335,8 +355,7 @@ public class Encapsulation {
                 folderFS.rm_r();
                 TVFS.umount();
             } catch (IOException e) {
-                logger.error("Failed to remove existing directory [{}] {}:{}", folder,
-                        e.getClass().getName(), e.getMessage());
+                logger.error("Failed to remove existing directory [{}] {}:{}", folder, e.getClass().getName(), e.getMessage());
                 return null;
             }
         }
@@ -347,16 +366,14 @@ public class Encapsulation {
             TFile.cp_rp(archive, bag, TConfig.current().getArchiveDetector(), TArchiveDetector.NULL);
             try {
                 TVFS.umount();
-                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(),
-                        new File(folder).getAbsolutePath());
+                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(), new File(folder).getAbsolutePath());
                 return folder;
             } catch (FsSyncException e) {
                 logger.error("unBoxIt : Failed to sync changes to the filesystem: ", e.getMessage());
                 return null;
             }
         } catch (IOException ioe) {
-            logger.error("Failed to unbox [{}]: {}: {}", archive.getAbsolutePath(),
-                    ioe.getClass().getCanonicalName(), ioe.getMessage());
+            logger.error("Failed to unbox [{}]: {}: {}", archive.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage());
             return null;
         }
     }
@@ -439,8 +456,7 @@ public class Encapsulation {
             logger.error("verifyBag : BagIt bag is missing a payload directory.");
             return false;
         } catch (FileNotInPayloadDirectoryException e) {
-            logger.error("verifyBag : BagIt bag is missing a file from its payload directory: {}",
-                    e.getMessage());
+            logger.error("verifyBag : BagIt bag is missing a file from its payload directory: {}", e.getMessage());
             return false;
         } catch (InterruptedException e) {
             logger.error("verifyBag : Verification process was interrupted.");
@@ -487,7 +503,7 @@ public class Encapsulation {
      * @throws IOException
      */
     private static void copyFolderContents(File src, File dst) throws IOException {
-        logger.trace("Call to copyFolderContents({},{})", src.getAbsolutePath(), dst.getAbsolutePath());
+        //logger.trace("Call to copyFolderContents({},{})", src.getAbsolutePath(), dst.getAbsolutePath());
         if (src.isDirectory()) {
             if (!dst.exists())
                 dst.mkdir();

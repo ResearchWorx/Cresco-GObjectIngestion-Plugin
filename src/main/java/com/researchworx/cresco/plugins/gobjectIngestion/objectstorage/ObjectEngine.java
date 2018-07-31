@@ -26,7 +26,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +46,8 @@ public class ObjectEngine {
     private static final String hashing = "md5";
     private static final boolean hiddenFiles = true;
     private static final String compression = "gzip";
+    private static final String extension = ".tar.gz";
+    private static final boolean removeExisting = false;
 
     private CLogger logger;
     private static AmazonS3 conn;
@@ -130,44 +134,50 @@ public class ObjectEngine {
 
     }
 
-    public boolean uploadBaggedSequence(String bucket, String inPath, String s3Prefix, String seqId, String sstep) {
-        logger.debug("uploadBaggedSequence('{}','{}','{}','{}','{}')",
-                bucket, inPath, s3Prefix, seqId, sstep);
+    public boolean uploadBaggedDirectory(String bucket, String inPath, String s3Prefix, String seqId, String sampleId,
+                                         String reqId, String step) {
+        logger.debug("uploadBaggedDirectory('{}','{}','{}','{}','{}','{}')",
+                bucket, inPath, s3Prefix, seqId, sampleId, step);
         if (bucket == null || bucket.equals("") || !doesBucketExist(bucket)) {
-            sendSequenceUpdateErrorMessage(seqId, sstep, "You must supply a valid bucket name");
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, "You must supply a valid bucket name");
             return false;
         }
         if (inPath == null || inPath.equals("")) {
-            sendSequenceUpdateErrorMessage(seqId, sstep, "You must supply a valid sequence folder to upload");
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, "You must supply a valid directory folder to upload");
             return false;
         }
         File inFile = new File(inPath);
         if (!inFile.exists()) {
-            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Sequence to upload [%s] does not exist", inFile.getAbsolutePath()));
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Directory to upload [%s] does not exist",
+                    inFile.getAbsolutePath()));
             return false;
         }
         if (!inFile.isDirectory()) {
-            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Sequence to upload [%s] is not a directory", inFile.getAbsolutePath()));
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Directory to upload [%s] is not a directory",
+                    inFile.getAbsolutePath()));
             return false;
         }
         if (s3Prefix == null)
             s3Prefix = "";
         if (!s3Prefix.equals("") && !s3Prefix.endsWith("/"))
             s3Prefix += "/";
-        sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Bagging up [%s]", inFile.getAbsolutePath()));
+        sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Bagging up [%s]", inFile.getAbsolutePath()));
         File bagged = Encapsulation.bagItUp(inFile, bagit, hashing, hiddenFiles);
         if (bagged == null || !bagged.exists()) {
-            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Failed to bag up sequence directory [%s]", inFile.getAbsolutePath()));
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Failed to bag up directory [%s]",
+                    inFile.getAbsolutePath()));
             return false;
         }
-        sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Boxing up [%s]", inFile.getAbsolutePath()));
+        sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Boxing up [%s]", inFile.getAbsolutePath()));
         File boxed = Encapsulation.boxItUp(bagged, compression);
         if (boxed == null || !boxed.exists()) {
-            sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Failed to box up sequence directory [%s]", inFile.getAbsolutePath()));
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Failed to box up directory [%s]",
+                    inFile.getAbsolutePath()));
             Encapsulation.debagify(inPath);
             return false;
         }
-        sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Reverting bagging on sequence directory [%s]", inFile.getAbsolutePath()));
+        sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Reverting bagging on directory [%s]",
+                inFile.getAbsolutePath()));
         Encapsulation.debagify(inPath);
         String toUpload = boxed.getAbsolutePath();
         boolean success = false;
@@ -179,11 +189,83 @@ public class ObjectEngine {
                     .withMultipartUploadThreshold(1024L * 1024L * 5L)
                     .withMinimumUploadPartSize(1024L * 1024L * 5L)
                     .build();
-            s3Prefix += inPath.substring(inPath.lastIndexOf(File.separatorChar) > -1 ?
-                    inPath.lastIndexOf(File.separatorChar) + 1 : 0);
-            sendSequenceUpdateInfoMessage(seqId, sstep, String.format("Starting Upload to S3: ('%s','%s','%s')", bucket, s3Prefix, boxed.getAbsolutePath()));
+            inPath = Paths.get(inPath).toString();
+            logger.trace("New inFile: {}", inFile);
+            logger.trace("file.seperator: {}", File.separatorChar);
+            s3Prefix += inPath.substring((inPath.lastIndexOf(File.separatorChar) > -1 ?
+                    inPath.lastIndexOf(File.separatorChar) + 1 : 0));
+            logger.trace("s3Prefix: {}", s3Prefix);
+            if (conn.doesObjectExist(bucket, s3Prefix)) {
+                sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("[%s] already contains the object [%s]",
+                        bucket, s3Prefix));
+                S3Object existingObject = conn.getObject(bucket, s3Prefix);
+                String s3PrefixRename = s3Prefix + "." + new SimpleDateFormat("yyyy-MM-dd.HH-mm-ss-SSS")
+                        .format(existingObject.getObjectMetadata().getLastModified());
+                if (!removeExisting) {
+                    sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("[%s/%s] being renamed to [%s/%s]",
+                            bucket, s3Prefix, bucket, s3PrefixRename));
+                    if (existingObject.getObjectMetadata().getContentLength() > 5L * 1024L * 1024L) {
+                        InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucket,
+                                s3PrefixRename);
+                        InitiateMultipartUploadResult initResult = conn.initiateMultipartUpload(initRequest);
+                        long objectSize = existingObject.getObjectMetadata().getContentLength();
+                        long partSize = 5 * 1024 * 1024;
+                        long bytePosition = 0;
+                        int partNum = 1;
+                        int numParts = (int)(objectSize / partSize);
+                        int notificationStep = 5;
+                        int percentDone = 0;
+                        int nextPercent = percentDone + notificationStep;
+                        List<CopyPartResult> copyResponses = new ArrayList<>();
+                        sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                                String.format("Starting multipart upload (%d parts) to copy [%s/%s] to [%s/%s]",
+                                        numParts, bucket, s3Prefix, bucket, s3PrefixRename));
+                        while (bytePosition < objectSize) {
+                            if ((partNum/numParts) > nextPercent) {
+                                sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                                        String.format("Copying in progress (%d/%d %d%%)",
+                                                partNum, numParts, (partNum/numParts)));
+                                nextPercent = percentDone + notificationStep;
+                            }
+                            long lastByte = Math.min(bytePosition + partSize - 1, objectSize - 1);
+                            CopyPartRequest copyRequest = new CopyPartRequest()
+                                    .withSourceBucketName(bucket)
+                                    .withSourceKey(s3Prefix)
+                                    .withDestinationBucketName(bucket)
+                                    .withDestinationKey(s3PrefixRename)
+                                    .withUploadId(initResult.getUploadId())
+                                    .withFirstByte(bytePosition)
+                                    .withLastByte(lastByte)
+                                    .withPartNumber(partNum++);
+                            copyResponses.add(conn.copyPart(copyRequest));
+                            bytePosition += partSize;
+                        }
+                        logger.trace("Creating multipart upload completion request");
+                        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(
+                                bucket, s3PrefixRename, initResult.getUploadId(), getETags(copyResponses)
+                        );
+                        logger.trace("Completing multipart upload");
+                        conn.completeMultipartUpload(completeRequest);
+                    } else {
+                        CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, s3Prefix, bucket,
+                                s3PrefixRename);
+                        conn.copyObject(copyObjectRequest);
+                    }
+                    sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                            String.format("Existing object [%s/%s] copied successfully to [%s/%s]",
+                                    bucket, s3Prefix, bucket, s3PrefixRename));
+                }
+                sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                        String.format("Deleting existing object [%s/%s]", bucket, s3Prefix));
+                DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(bucket, s3Prefix);
+                conn.deleteObject(deleteObjectRequest);
+                logger.trace("[{}] is ready for upload of [{}]", bucket, s3Prefix);
+            }
+            sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                    String.format("Starting Upload to S3: [%s] => [%s/%s]",
+                            boxed.getAbsolutePath(), bucket, s3Prefix));
             PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, boxed);
-            request.setGeneralProgressListener(new SequenceLoggingProgressListener(seqId, sstep, boxed.length()));
+            request.setGeneralProgressListener(new LoggingProgressListener(seqId, sampleId, reqId, step, boxed.length()));
             logger.trace("Starting upload to S3");
             Upload transfer = manager.upload(request);
             UploadResult result = transfer.waitForUploadResult();
@@ -196,54 +278,131 @@ public class ObjectEngine {
                 localChecksum = md5t.getCheckSum(toUpload);
             logger.trace("localChecksum: {}", localChecksum);
             if (!localChecksum.equals(result.getETag()))
-                sendSequenceUpdateErrorMessage(seqId, sstep, String.format("Checksums don't match [local: %s, S3: %s]", localChecksum, result.getETag()));
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("Checksums don't match [local: %s, S3: %s]", localChecksum, result.getETag()));
             Files.delete(boxed.toPath());
             success = localChecksum.equals(result.getETag());
         } catch (AmazonServiceException ase) {
-            logger.error("Caught an AmazonServiceException, which means your request made it "
-                    + "to Amazon S3, but was rejected with an error response for some reason.");
-            logger.error("Error Message:    " + ase.getMessage());
-            logger.error("HTTP Status Code: " + ase.getStatusCode());
-            logger.error("AWS Error Code:   " + ase.getErrorCode());
-            logger.error("Error Type:       " + ase.getErrorType());
-            logger.error("Request ID:       " + ase.getRequestId());
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonServiceException, which means your request made it "
+                                    + "to Amazon S3, but was rejected with an error response for some reason. (" +
+                                    "Error Message: %s, HTTP Status Code: %d, AWS Error Code: %s, Error Type: %s, " +
+                                    "Request ID: %s",
+                            ase.getMessage(), ase.getStatusCode(), ase.getErrorCode(),
+                            ase.getErrorType().toString(), ase.getRequestId()));
         } catch (SdkClientException ace) {
-            logger.error("Caught an AmazonClientException, which means the client encountered "
-                    + "a serious internal problem while trying to communicate with S3, "
-                    + "such as not being able to access the network.");
-            logger.error("Error Message: " + ace.getMessage());
-        } catch (InterruptedException ie) {
-            logger.error("Interrupted error");
-        } catch (IOException ioe) {
-            logger.error("IOException error: {}", ioe.getMessage());
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                                    + "a serious internal problem while trying to communicate with S3, (" +
+                                    "Error Message: %s",
+                            ace.getMessage()));
+        } catch (InterruptedException | IOException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("%s:%s", ie.getClass().getCanonicalName(), ie.getMessage()));
         } finally {
             try {
                 assert manager != null;
                 manager.shutdownNow();
             } catch (AssertionError ae) {
-                logger.error("uploadFile : TransferManager was pre-emptively shut down.");
-                return false;
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        "uploadFile : TransferManager was pre-emptively shut down.");
             }
         }
         return success;
     }
 
-    private void sendSequenceUpdateInfoMessage(String seqId, String step, String message) {
-        logger.info("{}", message);
-        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
-        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
-        msgEvent.setParam("seq_id", seqId);
-        msgEvent.setParam("sstep", step);
-        plugin.sendMsgEvent(msgEvent);
-    }
+    public boolean downloadBaggedDirectory(String bucket, String s3Prefix, String destinationDirectory,
+                                           String seqId, String sampleId, String reqId, String step) {
+        logger.debug("downloadBaggedDirectory('{}','{}','{}','{}','{}','{}','{}')", bucket, s3Prefix,
+                destinationDirectory, seqId, sampleId, reqId, step);
+        if (!conn.doesBucketExistV2(bucket)) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Bucket [%s] does not exist", bucket));
+            return false;
+        }
+        String objectToDownload = s3Prefix + extension;
+        if (!conn.doesObjectExist(bucket, objectToDownload)) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Bucket [%s] does not contain [%s]", bucket, objectToDownload));
+            return false;
+        }
+        if (!destinationDirectory.endsWith("/"))
+            destinationDirectory += "/";
+        File downloadDir = new File(destinationDirectory);
+        logger.trace("downloadDir.getAbsolutePath(): {}", downloadDir.getAbsolutePath());
+        if (!downloadDir.exists()) {
+            if (!downloadDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("Output directory [%s] does not exist and could not be created",
+                                downloadDir.getAbsolutePath()));
+                return false;
+            }
+        }
+        boolean success = false;
 
-    private void sendSequenceUpdateErrorMessage(String seqId, String step, String message) {
-        logger.error("{}", message);
-        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
-        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
-        msgEvent.setParam("seq_id", seqId);
-        msgEvent.setParam("sstep", step);
-        plugin.sendMsgEvent(msgEvent);
+        TransferManager manager = null;
+        logger.debug("Building TransferManager");
+        try {
+            S3Object s3Object = conn.getObject(bucket, objectToDownload);
+            String s3Checksum = s3Object.getObjectMetadata().getETag();
+            logger.trace("s3Checksum: {}", s3Checksum);
+            manager = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .build();
+            String outFileName = destinationDirectory + objectToDownload.substring(
+                    objectToDownload.lastIndexOf("/") > -1 ? objectToDownload.lastIndexOf("/") : 0);
+            logger.trace("outFileName: {}", outFileName);
+            File outFile = new File(outFileName);
+            logger.trace("outFile.getAbsolutePath(): {}", outFile.getAbsolutePath());
+            GetObjectRequest request = new GetObjectRequest(bucket, objectToDownload);
+            request.setGeneralProgressListener(new LoggingProgressListener(seqId, sampleId, reqId, step,
+                    s3Object.getObjectMetadata().getContentLength()));
+            sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                    String.format("Initiating download: [%s] => [%s]", objectToDownload, outFile.getAbsolutePath()));
+            Download transfer = manager.download(request, outFile);
+            transfer.waitForCompletion();
+            if (!outFile.exists()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("[%s] does not exist after download of [%s]",
+                                outFile.getAbsolutePath(), objectToDownload));
+                return false;
+            }
+            String localChecksum;
+            if (s3Checksum.contains("-"))
+                localChecksum = md5t.getMultiCheckSum(outFile.getAbsolutePath());
+            else
+                localChecksum = md5t.getCheckSum(outFile.getAbsolutePath());
+            logger.debug("localChecksum: {}", localChecksum);
+            if (!localChecksum.equals(s3Checksum))
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("Checksums don't match [local: %s, S3: %s]", localChecksum, s3Checksum));
+            success = localChecksum.equals(s3Checksum);
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonServiceException, which means your request made it "
+                                    + "to Amazon S3, but was rejected with an error response for some reason. (" +
+                                    "Error Message: %s, HTTP Status Code: %d, AWS Error Code: %s, Error Type: %s, " +
+                                    "Request ID: %s",
+                            ase.getMessage(), ase.getStatusCode(), ase.getErrorCode(),
+                            ase.getErrorType().toString(), ase.getRequestId()));
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                                    + "a serious internal problem while trying to communicate with S3, (" +
+                                    "Error Message: %s",
+                            ace.getMessage()));
+        } catch (InterruptedException | IOException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("%s:%s", ie.getClass().getCanonicalName(), ie.getMessage()));
+        } finally {
+            try {
+                assert manager != null;
+                manager.shutdownNow();
+            } catch (AssertionError ae) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        "uploadFile : TransferManager was pre-emptively shut down.");
+            }
+        }
+        return success;
     }
 
     public boolean uploadDirectory(String bucket, String inDir, String outDir) {
@@ -1000,10 +1159,17 @@ public class ObjectEngine {
         private long totalTransferred = 0L;
         private long totalBytes = 0L;
         private int nextUpdate = updatePercentStep;
-        private DecimalFormat toPercent = new DecimalFormat("#.##");
+        private String seqId;
+        private String sampleId;
+        private String reqId;
+        private String step;
 
-        public LoggingProgressListener(long totalBytes) {
+        public LoggingProgressListener(String seqId, String sampleId, String reqId, String step, long totalBytes) {
             this.startTimestamp = System.currentTimeMillis();
+            this.seqId = seqId;
+            this.sampleId = sampleId;
+            this.reqId = reqId;
+            this.step = step;
             this.totalBytes = totalBytes;
         }
 
@@ -1017,15 +1183,46 @@ public class ObjectEngine {
             this.totalTransferred += currentBytesTransferred;
             float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
             if (currentTransferPercentage > (float)nextUpdate) {
-                logger.debug("Transferred in progress ({}/{} {}%) at {} MB/s",
+                sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Transferred in progress (%s/%s %d%%) at %.2f MB/s",
                         humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
-                        (int)currentTransferPercentage, toPercent.format(currentTransferRate));
+                        (int)currentTransferPercentage, currentTransferRate));
                 nextUpdate += updatePercentStep;
             }
         }
     }
 
-    private class SequenceLoggingProgressListener implements ProgressListener {
+    private void sendUpdateInfoMessage(String seqId, String sampleId, String reqId, String step, String message) {
+        logger.info("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        if (sampleId != null) {
+            msgEvent.setParam("sample_id", sampleId);
+            msgEvent.setParam("ssstep", step);
+        } else
+            msgEvent.setParam("sstep", step);
+        if (reqId != null)
+            msgEvent.setParam("req_id", reqId);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    private void sendUpdateErrorMessage(String seqId, String sampleId, String reqId, String step, String message) {
+        logger.error("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("error_message", message);
+        msgEvent.setParam("seq_id", seqId);
+        if (sampleId != null) {
+            msgEvent.setParam("sample_id", sampleId);
+            msgEvent.setParam("ssstep", step);
+        } else
+            msgEvent.setParam("sstep", step);
+        if (reqId != null)
+            msgEvent.setParam("req_id", reqId);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    /*private class SequenceLoggingProgressListener implements ProgressListener {
         private final Logger logger = LoggerFactory.getLogger(SequenceLoggingProgressListener.class);
         private int updatePercentStep = 5;
         private long startTimestamp = 0L;
@@ -1058,6 +1255,90 @@ public class ObjectEngine {
                 nextUpdate += updatePercentStep;
             }
         }
+    }*/
+
+    /*private void sendSequenceUpdateInfoMessage(String seqId, String step, String message) {
+        logger.info("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        msgEvent.setParam("sstep", step);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    private void sendSequenceUpdateErrorMessage(String seqId, String step, String message) {
+        logger.error("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        msgEvent.setParam("sstep", step);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    private class SampleLoggingProgressListener implements ProgressListener {
+        private final Logger logger = LoggerFactory.getLogger(SequenceLoggingProgressListener.class);
+        private int updatePercentStep = 5;
+        private long startTimestamp = 0L;
+        private long totalTransferred = 0L;
+        private long totalBytes = 0L;
+        private int nextUpdate = updatePercentStep;
+        private String seqId;
+        private String sampleId;
+        private String step;
+
+        public SampleLoggingProgressListener(String seqId, String sampleId, String step, long totalBytes) {
+            this.startTimestamp = System.currentTimeMillis();
+            this.seqId = seqId;
+            this.sampleId = sampleId;
+            this.step = step;
+            this.totalBytes = totalBytes;
+        }
+
+        @Override
+        public void progressChanged(ProgressEvent progressEvent) {
+            Thread.currentThread().setName("TransferListener");
+            long currentTimestamp = System.currentTimeMillis();
+            long transferTime = (currentTimestamp - startTimestamp) / 1000L;
+            long currentBytesTransferred = progressEvent.getBytesTransferred();
+            float currentTransferRate = (totalTransferred / (float)1000000) / transferTime;
+            this.totalTransferred += currentBytesTransferred;
+            float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
+            if (currentTransferPercentage > (float)nextUpdate) {
+                sendSampleUpdateInfoMessage(seqId, sampleId, step, String.format("Transferred in progress (%s/%s %d%%) at %.2f MB/s",
+                        humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
+                        (int)currentTransferPercentage, currentTransferRate));
+                nextUpdate += updatePercentStep;
+            }
+        }
+    }
+
+    private void sendSampleUpdateInfoMessage(String seqId, String sampleId, String step, String message) {
+        logger.info("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        msgEvent.setParam("sample_id", sampleId);
+        msgEvent.setParam("ssstep", step);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    private void sendSampleUpdateErrorMessage(String seqId, String sampleId, String step, String message) {
+        logger.error("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        msgEvent.setParam("sample_id", sampleId);
+        msgEvent.setParam("ssstep", step);
+        plugin.sendMsgEvent(msgEvent);
+    }*/
+
+    // This is a helper function to construct a list of ETags.
+    private static List<PartETag> getETags(List<CopyPartResult> responses) {
+        List<PartETag> etags = new ArrayList<>();
+        for (CopyPartResult response : responses) {
+            etags.add(new PartETag(response.getPartNumber(), response.getETag()));
+        }
+        return etags;
     }
 
     private static String humanReadableByteCount(long bytes, boolean si) {

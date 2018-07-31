@@ -311,10 +311,11 @@ public class FSObject implements Runnable {
             //Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
             //logger.trace("Setting MD5 hash");
             //setTransferFileMD5(dir, md5map);
-            logger.trace("Deleting any old files");
-            oe.deleteBucketDirectoryContents(bucket_name, outDir);
-            logger.trace("Transferring directory");
-            if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
+            //logger.trace("Deleting any old files");
+            //oe.deleteBucketDirectoryContents(bucket_name, outDir);
+            //logger.trace("Transferring directory");
+            //if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
+            if (oe.uploadBaggedDirectory(bucket_name, inDir, outDir, outDir, null,null, "1")) {
                 if (setTransferFile(dir)) {
 
                     logger.debug("Directory Transfered [inDir = {}, outDir = {}]", inDir, outDir);
