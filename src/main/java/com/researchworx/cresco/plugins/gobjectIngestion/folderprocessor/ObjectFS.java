@@ -96,7 +96,7 @@ public class ObjectFS implements Runnable {
             return;
         }
         sstep = 1;
-        String remoteDir = seqId + "/";
+        String remoteDir = seqId;
         MsgEvent pse;
         String workDirName = null;
         try {
