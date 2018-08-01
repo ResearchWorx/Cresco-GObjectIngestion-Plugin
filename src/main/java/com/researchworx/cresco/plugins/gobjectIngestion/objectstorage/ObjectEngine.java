@@ -7,12 +7,13 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.iterable.S3Objects;
 import com.amazonaws.services.s3.model.*;
 import com.amazonaws.services.s3.transfer.*;
@@ -29,6 +30,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -91,7 +94,7 @@ public class ObjectEngine {
         conn = AmazonS3ClientBuilder.standard().withRegion(s3Region).withCredentials(new AWSStaticCredentialsProvider(credentials)).withForceGlobalBucketAccessEnabled(true).build();
         */
 
-        System.out.println("Building ClientConfiguration");
+        /*System.out.println("Building ClientConfiguration");
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
@@ -108,7 +111,22 @@ public class ObjectEngine {
                 .build();
         conn.setS3ClientOptions(s3ops);
 
-        conn.setEndpoint("https://iobjects.uky.edu");
+        conn.setEndpoint(endpoint);*/
+
+        logger.trace("Building S3 client configuration");
+        ClientConfiguration clientConfiguration = new ClientConfiguration();
+        clientConfiguration.setProtocol(Protocol.HTTPS);
+        clientConfiguration.setSignerOverride("S3SignerType");
+        //clientConfiguration.setMaxConnections(maxConnections);
+        logger.trace("Building S3 client");
+        conn = AmazonS3ClientBuilder.standard()
+                .withEndpointConfiguration(new EndpointConfiguration(endpoint, s3Region))
+                .withClientConfiguration(clientConfiguration)
+                .withCredentials(new AWSStaticCredentialsProvider(credentials))
+                .withAccelerateModeEnabled(false)
+                .withPathStyleAccessEnabled(true)
+                .withPayloadSigningEnabled(false)
+                .build();
 
 
         //conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
@@ -267,8 +285,12 @@ public class ObjectEngine {
             PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, boxed);
             request.setGeneralProgressListener(new LoggingProgressListener(seqId, sampleId, reqId, step, boxed.length()));
             logger.trace("Starting upload to S3");
+            long uploadStartTime = System.currentTimeMillis();
             Upload transfer = manager.upload(request);
             UploadResult result = transfer.waitForUploadResult();
+            long uploadEndTime = System.currentTimeMillis();
+            Duration uploadDuration = Duration.of(uploadEndTime - uploadStartTime, ChronoUnit.MILLIS);
+            logger.trace("Upload finished in {}", formatDuration(uploadDuration));
             String s3Checksum = result.getETag();
             logger.trace("s3Checksum: {}", result.getETag());
             String localChecksum;
@@ -1176,16 +1198,16 @@ public class ObjectEngine {
         @Override
         public void progressChanged(ProgressEvent progressEvent) {
             Thread.currentThread().setName("TransferListener");
-            long currentTimestamp = System.currentTimeMillis();
-            long transferTime = (currentTimestamp - startTimestamp) / 1000L;
             long currentBytesTransferred = progressEvent.getBytesTransferred();
-            float currentTransferRate = (totalTransferred / (float)1000000) / transferTime;
             this.totalTransferred += currentBytesTransferred;
             float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
             if (currentTransferPercentage > (float)nextUpdate) {
-                sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Transferred in progress (%s/%s %d%%) at %.2f MB/s",
+                long currentTimestamp = System.currentTimeMillis();
+                sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                        String.format("Transferred in progress (%s/%s %d%%) at %s",
                         humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
-                        (int)currentTransferPercentage, currentTransferRate));
+                        (int)currentTransferPercentage,
+                                humanReadableTransferRate(totalTransferred, currentTimestamp - startTimestamp)));
                 nextUpdate += updatePercentStep;
             }
         }
@@ -1222,116 +1244,6 @@ public class ObjectEngine {
         plugin.sendMsgEvent(msgEvent);
     }
 
-    /*private class SequenceLoggingProgressListener implements ProgressListener {
-        private final Logger logger = LoggerFactory.getLogger(SequenceLoggingProgressListener.class);
-        private int updatePercentStep = 5;
-        private long startTimestamp = 0L;
-        private long totalTransferred = 0L;
-        private long totalBytes = 0L;
-        private int nextUpdate = updatePercentStep;
-        private String seqId;
-        private String step;
-
-        public SequenceLoggingProgressListener(String seqId, String step, long totalBytes) {
-            this.startTimestamp = System.currentTimeMillis();
-            this.seqId = seqId;
-            this.step = step;
-            this.totalBytes = totalBytes;
-        }
-
-        @Override
-        public void progressChanged(ProgressEvent progressEvent) {
-            Thread.currentThread().setName("TransferListener");
-            long currentTimestamp = System.currentTimeMillis();
-            long transferTime = (currentTimestamp - startTimestamp) / 1000L;
-            long currentBytesTransferred = progressEvent.getBytesTransferred();
-            float currentTransferRate = (totalTransferred / (float)1000000) / transferTime;
-            this.totalTransferred += currentBytesTransferred;
-            float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
-            if (currentTransferPercentage > (float)nextUpdate) {
-                sendSequenceUpdateInfoMessage(seqId, step, String.format("Transferred in progress (%s/%s %d%%) at %.2f MB/s",
-                        humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
-                        (int)currentTransferPercentage, currentTransferRate));
-                nextUpdate += updatePercentStep;
-            }
-        }
-    }*/
-
-    /*private void sendSequenceUpdateInfoMessage(String seqId, String step, String message) {
-        logger.info("{}", message);
-        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
-        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
-        msgEvent.setParam("seq_id", seqId);
-        msgEvent.setParam("sstep", step);
-        plugin.sendMsgEvent(msgEvent);
-    }
-
-    private void sendSequenceUpdateErrorMessage(String seqId, String step, String message) {
-        logger.error("{}", message);
-        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
-        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
-        msgEvent.setParam("seq_id", seqId);
-        msgEvent.setParam("sstep", step);
-        plugin.sendMsgEvent(msgEvent);
-    }
-
-    private class SampleLoggingProgressListener implements ProgressListener {
-        private final Logger logger = LoggerFactory.getLogger(SequenceLoggingProgressListener.class);
-        private int updatePercentStep = 5;
-        private long startTimestamp = 0L;
-        private long totalTransferred = 0L;
-        private long totalBytes = 0L;
-        private int nextUpdate = updatePercentStep;
-        private String seqId;
-        private String sampleId;
-        private String step;
-
-        public SampleLoggingProgressListener(String seqId, String sampleId, String step, long totalBytes) {
-            this.startTimestamp = System.currentTimeMillis();
-            this.seqId = seqId;
-            this.sampleId = sampleId;
-            this.step = step;
-            this.totalBytes = totalBytes;
-        }
-
-        @Override
-        public void progressChanged(ProgressEvent progressEvent) {
-            Thread.currentThread().setName("TransferListener");
-            long currentTimestamp = System.currentTimeMillis();
-            long transferTime = (currentTimestamp - startTimestamp) / 1000L;
-            long currentBytesTransferred = progressEvent.getBytesTransferred();
-            float currentTransferRate = (totalTransferred / (float)1000000) / transferTime;
-            this.totalTransferred += currentBytesTransferred;
-            float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
-            if (currentTransferPercentage > (float)nextUpdate) {
-                sendSampleUpdateInfoMessage(seqId, sampleId, step, String.format("Transferred in progress (%s/%s %d%%) at %.2f MB/s",
-                        humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
-                        (int)currentTransferPercentage, currentTransferRate));
-                nextUpdate += updatePercentStep;
-            }
-        }
-    }
-
-    private void sendSampleUpdateInfoMessage(String seqId, String sampleId, String step, String message) {
-        logger.info("{}", message);
-        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
-        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
-        msgEvent.setParam("seq_id", seqId);
-        msgEvent.setParam("sample_id", sampleId);
-        msgEvent.setParam("ssstep", step);
-        plugin.sendMsgEvent(msgEvent);
-    }
-
-    private void sendSampleUpdateErrorMessage(String seqId, String sampleId, String step, String message) {
-        logger.error("{}", message);
-        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
-        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
-        msgEvent.setParam("seq_id", seqId);
-        msgEvent.setParam("sample_id", sampleId);
-        msgEvent.setParam("ssstep", step);
-        plugin.sendMsgEvent(msgEvent);
-    }*/
-
     // This is a helper function to construct a list of ETags.
     private static List<PartETag> getETags(List<CopyPartResult> responses) {
         List<PartETag> etags = new ArrayList<>();
@@ -1347,5 +1259,25 @@ public class ObjectEngine {
         int exp = (int) (Math.log(bytes) / Math.log(unit));
         String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp-1) + (si ? "" : "i");
         return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
+    }
+
+    private static String humanReadableTransferRate(long transferred, long duration) {
+        float rate = (((float)transferred * (float)1000) * (float)8) / duration;
+        int unit = 1000;
+        if ((int)rate < unit) return String.format("%.1f bps", rate);
+        int exp = (int) (Math.log(rate) / Math.log(unit));
+        String pre = "kMGTPE".charAt(exp - 1) + "";
+        return String.format("%.1f %sbps", rate / Math.pow(unit, exp), pre);
+    }
+
+    private static String formatDuration(Duration duration) {
+        long seconds = duration.getSeconds();
+        long absSeconds = Math.abs(seconds);
+        String positive = String.format(
+                "%d:%02d:%02d",
+                absSeconds / 3600,
+                (absSeconds % 3600) / 60,
+                absSeconds % 60);
+        return seconds < 0 ? "-" + positive : positive;
     }
 }

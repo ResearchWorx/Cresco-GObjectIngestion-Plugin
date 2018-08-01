@@ -76,6 +76,7 @@ public class ObjectFS implements Runnable {
         pstep = 3;
         int sstep = 0;
         String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
         if (clinical_bucket_name == null || clinical_bucket_name.equals("") ||
                 !oe.doesBucketExist(clinical_bucket_name)) {
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
@@ -85,6 +86,7 @@ public class ObjectFS implements Runnable {
             return;
         }
         String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        logger.trace("Checking to see if research bucket [{}] exists", research_bucket_name);
         if (research_bucket_name == null || research_bucket_name.equals("") ||
                 !oe.doesBucketExist(research_bucket_name)) {
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
@@ -93,7 +95,7 @@ public class ObjectFS implements Runnable {
             plugin.PathProcessorActive = false;
             return;
         }
-        sstep = 1;
+        /*sstep = 1;
         String remoteDir = seqId + "/";
         MsgEvent pse;
         String workDirName = null;
@@ -105,9 +107,11 @@ public class ObjectFS implements Runnable {
             }
             File workDir = new File(workDirName);
             if (workDir.exists()) {
-                deleteDirectory(workDir);
+                if (!deleteDirectory(workDir))
+                    logger.error("deleteDirectory('{}') = false", workDir.getAbsolutePath());
             }
-            workDir.mkdir();
+            if (!workDir.mkdir())
+                logger.error("workDir.mkdir() = false (workDir = '{}')", workDir.getAbsolutePath());
             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                     "Retrieving bagged sequence");
             sstep = 2;
@@ -326,7 +330,7 @@ public class ObjectFS implements Runnable {
                         String.format("processBaggedSequence exception encountered [%s:%s]",
                                 e.getClass().getCanonicalName(), e.getMessage()));
             }
-        }
+        }*/
         pstep = 2;
     }
 

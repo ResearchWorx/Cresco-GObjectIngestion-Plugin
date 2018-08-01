@@ -18,7 +18,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<jdk>1.7</jdk>
+		<jdk>1.8</jdk>
 		<cresco.plugin.library.version>0.4.25</cresco.plugin.library.version>
 		<maven.assembly.version>3.0.0</maven.assembly.version>
 		<maven.source.version>3.0.0</maven.source.version>
@@ -52,7 +52,7 @@
     <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk</artifactId>
-        <version>1.11.221</version>
+        <version>1.11.371</version>
     </dependency>
     <dependency>
         <groupId>commons-configuration</groupId>
