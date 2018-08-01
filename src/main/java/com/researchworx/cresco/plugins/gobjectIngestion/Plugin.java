@@ -6,6 +6,7 @@ import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.FSObject;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.ObjectFS;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.WatchDirectory;
+import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -48,7 +49,7 @@ public class Plugin extends CPlugin {
         genomicControllerRegion = getConfig().getStringParam("genomic_controller_region",getRegion());
         genomicControllerAgent = getConfig().getStringParam("genomic_controller_agent",getAgent());
         genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
-
+        Encapsulation.setLogger(this);
 
         logger.debug("[pathStage] == {}", pathStage);
         logger.info("Building Stage [{}]", pathStage);
