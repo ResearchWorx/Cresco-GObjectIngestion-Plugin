@@ -1866,7 +1866,8 @@ public class ObjectFS implements Runnable {
     }
 
     private void sendUpdateInfoMessage(String seqId, String sampleId, String reqId, String step, String message) {
-        logger.info("{}", message);
+        if (!message.equals("Idle"))
+            logger.info("{}", message);
         MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
         msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
         msgEvent.setParam("seq_id", seqId);
@@ -1884,7 +1885,7 @@ public class ObjectFS implements Runnable {
 
     private void sendUpdateErrorMessage(String seqId, String sampleId, String reqId, String step, String message) {
         logger.error("{}", message);
-        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, "");
         msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
         msgEvent.setParam("error_message", message);
         msgEvent.setParam("seq_id", seqId);
