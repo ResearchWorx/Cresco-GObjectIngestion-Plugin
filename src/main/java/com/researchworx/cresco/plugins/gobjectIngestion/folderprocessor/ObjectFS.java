@@ -95,7 +95,7 @@ public class ObjectFS implements Runnable {
             plugin.PathProcessorActive = false;
             return;
         }
-        /*sstep = 1;
+        sstep = 1;
         String remoteDir = seqId + "/";
         MsgEvent pse;
         String workDirName = null;
@@ -125,7 +125,7 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                     String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
         }
-        if (sstep == 3) {
+        /*if (sstep == 3) {
             try {
                 //start perf mon
                 PerfTracker pt = null;
