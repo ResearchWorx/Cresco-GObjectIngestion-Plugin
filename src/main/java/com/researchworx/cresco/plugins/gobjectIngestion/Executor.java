@@ -103,11 +103,11 @@ public class Executor extends CExecutor {
         try {
             MsgEvent.Type eventType = MsgEvent.Type.valueOf(pme.getParam("gmsg_type"));
 
-            String transfer_status_file = pme.getParam("transfer_status_file");
-            String bucket_name = pme.getParam("bucket_name");
-            String transfer_watch_file = pme.getParam("transfer_watch_file");
+            //String transfer_status_file = pme.getParam("transfer_status_file");
+            //String bucket_name = pme.getParam("bucket_name");
+            //String transfer_watch_file = pme.getParam("transfer_watch_file");
             String message = pme.getParam("msg");
-            String endpoint = pme.getParam("endpoint");
+            //String endpoint = pme.getParam("endpoint");
             String seqId = pme.getParam("seq_id");
             String reqId = pme.getParam("req_id");
             if (reqId == null)
@@ -121,7 +121,7 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                            Plugin.objectToFSp.processSequence(seqId, reqId, true);
+                        Plugin.objectToFSp.processBaggedSequence(seqId, reqId, true);
                         break;
                     case 3:
                         break;
@@ -131,7 +131,7 @@ public class Executor extends CExecutor {
                         Plugin.objectToFSp.endProcessSequence(seqId, reqId);
                         break;
                     default:
-                        logger.error("Undefined pStep " + pathStageName + " !");
+                        logger.error("Undefined sStep " + pathStageName + " !");
                         break;
                 }
             } else if(eventType.equals(MsgEvent.Type.ERROR)) {
