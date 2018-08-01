@@ -99,7 +99,7 @@ public class Encapsulation {
      * @param src File to restore
      * @return The absolute file path to the restored
      */
-    static String restore(String src) {
+    public static String restore(String src) {
         String unboxed = unBoxIt(src);
         if (unboxed == null)
             unboxed = src;
@@ -113,51 +113,51 @@ public class Encapsulation {
         return unboxed;
     }
 
-    private static boolean isBag(String src) {
+    public static boolean isBag(String src) {
         logger.trace("Call to isBag('{}')", src);
         File bag = new File(src);
-        logger.debug("bag.exists(): {}", bag.exists());
+        //logger.debug("bag.exists(): {}", bag.exists());
         if (!bag.exists())
             return false;
-        logger.debug("bag.isFile(): {}", bag.isFile());
+        //logger.debug("bag.isFile(): {}", bag.isFile());
         if (bag.isFile())
             return false;
         if (!src.endsWith("/"))
             src += "/";
         File bagitFile = new File(src + ".bagit");
-        logger.debug(".bagit.exists(): {}", bagitFile.exists());
+        //logger.debug(".bagit.exists(): {}", bagitFile.exists());
         if (new File(src + ".bagit").exists())
             return true;
         File data = new File(src + "data");
-        logger.debug("{} : exists() = {}, isDirectory() = {}", data.getAbsolutePath(), data.exists(), data.isDirectory());
+        //logger.debug("{} : exists() = {}, isDirectory() = {}", data.getAbsolutePath(), data.exists(), data.isDirectory());
         boolean hasBagitTxt = new File(src + "bagit.txt").exists();
-        logger.debug("hasBagitTxt : {}", hasBagitTxt);
+        //logger.debug("hasBagitTxt : {}", hasBagitTxt);
         boolean hasBagitInfo = new File(src + "bag-info.txt").exists();
-        logger.debug("hasBagitInfo : {}", hasBagitInfo);
+        //logger.debug("hasBagitInfo : {}", hasBagitInfo);
         boolean manifestSHA512 = new File(src + "manifest-sha512.txt").exists();
-        logger.debug("manifestSHA512 : {}", manifestSHA512);
+        //logger.debug("manifestSHA512 : {}", manifestSHA512);
         boolean tagmanifestSHA512 = new File(src + "tagmanifest-sha512.txt").exists();
-        logger.debug("tagmanifestSHA512 : {}", tagmanifestSHA512);
+        //logger.debug("tagmanifestSHA512 : {}", tagmanifestSHA512);
         boolean hasSHA512 = manifestSHA512 && tagmanifestSHA512;
-        logger.debug("hasSHA512 : {}", hasSHA512);
+        //logger.debug("hasSHA512 : {}", hasSHA512);
         boolean manifestSHA256 = new File(src + "manifest-sha256.txt").exists();
-        logger.debug("hasSmanifestSHA256HA512 : {}", manifestSHA256);
+        //logger.debug("hasSmanifestSHA256HA512 : {}", manifestSHA256);
         boolean tagmanifestSHA256 = new File(src + "tagmanifest-sha256.txt").exists();
-        logger.debug("tagmanifestSHA256 : {}", tagmanifestSHA256);
+        //logger.debug("tagmanifestSHA256 : {}", tagmanifestSHA256);
         boolean hasSHA256 = manifestSHA256 && tagmanifestSHA256;
-        logger.debug("hasSHA256 : {}", hasSHA256);
+        //logger.debug("hasSHA256 : {}", hasSHA256);
         boolean manifestSHA1 = new File(src + "manifest-sha1.txt").exists();
-        logger.debug("manifestSHA1 : {}", manifestSHA1);
+        //logger.debug("manifestSHA1 : {}", manifestSHA1);
         boolean tagmanifestSHA1 = new File(src + "tagmanifest-sha1.txt").exists();
-        logger.debug("tagmanifestSHA1 : {}", tagmanifestSHA1);
+        //logger.debug("tagmanifestSHA1 : {}", tagmanifestSHA1);
         boolean hasSHA1 = manifestSHA1 && tagmanifestSHA1;
-        logger.debug("hasSHA1 : {}", hasSHA1);
+        //logger.debug("hasSHA1 : {}", hasSHA1);
         boolean manifestMD5 = new File(src + "manifest-md5.txt").exists();
-        logger.debug("manifestMD5 : {}", manifestMD5);
+        //logger.debug("manifestMD5 : {}", manifestMD5);
         boolean tagmanifestMD5 = new File(src + "tagmanifest-md5.txt").exists();
-        logger.debug("tagmanifestMD5 : {}", tagmanifestMD5);
+        //logger.debug("tagmanifestMD5 : {}", tagmanifestMD5);
         boolean hasMD5 = manifestMD5 && tagmanifestMD5;
-        logger.debug("hasMD5 : {}", hasMD5);
+        //logger.debug("hasMD5 : {}", hasMD5);
         return (data.exists() && data.isDirectory() && hasBagitTxt && hasBagitInfo &&
                 (hasSHA512 || hasSHA256 || hasSHA1 || hasMD5));
         //    return true;
@@ -172,7 +172,7 @@ public class Encapsulation {
      * @param includeHiddenFiles Whether to include hidden files
      * @return The resulting bag path
      */
-    static File bagItUp(File folder, String mode, String hashing, boolean includeHiddenFiles) {
+    public static File bagItUp(File folder, String mode, String hashing, boolean includeHiddenFiles) {
         logger.trace("Call to bagItUp({}, {}, {}, {})", folder.getAbsolutePath(), mode, hashing, includeHiddenFiles);
         if (isBag(folder.getAbsolutePath()))
             debagify(folder.getAbsolutePath());
@@ -218,7 +218,7 @@ public class Encapsulation {
      * Cleans up from the BagIt bag creation
      * @param src The path to the bag to clean up
      */
-    static void debagify(String src) {
+    public static void debagify(String src) {
         logger.trace("Call to debagify({})", src);
         File bag = new File(src);
         if (bag.isFile())
@@ -260,7 +260,7 @@ public class Encapsulation {
      * @param extension Compression method to use
      * @return Path to the compressed file
      */
-    static File boxItUp(File capsule, String extension) {
+    public static File boxItUp(File capsule, String extension) {
         logger.trace("Call to boxItUp({}, {})", capsule.getAbsolutePath(), extension);
         if (!capsule.exists())
             return null;
@@ -320,7 +320,7 @@ public class Encapsulation {
         return new File(archiveName);
     }
 
-    private static String unBoxIt(String filePath) {
+    public static String unBoxIt(String filePath) {
         logger.trace("unBoxIt('{}')", filePath);
         if (filePath == null || filePath.equals("")) {
             logger.error("Empty filepath given");
@@ -383,7 +383,7 @@ public class Encapsulation {
      * @param path Path to the bag directory
      * @return Resulting Bag object
      */
-    private static Bag readBag(Path path) {
+    public static Bag readBag(Path path) {
         logger.trace("Call to readBag({})", path.toAbsolutePath());
         BagReader reader = new BagReader();
         try {
@@ -411,7 +411,7 @@ public class Encapsulation {
      * @param path Path to the bag directory
      * @return Resulting Bag object
      */
-    private static Bag readBag(File path) {
+    public static Bag readBag(File path) {
         return readBag(path.toPath());
     }
 
@@ -420,7 +420,7 @@ public class Encapsulation {
      * @param path Path to the bag directory
      * @return Resulting Bag object
      */
-    private static Bag readBag(String path) {
+    public static Bag readBag(String path) {
         return readBag(new File(path));
     }
 
@@ -430,7 +430,7 @@ public class Encapsulation {
      * @param includeHiddenFiles Whether the bag included hidden files
      * @return Whether the bag is valid or not
      */
-    private static boolean verifyBag(Path path, boolean includeHiddenFiles) {
+    public static boolean verifyBag(Path path, boolean includeHiddenFiles) {
         logger.trace("Call to verifyBag({}, {})", path.toAbsolutePath(), includeHiddenFiles);
         LargeBagVerifier verifier = new LargeBagVerifier();
         Bag bag = readBag(path);
@@ -482,7 +482,7 @@ public class Encapsulation {
      * @param includeHiddenFiles Whether the bag included hidden files
      * @return Whether the bag is valid or not
      */
-    private static boolean verifyBag(File path, boolean includeHiddenFiles) {
+    public static boolean verifyBag(File path, boolean includeHiddenFiles) {
         return verifyBag(path.toPath(), includeHiddenFiles);
     }
 
@@ -492,7 +492,7 @@ public class Encapsulation {
      * @param includeHiddenFiles Whether the bag included hidden files
      * @return Whether the bag is valid or not
      */
-    private static boolean verifyBag(String path, boolean includeHiddenFiles) {
+    public static boolean verifyBag(String path, boolean includeHiddenFiles) {
         return verifyBag(new File(path), includeHiddenFiles);
     }
 

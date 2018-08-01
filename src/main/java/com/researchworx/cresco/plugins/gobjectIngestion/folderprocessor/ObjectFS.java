@@ -3,6 +3,7 @@ package com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
+import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
 
 import java.io.*;
@@ -117,8 +118,35 @@ public class ObjectFS implements Runnable {
             sstep = 2;
             if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
                     String.valueOf(sstep))) {
+                String baggedSequenceFile = workDirName + seqId + ".tar.gz";
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                        "Retrieved bagged sequence successfully");
+                        String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
+                String unboxed = Encapsulation.unBoxIt(baggedSequenceFile);
+                if (unboxed == null) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Failed to unbox sequence file [%s]", baggedSequenceFile));
+                    pstep = 2;
+                    return;
+                }
+                new File(workDirName + seqId + ".tar.gz").delete();
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Validating sequence [%s]", unboxed));
+                if (!Encapsulation.isBag(unboxed)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxed sequence [%s] does not contain BagIt data", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                if (!Encapsulation.verifyBag(unboxed, true)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxed sequence [%s] failed BagIt verification", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Restoring sequence [%s]", unboxed));
+                Encapsulation.debagify(unboxed);
+                workDirName = unboxed;
                 sstep = 3;
             }
         } catch (Exception e) {

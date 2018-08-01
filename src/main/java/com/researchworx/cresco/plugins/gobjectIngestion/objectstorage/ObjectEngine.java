@@ -381,7 +381,9 @@ public class ObjectEngine {
             sendUpdateInfoMessage(seqId, sampleId, reqId, step,
                     String.format("Initiating download: [%s] => [%s]", objectToDownload, outFile.getAbsolutePath()));
             Download transfer = manager.download(request, outFile);
+            logger.trace("Waiting for download to complete");
             transfer.waitForCompletion();
+            logger.trace("Download is complete");
             if (!outFile.exists()) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, step,
                         String.format("[%s] does not exist after download of [%s]",
@@ -1178,7 +1180,9 @@ public class ObjectEngine {
         private final Logger logger = LoggerFactory.getLogger(LoggingProgressListener.class);
         private int updatePercentStep = 5;
         private long startTimestamp = 0L;
+        private long lastTimestamp = 0L;
         private long totalTransferred = 0L;
+        private long lastTransferred = 0L;
         private long totalBytes = 0L;
         private int nextUpdate = updatePercentStep;
         private String seqId;
@@ -1200,6 +1204,7 @@ public class ObjectEngine {
             Thread.currentThread().setName("TransferListener");
             long currentBytesTransferred = progressEvent.getBytesTransferred();
             this.totalTransferred += currentBytesTransferred;
+            this.lastTransferred += currentBytesTransferred;
             float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
             if (currentTransferPercentage > (float)nextUpdate) {
                 long currentTimestamp = System.currentTimeMillis();
@@ -1207,7 +1212,9 @@ public class ObjectEngine {
                         String.format("Transferred in progress (%s/%s %d%%) at %s",
                         humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
                         (int)currentTransferPercentage,
-                                humanReadableTransferRate(totalTransferred, currentTimestamp - startTimestamp)));
+                                humanReadableTransferRate(lastTransferred, currentTimestamp - lastTimestamp)));
+                lastTransferred = 0L;
+                lastTimestamp = currentTimestamp;
                 nextUpdate += updatePercentStep;
             }
         }
