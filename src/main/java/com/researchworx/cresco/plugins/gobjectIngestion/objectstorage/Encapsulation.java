@@ -355,7 +355,28 @@ public class Encapsulation {
             logger.error("[{}] is not an archive", archive.getAbsolutePath());
             return null;
         }
-        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + archive.list()[0]).getAbsolutePath();
+        if (archive.getParentFile() == null) {
+            logger.error("Failed to get parent folder of [{}]", archive.getAbsolutePath());
+            return null;
+        }
+        logger.trace("archive.getParentFile().getAbsolutePath() = {}", archive.getParentFile().getAbsolutePath());
+        String[] archiveFiles = archive.list();
+        if (archiveFiles == null) {
+            logger.error("Archive [{}] has a null file list", archive.getAbsolutePath());
+            return null;
+        }
+        if (archiveFiles.length < 1) {
+            logger.error("Archive [{}] has no files", archive.getAbsolutePath());
+            return null;
+        }
+        logger.trace("archiveFiles.length = {}", archiveFiles.length);
+        String topInnerFolder = archiveFiles[0];
+        if (topInnerFolder == null) {
+            logger.error("Failed to get top inner folder of archive [{}]", archive.getAbsolutePath());
+            return null;
+        }
+        logger.trace("topInnerFolder: {}", topInnerFolder);
+        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + topInnerFolder).getAbsolutePath();
         if (folder == null || folder.equals("")) {
             logger.error("Improperly formatted archive lacking internal top level directory");
             return null;
