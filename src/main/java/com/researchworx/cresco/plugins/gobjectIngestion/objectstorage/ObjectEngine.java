@@ -1192,6 +1192,7 @@ public class ObjectEngine {
 
         public LoggingProgressListener(String seqId, String sampleId, String reqId, String step, long totalBytes) {
             this.startTimestamp = System.currentTimeMillis();
+            this.lastTimestamp = startTimestamp;
             this.seqId = seqId;
             this.sampleId = sampleId;
             this.reqId = reqId;
@@ -1209,7 +1210,7 @@ public class ObjectEngine {
             if (currentTransferPercentage > (float)nextUpdate) {
                 long currentTimestamp = System.currentTimeMillis();
                 sendUpdateInfoMessage(seqId, sampleId, reqId, step,
-                        String.format("Transferred in progress (%s/%s %d%%) at %s",
+                        String.format("Transfer in progress (%s/%s %d%%) at %s",
                         humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
                         (int)currentTransferPercentage,
                                 humanReadableTransferRate(lastTransferred, currentTimestamp - lastTimestamp)));

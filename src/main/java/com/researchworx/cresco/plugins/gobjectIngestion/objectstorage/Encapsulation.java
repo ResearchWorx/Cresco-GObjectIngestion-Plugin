@@ -34,7 +34,7 @@ public class Encapsulation {
             "", "", "");
 
     public static void setLogger(CPlugin plugin) {
-        logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(),
+        logger = new CLogger(Encapsulation.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(),
                 plugin.getPluginID(), CLogger.Level.Trace);
     }
 
@@ -326,23 +326,27 @@ public class Encapsulation {
             logger.error("Empty filepath given");
             return null;
         }
+        logger.trace("Building TArchiveDetector");
         TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.ALL, new Object[][] {
                 { "jar", new JarDriver() },
                 { "tar|tar.bz2|tar.gz|tar.xz", new TarDriver() },
                 { "zip", new ZipDriver() },
         }));
+        logger.trace("Setting TConfig preferences");
         TConfig.current().setAccessPreference(FsAccessOption.GROW, true);
         TConfig.current().setAccessPreference(FsAccessOption.STORE, true);
         TFile archive = new TFile(new File(filePath));
+        logger.trace("Checking if [{}] exists", filePath);
         if (!archive.exists()) {
             logger.error("[{}] does not exist", archive.getAbsolutePath());
             return null;
         }
+        logger.trace("Checking if [{}] is an archive", filePath);
         if (!archive.isArchive()) {
             logger.error("[{}] is not an archive", archive.getAbsolutePath());
             return null;
         }
-        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + archive.list()[0]).getAbsolutePath();
+        /*String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + archive.list()[0]).getAbsolutePath();
         if (folder == null || folder.equals("")) {
             logger.error("Improperly formatted archive lacking internal top level directory");
             return null;
@@ -358,16 +362,26 @@ public class Encapsulation {
                 logger.error("Failed to remove existing directory [{}] {}:{}", folder, e.getClass().getName(), e.getMessage());
                 return null;
             }
-        }
+        }*/
         try {
+            if (archive.getParentFile() == null) {
+                logger.error("archive.getParentFile() == null");
+                return null;
+            }
+            logger.trace("Setting bag = [{}]", archive.getParentFile().getAbsolutePath());
             TFile bag = archive.getParentFile();
             logger.debug("archive: {}", archive.getAbsolutePath());
             logger.debug("bag: {}", bag.getAbsolutePath());
             TFile.cp_rp(archive, bag, TConfig.current().getArchiveDetector(), TArchiveDetector.NULL);
+            TFile folder = null;
+            for (TFile subFile : bag.listFiles()) {
+                if (subFile.isDirectory())
+                    folder = subFile;
+            }
             try {
                 TVFS.umount();
-                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(), new File(folder).getAbsolutePath());
-                return folder;
+                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(), (folder != null) ? folder.getAbsolutePath() : "null");
+                return (folder != null) ? folder.getAbsolutePath() : null;
             } catch (FsSyncException e) {
                 logger.error("unBoxIt : Failed to sync changes to the filesystem: ", e.getMessage());
                 return null;

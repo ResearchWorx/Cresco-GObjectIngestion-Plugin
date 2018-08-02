@@ -128,7 +128,9 @@ public class ObjectFS implements Runnable {
                     pstep = 2;
                     return;
                 }
-                new File(workDirName + seqId + ".tar.gz").delete();
+                logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
+                new File(baggedSequenceFile).delete();
+
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Validating sequence [%s]", unboxed));
                 if (!Encapsulation.isBag(unboxed)) {
