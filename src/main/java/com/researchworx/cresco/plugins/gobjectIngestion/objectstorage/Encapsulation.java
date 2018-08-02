@@ -16,6 +16,9 @@ import net.java.truevfs.access.TVFS;
 import net.java.truevfs.comp.tardriver.TarDriver;
 import net.java.truevfs.comp.zipdriver.JarDriver;
 import net.java.truevfs.comp.zipdriver.ZipDriver;
+import net.java.truevfs.driver.tar.bzip2.TarBZip2Driver;
+import net.java.truevfs.driver.tar.gzip.TarGZipDriver;
+import net.java.truevfs.driver.tar.xz.TarXZDriver;
 import net.java.truevfs.kernel.spec.FsAccessOption;
 import net.java.truevfs.kernel.spec.FsSyncException;
 
@@ -267,7 +270,10 @@ public class Encapsulation {
         TConfig.current().setLenient(false);
         TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.NULL, new Object[][] {
                 { "jar", new JarDriver() },
-                { "tar|tar.bz2|tar.gz|tar.xz", new TarDriver() },
+                { "tar", new TarDriver() },
+                { "tar.gz", new TarGZipDriver() },
+                { "tar.xz", new TarXZDriver() },
+                { "tar.bz2", new TarBZip2Driver() },
                 { "zip", new ZipDriver() },
         }));
         TConfig.current().setAccessPreference(FsAccessOption.GROW, true);
@@ -327,9 +333,12 @@ public class Encapsulation {
             return null;
         }
         logger.trace("Building TArchiveDetector");
-        TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.ALL, new Object[][] {
-                { "jar", new JarDriver() },
-                { "tar|tar.bz2|tar.gz|tar.xz", new TarDriver() },
+        TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.NULL, new Object[][] {
+                //{ "jar", new JarDriver() },
+                { "tar", new TarDriver() },
+                { "tar.gz", new TarGZipDriver() },
+                { "tar.xz", new TarXZDriver() },
+                { "tar.bz2", new TarBZip2Driver() },
                 { "zip", new ZipDriver() },
         }));
         logger.trace("Setting TConfig preferences");
@@ -346,7 +355,7 @@ public class Encapsulation {
             logger.error("[{}] is not an archive", archive.getAbsolutePath());
             return null;
         }
-        /*String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + archive.list()[0]).getAbsolutePath();
+        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + archive.list()[0]).getAbsolutePath();
         if (folder == null || folder.equals("")) {
             logger.error("Improperly formatted archive lacking internal top level directory");
             return null;
@@ -362,7 +371,7 @@ public class Encapsulation {
                 logger.error("Failed to remove existing directory [{}] {}:{}", folder, e.getClass().getName(), e.getMessage());
                 return null;
             }
-        }*/
+        }
         try {
             if (archive.getParentFile() == null) {
                 logger.error("archive.getParentFile() == null");
@@ -373,15 +382,10 @@ public class Encapsulation {
             logger.debug("archive: {}", archive.getAbsolutePath());
             logger.debug("bag: {}", bag.getAbsolutePath());
             TFile.cp_rp(archive, bag, TConfig.current().getArchiveDetector(), TArchiveDetector.NULL);
-            TFile folder = null;
-            for (TFile subFile : bag.listFiles()) {
-                if (subFile.isDirectory())
-                    folder = subFile;
-            }
             try {
                 TVFS.umount();
-                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(), (folder != null) ? folder.getAbsolutePath() : "null");
-                return (folder != null) ? folder.getAbsolutePath() : null;
+                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(), folder);
+                return folder;
             } catch (FsSyncException e) {
                 logger.error("unBoxIt : Failed to sync changes to the filesystem: ", e.getMessage());
                 return null;
