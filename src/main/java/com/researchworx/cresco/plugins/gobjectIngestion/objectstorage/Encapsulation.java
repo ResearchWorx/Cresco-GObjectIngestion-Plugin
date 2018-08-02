@@ -362,7 +362,7 @@ public class Encapsulation {
                 latch.await();
             }
             logger.trace("Extraction complete");
-            exec.shutdownNow();
+            exec.shutdown();
             return true;
         } catch (InterruptedException ie){
             logger.error("Failed to decompress [{}], interrupted", in);

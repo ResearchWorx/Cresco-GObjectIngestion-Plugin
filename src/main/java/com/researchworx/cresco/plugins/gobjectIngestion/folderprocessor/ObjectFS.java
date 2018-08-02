@@ -5,9 +5,6 @@ import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.utils.IOUtils;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
@@ -136,7 +133,7 @@ public class ObjectFS implements Runnable {
                     pstep = 2;
                     return;
                 }*/
-                try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(baggedSequenceFile))) {
+                /*try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(baggedSequenceFile))) {
                     TarArchiveEntry entry;
                     while ((entry = fin.getNextTarEntry()) != null) {
                         if (entry.isDirectory()) {
@@ -149,7 +146,8 @@ public class ObjectFS implements Runnable {
                         }
                         IOUtils.copy(fin, new FileOutputStream(curfile));
                     }
-                }
+                }*/
+                Encapsulation.decompress(baggedSequenceFile, workDir);
                 String unboxed = workDirName + seqId + "/";
                 logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
                 //new File(baggedSequenceFile).delete();
@@ -172,7 +170,7 @@ public class ObjectFS implements Runnable {
                 Encapsulation.debagify(unboxed);
                 workDirName = unboxed;
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                        String.format("Sequence [%s] restored to ", unboxed));
+                        String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
                 sstep = 3;
             }
         } catch (Exception e) {
