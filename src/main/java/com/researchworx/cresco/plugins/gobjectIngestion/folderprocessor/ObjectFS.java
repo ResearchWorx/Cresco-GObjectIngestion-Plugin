@@ -142,6 +142,7 @@ public class ObjectFS implements Runnable {
                         if (entry.isDirectory()) {
                             continue;
                         }
+                        logger.trace("Extracting {}", entry.getName());
                         File curfile = new File(workDir, entry.getName());
                         File parent = curfile.getParentFile();
                         if (!parent.exists()) {
