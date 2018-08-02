@@ -107,17 +107,17 @@ public class ObjectFS implements Runnable {
                 workDirName += "/";
             }
             File workDir = new File(workDirName);
-            if (workDir.exists()) {
+            /*if (workDir.exists()) {
                 if (!deleteDirectory(workDir))
                     logger.error("deleteDirectory('{}') = false", workDir.getAbsolutePath());
             }
-            if (!workDir.mkdir())
+            if (!workDir.mkdir())*/
                 logger.error("workDir.mkdir() = false (workDir = '{}')", workDir.getAbsolutePath());
             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                     "Retrieving bagged sequence");
             sstep = 2;
-            if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
-                    String.valueOf(sstep))) {
+            if (true /*oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
+                    String.valueOf(sstep))*/) {
                 String baggedSequenceFile = workDirName + seqId + ".tar";
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));

@@ -403,7 +403,9 @@ public class Encapsulation {
                 if (!parent.exists()) {
                     parent.mkdirs();
                 }
-                IOUtils.copy(fin, new FileOutputStream(toExtract));
+                try (OutputStream o = Files.newOutputStream(toExtract.toPath())) {
+                    IOUtils.copy(fin, o);
+                }
                 latch.countDown();
             } catch (FileNotFoundException fnfe) {
                 logger.error("Failed to decompress [{}], file not found [{}:{}]",
