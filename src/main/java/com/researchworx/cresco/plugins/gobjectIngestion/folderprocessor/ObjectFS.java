@@ -157,6 +157,10 @@ public class ObjectFS implements Runnable {
                 sstep = 3;
             }
         } catch (Exception e) {
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            logger.error("Exception: {}", sw.toString());
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                     String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
         }
