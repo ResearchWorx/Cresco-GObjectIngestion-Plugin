@@ -29,11 +29,10 @@ import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class Encapsulation {
     private static CLogger logger = new CLogger(Encapsulation.class, new ConcurrentLinkedQueue<MsgEvent>(),
@@ -332,41 +331,21 @@ public class Encapsulation {
 
     public static boolean decompress(String in, File out) {
         logger.trace("decompress('{}','{}')", in, out.getAbsolutePath());
-        ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(in))){
-            LinkedList<String> toExtract = new LinkedList<>();
             TarArchiveEntry entry;
             while ((entry = fin.getNextTarEntry()) != null) {
                 if (entry.isDirectory()) {
                     continue;
                 }
-                toExtract.add(new File(out, entry.getName()).getAbsolutePath());
-                //File curfile = new File(out, entry.getName());
+                File curfile = new File(out, entry.getName());
                 //logger.trace("Extracting [{}]", entry.getName());
-                /*File parent = curfile.getParentFile();
+                File parent = curfile.getParentFile();
                 if (!parent.exists()) {
                     parent.mkdirs();
                 }
-                IOUtils.copy(fin, new FileOutputStream(curfile));*/
-                //exec.execute(new DecompressWorker(curfile, fin));
+                IOUtils.copy(fin, new FileOutputStream(curfile));
             }
-            while (toExtract.size() > 0) {
-                HashSet<String> batchToExtract = new HashSet<>();
-                while (batchToExtract.size() < max_batch_size && toExtract.size() > 0)
-                    batchToExtract.add(toExtract.pop());
-                final CountDownLatch latch = new CountDownLatch(batchToExtract.size());
-                for (final String fileToExtract : batchToExtract) {
-                    logger.trace("Extracting [{}]", fileToExtract);
-                    exec.execute(new DecompressWorker(fileToExtract, fin, latch));
-                }
-                latch.await();
-            }
-            logger.trace("Extraction complete");
-            exec.shutdown();
             return true;
-        } catch (InterruptedException ie){
-            logger.error("Failed to decompress [{}], interrupted", in);
-            return false;
         } catch (FileNotFoundException fnfe) {
             logger.error("Failed to decompress [{}], file not found [{}:{}]",
                     in, fnfe.getClass().getCanonicalName(), fnfe.getMessage());
@@ -375,45 +354,6 @@ public class Encapsulation {
             logger.error("Failed to decompress [{}], encountered I/O exception [{}:{}]",
                     in, ioe.getClass().getCanonicalName(), ioe.getMessage());
             return false;
-        }
-    }
-
-    private static class DecompressWorker implements Runnable {
-        private final TarArchiveInputStream fin;
-        private final String curfile;
-        private final CountDownLatch latch;
-        DecompressWorker(String curfile, TarArchiveInputStream fin, CountDownLatch latch) {
-            this.curfile = curfile;
-            this.fin = fin;
-            this.latch = latch;
-        }
-        @Override
-        public void run() {
-            try {
-                if (curfile == null) {
-                    logger.error("curfile cannot be null");
-                    return;
-                }
-                if (fin == null) {
-                    logger.error("fin cannot be null");
-                    return;
-                }
-                File toExtract = new File(curfile);
-                File parent = toExtract.getParentFile();
-                if (!parent.exists()) {
-                    parent.mkdirs();
-                }
-                try (OutputStream o = Files.newOutputStream(toExtract.toPath())) {
-                    IOUtils.copy(fin, o);
-                }
-                latch.countDown();
-            } catch (FileNotFoundException fnfe) {
-                logger.error("Failed to decompress [{}], file not found [{}:{}]",
-                        curfile, fnfe.getClass().getCanonicalName(), fnfe.getMessage());
-            } catch (IOException ioe) {
-                logger.error("Failed to decompress [{}], encountered I/O exception [{}:{}]",
-                        curfile, ioe.getClass().getCanonicalName(), ioe.getMessage());
-            }
         }
     }
 
