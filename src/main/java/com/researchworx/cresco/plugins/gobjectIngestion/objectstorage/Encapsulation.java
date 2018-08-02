@@ -402,10 +402,20 @@ public class Encapsulation {
                 return false;
             }
             logger.trace("Setting bag = [{}]", archive.getParentFile().getAbsolutePath());
-            TFile bag = archive.getParentFile();
+            String archiveParent = archive.getParent();
+            if (archiveParent == null) {
+                logger.error("Archive [{}] has a null parent directory", archive);
+                return false;
+            }
+            logger.trace("archive.getParent() = {}", (archiveParent != null) ? archiveParent : "null");
+            TFile bag = new TFile(archive.getParent());
+            if (!bag.isDirectory()) {
+                logger.error("Bag [{}] is not a directory", bag.getAbsolutePath());
+                return false;
+            }
             logger.debug("archive: {}", archive.getAbsolutePath());
             logger.debug("bag: {}", bag.getAbsolutePath());
-            TFile.cp_rp(archive, bag, TConfig.current().getArchiveDetector(), TArchiveDetector.NULL);
+            TFile.cp_rp(archive, bag, TArchiveDetector.NULL, TArchiveDetector.NULL);
             try {
                 TVFS.umount();
                 logger.trace("[{}] successfully unboxed", archive.getAbsolutePath());
