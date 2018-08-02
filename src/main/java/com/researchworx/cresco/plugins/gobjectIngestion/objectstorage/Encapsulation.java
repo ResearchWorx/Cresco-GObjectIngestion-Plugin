@@ -24,8 +24,6 @@ import net.java.truevfs.kernel.spec.FsSyncException;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
@@ -427,10 +425,7 @@ public class Encapsulation {
                 return false;
             }
         } catch (IOException ioe) {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            ioe.printStackTrace(pw);
-            logger.error("Failed to unbox [{}]: {}:{}:{}", archive.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage(), sw.toString());
+            logger.error("Failed to unbox [{}]: {}:{}:{}", archive.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage(), ioe.getCause().toString());
             return false;
         }
     }

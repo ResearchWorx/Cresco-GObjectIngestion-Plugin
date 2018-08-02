@@ -65,6 +65,11 @@
 			<version>1.6</version>
 		</dependency>
 		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-compress</artifactId>
+			<version>1.14</version>
+		</dependency>
+		<dependency>
 			<groupId>gov.loc</groupId>
 			<artifactId>bagit</artifactId>
 			<version>5.2.0</version>

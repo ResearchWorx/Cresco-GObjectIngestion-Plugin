@@ -5,6 +5,9 @@ import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.utils.IOUtils;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
@@ -121,19 +124,33 @@ public class ObjectFS implements Runnable {
                 String baggedSequenceFile = workDirName + seqId + ".tar";
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
-                if (!Encapsulation.unBoxIt(baggedSequenceFile)) {
+                /*if (!Encapsulation.unBoxIt(baggedSequenceFile)) {
                     sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                             String.format("Failed to unbox sequence file [%s]", baggedSequenceFile));
                     pstep = 2;
                     return;
                 }
-                String unboxed = workDirName + seqId;
                 if (!new File(unboxed).exists() || !new File(unboxed).isDirectory()) {
                     sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                             String.format("Unboxing to [%s] failed", unboxed));
                     pstep = 2;
                     return;
+                }*/
+                try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(baggedSequenceFile))) {
+                    TarArchiveEntry entry;
+                    while ((entry = fin.getNextTarEntry()) != null) {
+                        if (entry.isDirectory()) {
+                            continue;
+                        }
+                        File curfile = new File(workDir, entry.getName());
+                        File parent = curfile.getParentFile();
+                        if (!parent.exists()) {
+                            parent.mkdirs();
+                        }
+                        IOUtils.copy(fin, new FileOutputStream(curfile));
+                    }
                 }
+                String unboxed = workDirName + seqId + "/";
                 logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
                 new File(baggedSequenceFile).delete();
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
@@ -157,10 +174,6 @@ public class ObjectFS implements Runnable {
                 sstep = 3;
             }
         } catch (Exception e) {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            e.printStackTrace(pw);
-            logger.error("Exception: {}", sw.toString());
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                     String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
         }
