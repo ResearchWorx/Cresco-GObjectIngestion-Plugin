@@ -102,7 +102,7 @@ public class Encapsulation {
      * @param src File to restore
      * @return The absolute file path to the restored
      */
-    public static String restore(String src) {
+    /*public static String restore(String src) {
         String unboxed = unBoxIt(src);
         if (unboxed == null)
             unboxed = src;
@@ -114,7 +114,7 @@ public class Encapsulation {
             debagify(unboxed);
         }
         return unboxed;
-    }
+    }*/
 
     public static boolean isBag(String src) {
         logger.trace("Call to isBag('{}')", src);
@@ -326,11 +326,11 @@ public class Encapsulation {
         return new File(archiveName);
     }
 
-    public static String unBoxIt(String filePath) {
+    public static boolean unBoxIt(String filePath) {
         logger.trace("unBoxIt('{}')", filePath);
         if (filePath == null || filePath.equals("")) {
             logger.error("Empty filepath given");
-            return null;
+            return false;
         }
         logger.trace("Building TArchiveDetector");
         TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.NULL, new Object[][] {
@@ -348,14 +348,14 @@ public class Encapsulation {
         logger.trace("Checking if [{}] exists", filePath);
         if (!archive.exists()) {
             logger.error("[{}] does not exist", archive.getAbsolutePath());
-            return null;
+            return false;
         }
         logger.trace("Checking if [{}] is an archive", filePath);
         if (!archive.isArchive()) {
             logger.error("[{}] is not an archive", archive.getAbsolutePath());
-            return null;
+            return false;
         }
-        logger.trace("archive.canRead() = {}", archive.canRead());
+        /*logger.trace("archive.canRead() = {}", archive.canRead());
         logger.trace("archive.canWrite() = {}", archive.canWrite());
         logger.trace("archive.canExecute() = {}", archive.canExecute());
         if (archive.getParentFile() == null) {
@@ -395,11 +395,11 @@ public class Encapsulation {
                 logger.error("Failed to remove existing directory [{}] {}:{}", folder, e.getClass().getName(), e.getMessage());
                 return null;
             }
-        }
+        }*/
         try {
             if (archive.getParentFile() == null) {
                 logger.error("archive.getParentFile() == null");
-                return null;
+                return false;
             }
             logger.trace("Setting bag = [{}]", archive.getParentFile().getAbsolutePath());
             TFile bag = archive.getParentFile();
@@ -408,15 +408,15 @@ public class Encapsulation {
             TFile.cp_rp(archive, bag, TConfig.current().getArchiveDetector(), TArchiveDetector.NULL);
             try {
                 TVFS.umount();
-                logger.trace("[{}] successfully unboxed to [{}]", archive.getAbsolutePath(), folder);
-                return folder;
+                logger.trace("[{}] successfully unboxed", archive.getAbsolutePath());
+                return true;
             } catch (FsSyncException e) {
                 logger.error("unBoxIt : Failed to sync changes to the filesystem: ", e.getMessage());
-                return null;
+                return false;
             }
         } catch (IOException ioe) {
             logger.error("Failed to unbox [{}]: {}: {}", archive.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage());
-            return null;
+            return false;
         }
     }
 

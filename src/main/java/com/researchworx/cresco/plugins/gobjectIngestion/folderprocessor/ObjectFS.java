@@ -121,16 +121,21 @@ public class ObjectFS implements Runnable {
                 String baggedSequenceFile = workDirName + seqId + ".tar";
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
-                String unboxed = Encapsulation.unBoxIt(baggedSequenceFile);
-                if (unboxed == null) {
+                if (!Encapsulation.unBoxIt(baggedSequenceFile)) {
                     sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                             String.format("Failed to unbox sequence file [%s]", baggedSequenceFile));
                     pstep = 2;
                     return;
                 }
+                String unboxed = workDirName + seqId;
+                if (!new File(unboxed).exists() || !new File(unboxed).isDirectory()) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxing to [%s] failed", unboxed));
+                    pstep = 2;
+                    return;
+                }
                 logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
                 new File(baggedSequenceFile).delete();
-
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Validating sequence [%s]", unboxed));
                 if (!Encapsulation.isBag(unboxed)) {
