@@ -381,15 +381,16 @@ public class ObjectEngine {
             sendUpdateInfoMessage(seqId, sampleId, reqId, step,
                     String.format("Initiating download: [%s] => [%s]", objectToDownload, outFile.getAbsolutePath()));
             Download transfer = manager.download(request, outFile);
-            logger.trace("Waiting for download to complete");
             transfer.waitForCompletion();
-            logger.trace("Download is complete");
             if (!outFile.exists()) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, step,
                         String.format("[%s] does not exist after download of [%s]",
                                 outFile.getAbsolutePath(), objectToDownload));
                 return false;
             }
+            sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                    String.format("Object downloaded successfully, calculating local checksum to verify",
+                            objectToDownload, outFile.getAbsolutePath()));
             String localChecksum;
             if (s3Checksum.contains("-"))
                 localChecksum = md5t.getMultiCheckSum(outFile.getAbsolutePath());
