@@ -355,6 +355,9 @@ public class Encapsulation {
             logger.error("[{}] is not an archive", archive.getAbsolutePath());
             return null;
         }
+        logger.trace("archive.canRead() = {}", archive.canRead());
+        logger.trace("archive.canWrite() = {}", archive.canWrite());
+        logger.trace("archive.canExecute() = {}", archive.canExecute());
         if (archive.getParentFile() == null) {
             logger.error("Failed to get parent folder of [{}]", archive.getAbsolutePath());
             return null;
