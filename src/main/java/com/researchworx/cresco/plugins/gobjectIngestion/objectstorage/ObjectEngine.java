@@ -1211,7 +1211,7 @@ public class ObjectEngine {
             if (currentTransferPercentage > (float)nextUpdate) {
                 long currentTimestamp = System.currentTimeMillis();
                 sendUpdateInfoMessage(seqId, sampleId, reqId, step,
-                        String.format("Transfer in progress (%s/%s %d%%) at %s",
+                        String.format("Transferring (%s/%s %d%%) at %s",
                         humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
                         (int)currentTransferPercentage,
                                 humanReadableTransferRate(lastTransferred, currentTimestamp - lastTimestamp)));
