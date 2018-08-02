@@ -107,17 +107,17 @@ public class ObjectFS implements Runnable {
                 workDirName += "/";
             }
             File workDir = new File(workDirName);
-            /*if (workDir.exists()) {
+            if (workDir.exists()) {
                 if (!deleteDirectory(workDir))
                     logger.error("deleteDirectory('{}') = false", workDir.getAbsolutePath());
             }
-            if (!workDir.mkdir())*/
+            if (!workDir.mkdir())
                 logger.error("workDir.mkdir() = false (workDir = '{}')", workDir.getAbsolutePath());
             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                     "Retrieving bagged sequence");
             sstep = 2;
-            if (true /*oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
-                    String.valueOf(sstep))*/) {
+            if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
+                    String.valueOf(sstep))) {
                 String baggedSequenceFile = workDirName + seqId + ".tar";
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
@@ -126,31 +126,17 @@ public class ObjectFS implements Runnable {
                             String.format("Failed to unbox sequence file [%s]", baggedSequenceFile));
                     pstep = 2;
                     return;
-                }
+                }*/
+                Encapsulation.decompress(baggedSequenceFile, workDir);
+                String unboxed = workDirName + seqId + "/";
                 if (!new File(unboxed).exists() || !new File(unboxed).isDirectory()) {
                     sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                             String.format("Unboxing to [%s] failed", unboxed));
                     pstep = 2;
                     return;
-                }*/
-                /*try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(baggedSequenceFile))) {
-                    TarArchiveEntry entry;
-                    while ((entry = fin.getNextTarEntry()) != null) {
-                        if (entry.isDirectory()) {
-                            continue;
-                        }
-                        File curfile = new File(workDir, entry.getName());
-                        File parent = curfile.getParentFile();
-                        if (!parent.exists()) {
-                            parent.mkdirs();
-                        }
-                        IOUtils.copy(fin, new FileOutputStream(curfile));
-                    }
-                }*/
-                Encapsulation.decompress(baggedSequenceFile, workDir);
-                String unboxed = workDirName + seqId + "/";
+                }
                 logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
-                //new File(baggedSequenceFile).delete();
+                new File(baggedSequenceFile).delete();
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Validating sequence [%s]", unboxed));
                 if (!Encapsulation.isBag(unboxed)) {
