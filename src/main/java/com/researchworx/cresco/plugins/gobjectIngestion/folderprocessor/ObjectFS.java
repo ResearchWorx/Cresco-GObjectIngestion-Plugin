@@ -118,7 +118,7 @@ public class ObjectFS implements Runnable {
             sstep = 2;
             if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
                     String.valueOf(sstep))) {
-                String baggedSequenceFile = workDirName + seqId + ".tar.gz";
+                String baggedSequenceFile = workDirName + seqId + ".tar";
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
                 String unboxed = Encapsulation.unBoxIt(baggedSequenceFile);
