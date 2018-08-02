@@ -151,7 +151,7 @@ public class ObjectFS implements Runnable {
                 Encapsulation.decompress(baggedSequenceFile, workDir);
                 String unboxed = workDirName + seqId + "/";
                 logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
-                new File(baggedSequenceFile).delete();
+                //new File(baggedSequenceFile).delete();
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Validating sequence [%s]", unboxed));
                 if (!Encapsulation.isBag(unboxed)) {
