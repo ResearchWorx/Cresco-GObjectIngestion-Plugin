@@ -21,20 +21,24 @@ import net.java.truevfs.driver.tar.gzip.TarGZipDriver;
 import net.java.truevfs.driver.tar.xz.TarXZDriver;
 import net.java.truevfs.kernel.spec.FsAccessOption;
 import net.java.truevfs.kernel.spec.FsSyncException;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.utils.IOUtils;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Encapsulation {
     private static CLogger logger = new CLogger(Encapsulation.class, new ConcurrentLinkedQueue<MsgEvent>(),
             "", "", "");
+    private static final int max_batch_size = 1000;
 
     public static void setLogger(CPlugin plugin) {
         logger = new CLogger(Encapsulation.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(),
@@ -324,6 +328,90 @@ public class Encapsulation {
         }
 
         return new File(archiveName);
+    }
+
+    public static boolean decompress(String in, File out) {
+        logger.trace("decompress('{}','{}')", in, out.getAbsolutePath());
+        ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(in))){
+            LinkedList<File> toExtract = new LinkedList<>();
+            TarArchiveEntry entry;
+            while ((entry = fin.getNextTarEntry()) != null) {
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                toExtract.add(new File(out, entry.getName()));
+                //File curfile = new File(out, entry.getName());
+                //logger.trace("Extracting [{}]", entry.getName());
+                /*File parent = curfile.getParentFile();
+                if (!parent.exists()) {
+                    parent.mkdirs();
+                }
+                IOUtils.copy(fin, new FileOutputStream(curfile));*/
+                //exec.execute(new DecompressWorker(curfile, fin));
+            }
+            while (toExtract.size() > 0) {
+                HashSet<File> batchToExtract = new HashSet<>();
+                while (batchToExtract.size() < max_batch_size && toExtract.size() > 0)
+                    batchToExtract.add(toExtract.pop());
+                final CountDownLatch latch = new CountDownLatch(batchToExtract.size());
+                for (final File fileToExtract : batchToExtract) {
+                    logger.trace("Extracting [{}]", fileToExtract.getAbsolutePath());
+                    exec.execute(new DecompressWorker(fileToExtract, fin, latch));
+                }
+                latch.await();
+            }
+            logger.trace("Extraction complete");
+            exec.shutdownNow();
+            return true;
+        } catch (InterruptedException ie){
+            logger.error("Failed to decompress [{}], interrupted", in);
+            return false;
+        } catch (FileNotFoundException fnfe) {
+            logger.error("Failed to decompress [{}], file not found [{}:{}]",
+                    in, fnfe.getClass().getCanonicalName(), fnfe.getMessage());
+            return false;
+        } catch (IOException ioe) {
+            logger.error("Failed to decompress [{}], encountered I/O exception [{}:{}]",
+                    in, ioe.getClass().getCanonicalName(), ioe.getMessage());
+            return false;
+        }
+    }
+
+    private static class DecompressWorker implements Runnable {
+        private final TarArchiveInputStream fin;
+        private final File curfile;
+        private final CountDownLatch latch;
+        DecompressWorker(File curfile, TarArchiveInputStream fin, CountDownLatch latch) {
+            this.curfile = curfile;
+            this.fin = fin;
+            this.latch = latch;
+        }
+        @Override
+        public void run() {
+            try {
+                if (curfile == null) {
+                    logger.error("curfile cannot be null");
+                    return;
+                }
+                if (fin == null) {
+                    logger.error("fin cannot be null");
+                    return;
+                }
+                File parent = curfile.getParentFile();
+                if (!parent.exists()) {
+                    parent.mkdirs();
+                }
+                IOUtils.copy(fin, new FileOutputStream(curfile));
+                latch.countDown();
+            } catch (FileNotFoundException fnfe) {
+                logger.error("Failed to decompress [{}], file not found [{}:{}]",
+                        curfile.getAbsolutePath(), fnfe.getClass().getCanonicalName(), fnfe.getMessage());
+            } catch (IOException ioe) {
+                logger.error("Failed to decompress [{}], encountered I/O exception [{}:{}]",
+                        curfile.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage());
+            }
+        }
     }
 
     public static boolean unBoxIt(String filePath) {
