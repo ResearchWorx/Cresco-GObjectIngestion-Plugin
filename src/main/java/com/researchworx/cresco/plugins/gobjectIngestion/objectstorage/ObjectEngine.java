@@ -389,7 +389,7 @@ public class ObjectEngine {
                 return false;
             }
             sendUpdateInfoMessage(seqId, sampleId, reqId, step,
-                    String.format("Object downloaded successfully, calculating local checksum to verify",
+                    String.format("Verifying download via checksums",
                             objectToDownload, outFile.getAbsolutePath()));
             String localChecksum;
             if (s3Checksum.contains("-"))

@@ -334,13 +334,13 @@ public class Encapsulation {
         logger.trace("decompress('{}','{}')", in, out.getAbsolutePath());
         ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(in))){
-            LinkedList<File> toExtract = new LinkedList<>();
+            LinkedList<String> toExtract = new LinkedList<>();
             TarArchiveEntry entry;
             while ((entry = fin.getNextTarEntry()) != null) {
                 if (entry.isDirectory()) {
                     continue;
                 }
-                toExtract.add(new File(out, entry.getName()));
+                toExtract.add(new File(out, entry.getName()).getAbsolutePath());
                 //File curfile = new File(out, entry.getName());
                 //logger.trace("Extracting [{}]", entry.getName());
                 /*File parent = curfile.getParentFile();
@@ -351,12 +351,12 @@ public class Encapsulation {
                 //exec.execute(new DecompressWorker(curfile, fin));
             }
             while (toExtract.size() > 0) {
-                HashSet<File> batchToExtract = new HashSet<>();
+                HashSet<String> batchToExtract = new HashSet<>();
                 while (batchToExtract.size() < max_batch_size && toExtract.size() > 0)
                     batchToExtract.add(toExtract.pop());
                 final CountDownLatch latch = new CountDownLatch(batchToExtract.size());
-                for (final File fileToExtract : batchToExtract) {
-                    logger.trace("Extracting [{}]", fileToExtract.getAbsolutePath());
+                for (final String fileToExtract : batchToExtract) {
+                    logger.trace("Extracting [{}]", fileToExtract);
                     exec.execute(new DecompressWorker(fileToExtract, fin, latch));
                 }
                 latch.await();
@@ -380,9 +380,9 @@ public class Encapsulation {
 
     private static class DecompressWorker implements Runnable {
         private final TarArchiveInputStream fin;
-        private final File curfile;
+        private final String curfile;
         private final CountDownLatch latch;
-        DecompressWorker(File curfile, TarArchiveInputStream fin, CountDownLatch latch) {
+        DecompressWorker(String curfile, TarArchiveInputStream fin, CountDownLatch latch) {
             this.curfile = curfile;
             this.fin = fin;
             this.latch = latch;
@@ -398,18 +398,21 @@ public class Encapsulation {
                     logger.error("fin cannot be null");
                     return;
                 }
-                File parent = curfile.getParentFile();
+                File toExtract = new File(curfile);
+                File parent = toExtract.getParentFile();
                 if (!parent.exists()) {
                     parent.mkdirs();
                 }
-                IOUtils.copy(fin, new FileOutputStream(curfile));
+                FileOutputStream out = new FileOutputStream(toExtract);
+                IOUtils.copy(fin, out);
+                out.close();
                 latch.countDown();
             } catch (FileNotFoundException fnfe) {
                 logger.error("Failed to decompress [{}], file not found [{}:{}]",
-                        curfile.getAbsolutePath(), fnfe.getClass().getCanonicalName(), fnfe.getMessage());
+                        curfile, fnfe.getClass().getCanonicalName(), fnfe.getMessage());
             } catch (IOException ioe) {
                 logger.error("Failed to decompress [{}], encountered I/O exception [{}:{}]",
-                        curfile.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage());
+                        curfile, ioe.getClass().getCanonicalName(), ioe.getMessage());
             }
         }
     }
