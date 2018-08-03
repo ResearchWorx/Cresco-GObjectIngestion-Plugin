@@ -140,6 +140,9 @@
 				<configuration>
 					<source>${jdk}</source>
 					<target>${jdk}</target>
+					<compilerArgs>
+						<arg>-Xlint:unchecked</arg>
+					</compilerArgs>
 				</configuration>
 			</plugin>
 			<plugin>

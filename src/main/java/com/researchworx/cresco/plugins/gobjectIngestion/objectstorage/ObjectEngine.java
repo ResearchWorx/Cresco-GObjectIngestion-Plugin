@@ -204,8 +204,8 @@ public class ObjectEngine {
         try {
             manager = TransferManagerBuilder.standard()
                     .withS3Client(conn)
-                    .withMultipartUploadThreshold(1024L * 1024L * 5L)
-                    .withMinimumUploadPartSize(1024L * 1024L * 5L)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
                     .build();
             inPath = Paths.get(inPath).toString();
             logger.trace("New inFile: {}", inFile);
@@ -222,7 +222,7 @@ public class ObjectEngine {
                 if (!removeExisting) {
                     sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("[%s/%s] being renamed to [%s/%s]",
                             bucket, s3Prefix, bucket, s3PrefixRename));
-                    if (existingObject.getObjectMetadata().getContentLength() > 5L * 1024L * 1024L) {
+                    if (existingObject.getObjectMetadata().getContentLength() > manager.getConfiguration().getMultipartCopyThreshold()) {
                         InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucket,
                                 s3PrefixRename);
                         InitiateMultipartUploadResult initResult = conn.initiateMultipartUpload(initRequest);
@@ -369,6 +369,8 @@ public class ObjectEngine {
             logger.trace("s3Checksum: {}", s3Checksum);
             manager = TransferManagerBuilder.standard()
                     .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
                     .build();
             String outFileName = destinationDirectory + objectToDownload.substring(
                     objectToDownload.lastIndexOf("/") > -1 ? objectToDownload.lastIndexOf("/") : 0);
@@ -437,9 +439,13 @@ public class ObjectEngine {
 
         try {
             logger.trace("Building new TransferManager");
-            tx = new TransferManager(conn);
+            tx = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
 
-            logger.trace("Building new TransferManagerConfiguration");
+            /*logger.trace("Building new TransferManagerConfiguration");
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
             logger.trace("Setting up minimum part size");
 
@@ -449,7 +455,7 @@ public class ObjectEngine {
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
             logger.trace("Setting configuration on TransferManager");
-            tx.setConfiguration(tmConfig);
+            tx.setConfiguration(tmConfig);*/
 
             logger.trace("[uploadDir] set to [inDir]");
             File uploadDir = new File(inDir);
@@ -511,9 +517,13 @@ public class ObjectEngine {
 
         try {
             logger.trace("Building new TransferManager");
-            tx = new TransferManager(conn);
+            tx = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
 
-            logger.trace("Building new TransferManagerConfiguration");
+            /*logger.trace("Building new TransferManagerConfiguration");
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
             logger.trace("Setting up minimum part size");
 
@@ -523,7 +533,7 @@ public class ObjectEngine {
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
             logger.trace("Setting configuration on TransferManager");
-            tx.setConfiguration(tmConfig);
+            tx.setConfiguration(tmConfig);*/
 
             logger.trace("[uploadDir] set to [inDir]");
             File uploadDir = new File(inDir);
@@ -585,9 +595,13 @@ public class ObjectEngine {
 
         try {
             logger.trace("Building new TransferManager");
-            tx = new TransferManager(conn);
+            tx = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
 
-            logger.trace("Building new TransferManagerConfiguration");
+            /*logger.trace("Building new TransferManagerConfiguration");
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
             logger.trace("Setting up minimum part size");
 
@@ -597,7 +611,7 @@ public class ObjectEngine {
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
             logger.trace("Setting configuration on TransferManager");
-            tx.setConfiguration(tmConfig);
+            tx.setConfiguration(tmConfig);*/
 
             logger.trace("[uploadDir] set to [inDir]");
             File uploadDir = new File(inDir);
@@ -675,7 +689,11 @@ public class ObjectEngine {
             TransferManager tx = null;
             try {
                 logger.trace("Building new TransferManager");
-                tx = new TransferManager(conn);
+                tx = TransferManagerBuilder.standard()
+                        .withS3Client(conn)
+                        .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                        .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                        .build();
 
                 logger.trace("Starting download timer");
                 long startDownload = System.currentTimeMillis();
@@ -1127,13 +1145,13 @@ public class ObjectEngine {
 
     public boolean doesBucketExist(String bucket) {
         logger.debug("Call to doesBucketExist [bucket = {}]", bucket);
-        return conn.doesBucketExist(bucket);
+        return conn.doesBucketExistV2(bucket);
     }
 
     public void createBucket(String bucket) {
         logger.debug("Call to createBucket [bucket = {}]", bucket);
         try {
-            if (!conn.doesBucketExist(bucket)) {
+            if (!conn.doesBucketExistV2(bucket)) {
                 Bucket mybucket = conn.createBucket(bucket);
                 logger.debug("Created bucket [{}] ", bucket);
             }

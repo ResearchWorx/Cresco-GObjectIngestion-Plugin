@@ -206,7 +206,7 @@ public class FSObject implements Runnable {
             if (!inDir.endsWith("/")) {
                 inDir += "/";
             }
-            ArrayList<String> samples = new ArrayList();
+            ArrayList<String> samples = new ArrayList<>();
             logger.trace("Processing Sequence Directory : " + inDir);
             File file = new File(inDir);
             String[] directories = file.list(new FilenameFilter() {
