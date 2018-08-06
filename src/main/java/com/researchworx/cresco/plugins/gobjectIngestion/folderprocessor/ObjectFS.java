@@ -154,7 +154,7 @@ public class ObjectFS implements Runnable {
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Restoring sequence [%s]", unboxed));
                 Encapsulation.debagify(unboxed);
-                workDirName = unboxed;
+                //workDirName = unboxed;
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
                 sstep = 3;
