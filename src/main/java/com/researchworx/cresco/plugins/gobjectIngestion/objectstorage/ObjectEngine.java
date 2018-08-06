@@ -295,7 +295,7 @@ public class ObjectEngine {
             logger.trace("s3Checksum: {}", result.getETag());
             String localChecksum;
             if (s3Checksum.contains("-"))
-                localChecksum = md5t.getMultiCheckSum(toUpload);
+                localChecksum = md5t.getMultiCheckSum(toUpload, manager);
             else
                 localChecksum = md5t.getCheckSum(toUpload);
             logger.trace("localChecksum: {}", localChecksum);
@@ -395,7 +395,7 @@ public class ObjectEngine {
                             objectToDownload, outFile.getAbsolutePath()));
             String localChecksum;
             if (s3Checksum.contains("-"))
-                localChecksum = md5t.getMultiCheckSum(outFile.getAbsolutePath());
+                localChecksum = md5t.getMultiCheckSum(outFile.getAbsolutePath(), manager);
             else
                 localChecksum = md5t.getCheckSum(outFile.getAbsolutePath());
             logger.debug("localChecksum: {}", localChecksum);

@@ -163,7 +163,7 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                     String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
         }
-        /*if (sstep == 3) {
+        if (sstep == 3) {
             try {
                 //start perf mon
                 PerfTracker pt = null;
@@ -209,7 +209,7 @@ public class ObjectFS implements Runnable {
                         "-v " + workDirName + ":/gdata/input " +
                         "-e INPUT_FOLDER_PATH=/gdata/input/" + remoteDir + " " +
                         "--name " + containerName + " " +
-                        "-t intrepo.uky.edu:5000/gbase /opt/pretools/raw_data_processing.pl";
+                        "-t 850408476861.dkr.ecr.us-east-1.amazonaws.com/gbase /opt/pretools/raw_data_processing.pl";
                 logger.trace("Running Docker Command: {}", command);
                 StringBuilder output = new StringBuilder();
                 Process p = null;
@@ -283,7 +283,7 @@ public class ObjectFS implements Runnable {
                             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                     "Pipeline has completed");
                             sstep = 6;
-                            if (new File(resultDirName + "clinical/" + seqId + "/").exists()) {
+                            /*if (new File(resultDirName + "clinical/" + seqId + "/").exists()) {
                                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                         "Transferring Clinical Results Directory");
                                 if (oe.uploadBaggedDirectory(clinical_bucket_name, resultDirName + "clinical/" +
@@ -323,7 +323,7 @@ public class ObjectFS implements Runnable {
                                     pse.setParam("sstep", String.valueOf(sstep));
                                     plugin.sendMsgEvent(pse);
                                 }
-                            }
+                            }*/
                             sstep = 9;
                             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                     "Pre-processing is complete");
@@ -368,7 +368,7 @@ public class ObjectFS implements Runnable {
                         String.format("processBaggedSequence exception encountered [%s:%s]",
                                 e.getClass().getCanonicalName(), e.getMessage()));
             }
-        }*/
+        }
         pstep = 2;
     }
 

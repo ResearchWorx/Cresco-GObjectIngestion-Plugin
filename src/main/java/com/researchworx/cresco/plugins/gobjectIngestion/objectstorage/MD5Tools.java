@@ -1,5 +1,7 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.objectstorage;
 
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
@@ -14,6 +16,8 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.amazonaws.services.s3.internal.Constants.MAXIMUM_UPLOAD_PARTS;
 
 class MD5Tools {
     private static final Logger logger = LoggerFactory.getLogger(MD5Tools.class);
@@ -36,30 +40,21 @@ class MD5Tools {
             MessageDigest md = MessageDigest.getInstance("MD5");
 
             File inputFile = new File(fileName);
-            //int size = 5242880;
-            //System.out.println("File Size = " + inputFile.length());
-            //System.out.println("Part Size = " + partSize);
-
             fis = new FileInputStream(inputFile);
-            // read bytes to the buffer
-
-            //for(int i = 0; i < inputFile.length(); i = i + size)
             boolean isReading = true;
             long bytesRead = 0;
             while (isReading) {
                 byte[] bs;
 
                 long remaining = inputFile.length() - bytesRead;
-                //System.out.println("remaingin: " + remaining);
                 if (remaining > partSize) {
-                    bs = new byte[partSize];
-                    bytesRead = bytesRead + fis.read(bs, 0, partSize);
+                    bs = new byte[(int)partSize];
+                    bytesRead = bytesRead + fis.read(bs, 0, (int)partSize);
                 } else {
-                    bs = new byte[(int) remaining];
-                    bytesRead = bytesRead + fis.read(bs, 0, (int) remaining);
+                    bs = new byte[(int)remaining];
+                    bytesRead = bytesRead + fis.read(bs, 0, (int)remaining);
                 }
                 byte[] hash = md.digest(bs);
-                //System.out.println(getMD5(hash));
                 hashList.add(getMD5(hash));
                 if (bytesRead == inputFile.length()) {
                     isReading = false;
@@ -85,7 +80,58 @@ class MD5Tools {
         return mpHash;
     }
 
-    private static String calculateChecksumForMultipartUpload(List<String> md5s) {
+    String getMultiCheckSum(String fileName, TransferManager manager) throws IOException {
+        logger.debug("Call to getMultiCheckSum [filename = {}]", fileName);
+        String mpHash = null;
+        FileInputStream fis = null;
+        List<String> hashList = new ArrayList<>();
+
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+
+            File inputFile = new File(fileName);
+            long optimalPartSize = calculateOptimalPartSize(inputFile.length(), manager.getConfiguration());
+            fis = new FileInputStream(inputFile);
+            boolean isReading = true;
+            long bytesRead = 0;
+            while (isReading) {
+                byte[] bs;
+
+                long remaining = inputFile.length() - bytesRead;
+                if (remaining > optimalPartSize) {
+                    bs = new byte[(int)optimalPartSize];
+                    bytesRead = bytesRead + fis.read(bs, 0, (int)optimalPartSize);
+                } else {
+                    bs = new byte[(int)remaining];
+                    bytesRead = bytesRead + fis.read(bs, 0, (int)remaining);
+                }
+                byte[] hash = md.digest(bs);
+                hashList.add(getMD5(hash));
+                if (bytesRead == inputFile.length()) {
+                    isReading = false;
+                }
+            }
+            mpHash = calculateChecksumForMultipartUpload(hashList);
+        } catch (IOException ioe) {
+            // Blah
+        } catch (Exception ex) {
+            System.out.println("MD5Tools : getMultiPartHash Error " + ex.toString());
+        } finally {
+            try {
+                assert fis != null;
+                fis.close();
+            } catch (AssertionError ae) {
+                logger.error("getMultiCheckSum FileInputStream closed prematurely");
+            } catch (IOException ioe) {
+                logger.error("getMultiCheckSum : fis.close() (IO) {}", ioe.getMessage());
+            } catch (Exception e) {
+                logger.error("getMultiCheckSum : fis.close() {}", e.getMessage());
+            }
+        }
+        return mpHash;
+    }
+
+    private String calculateChecksumForMultipartUpload(List<String> md5s) {
         StringBuilder stringBuilder = new StringBuilder();
         for (String md5 : md5s) {
             stringBuilder.append(md5);
@@ -100,13 +146,13 @@ class MD5Tools {
         return digest + "-" + md5s.size();
     }
 
-    private static String getMD52(byte[] hash) {
+    private String getMD52(byte[] hash) {
         Hasher hasher = Hashing.md5().newHasher();
         hasher.putBytes(hash);
         return hasher.hash().toString();
     }
 
-    private static String getMD5(byte[] hash) {
+    private String getMD5(byte[] hash) {
         StringBuilder hexString = new StringBuilder();
         for (byte hashByte : hash) {
             //for (int i = 0; i < hash.length; i++) {
@@ -156,5 +202,10 @@ class MD5Tools {
         return checksum;
     }
 
-
+    private long calculateOptimalPartSize(long contentLength, TransferManagerConfiguration configuration) {
+        double optimalPartSize = (double)contentLength / (double)MAXIMUM_UPLOAD_PARTS;
+        // round up so we don't push the upload over the maximum number of parts
+        optimalPartSize = Math.ceil(optimalPartSize);
+        return (long)Math.max(optimalPartSize, configuration.getMinimumUploadPartSize());
+    }
 }
