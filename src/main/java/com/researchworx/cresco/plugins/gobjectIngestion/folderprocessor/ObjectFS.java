@@ -201,58 +201,9 @@ public class ObjectFS implements Runnable {
             if (!workDirName.endsWith("/")) {
                 workDirName += "/";
             }
-            File workDir = new File(workDirName);
-            /*if (workDir.exists()) {
-                if (!deleteDirectory(workDir))
-                    logger.error("deleteDirectory('{}') = false", workDir.getAbsolutePath());
-            }
-            if (!workDir.mkdir())
-                logger.error("workDir.mkdir() = false (workDir = '{}')", workDir.getAbsolutePath());*/
             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                     "Retrieving bagged sequence");
             sstep = 2;
-            /*if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
-                    String.valueOf(sstep))) {
-                File baggedSequenceFile = new File(workDirName + seqId + ".tar");
-                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                        String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
-
-                if (!Encapsulation.unarchive(baggedSequenceFile, workDir)) {
-                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
-                            String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
-                    pstep = 2;
-                    return;
-                }
-                String unboxed = workDirName + seqId + "/";
-                if (!new File(unboxed).exists() || !new File(unboxed).isDirectory()) {
-                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
-                            String.format("Unboxing to [%s] failed", unboxed));
-                    pstep = 2;
-                    return;
-                }
-                logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
-                baggedSequenceFile.delete();
-                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                        String.format("Validating sequence [%s]", unboxed));
-                if (!Encapsulation.isBag(unboxed)) {
-                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
-                            String.format("Unboxed sequence [%s] does not contain BagIt data", unboxed));
-                    pstep = 2;
-                    return;
-                }
-                if (!Encapsulation.verifyBag(unboxed, true)) {
-                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
-                            String.format("Unboxed sequence [%s] failed BagIt verification", unboxed));
-                    pstep = 2;
-                    return;
-                }
-                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                        String.format("Restoring sequence [%s]", unboxed));
-                Encapsulation.debagify(unboxed);
-                //workDirName = unboxed;
-                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                        String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
-            }*/
             if (new File(workDirName + seqId + "/").exists())
                 sstep = 3;
         } catch (Exception e) {
@@ -260,9 +211,250 @@ public class ObjectFS implements Runnable {
                     String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
         }
         if (sstep == 3) {
-            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                    "Executing Pipeline");
+            try {
+                //start perf mon
+                PerfTracker pt = null;
+                if (trackPerf) {
+                    logger.trace("Starting performance monitoring");
+                    pt = new PerfTracker();
+                    new Thread(pt).start();
+                }
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        "Creating output directory");
+                String resultDirName = outgoing_directory; //create random tmp location
+                logger.trace("Clearing/resetting output directory");
+                resultDirName = resultDirName.replace("//", "/");
+                if (!resultDirName.endsWith("/")) {
+                    resultDirName += "/";
+                }
+                File resultDir = new File(resultDirName);
+                if (resultDir.exists()) {
+                    deleteDirectory(resultDir);
+                }
+                logger.trace("Creating output directory: {}", resultDirName);
+                resultDir.mkdir();
+
+                String clinicalResultsDirName = resultDirName + "clinical/";
+                if (new File(clinicalResultsDirName).exists())
+                    deleteDirectory(new File(clinicalResultsDirName));
+                new File(clinicalResultsDirName).mkdir();
+                String researchResultsDirName = resultDirName + "research/";
+                if (new File(researchResultsDirName).exists())
+                    deleteDirectory(new File(researchResultsDirName));
+                new File(researchResultsDirName).mkdir();
+                sstep = 4;
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        "Starting Pre-Processing via Docker Container");
+                String containerName = "procseq." + seqId;
+                Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
+                kill.waitFor();
+                Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
+                clear.waitFor();
+                String command = "docker run " +
+                        "-v " + researchResultsDirName + ":/gdata/output/research " +
+                        "-v " + clinicalResultsDirName + ":/gdata/output/clinical " +
+                        "-v " + workDirName + ":/gdata/input " +
+                        "-e INPUT_FOLDER_PATH=/gdata/input/" + remoteDir + " " +
+                        "--name " + containerName + " " +
+                        "-t 850408476861.dkr.ecr.us-east-1.amazonaws.com/gbase /opt/pretools/raw_data_processing.pl";
+                logger.trace("Running Docker Command: {}", command);
+                StringBuilder output = new StringBuilder();
+                Process p = null;
+                try {
+                    p = Runtime.getRuntime().exec(command);
+                    logger.trace("Attaching output reader");
+                    BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                    String outputLine;
+                    while ((outputLine = outputFeed.readLine()) != null) {
+                        output.append(outputLine);
+                        output.append("\n");
+                        String[] outputStr = outputLine.split("\\|\\|");
+                        for (int i = 0; i < outputStr.length; i++)
+                            outputStr[i] = outputStr[i].trim();
+                        if ((outputStr.length == 5) && ((outputLine.toLowerCase().startsWith("info")) ||
+                                (outputLine.toLowerCase().startsWith("error")))) {
+                            if (outputStr[0].toLowerCase().equals("info")) {
+                                if (!stagePhase.equals(outputStr[3])) {
+                                    sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                                            String.format("Pipeline now in phase %s", outputStr[3]));
+                                }
+                                stagePhase = outputStr[3];
+                            } else if (outputStr[0].toLowerCase().equals("error")) {
+                                sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                        String.format("Pre-Processing error: %s", outputLine));
+                            }
+                        }
+                        logger.debug(outputLine);
+                    }
+                    logger.trace("Waiting for Docker process to finish");
+                    p.waitFor();
+                    logger.trace("Docker Exit Code: {}", p.exitValue());
+                    if (trackPerf) {
+                        logger.trace("Ending Performance Monitor");
+                        pt.isActive = false;
+                        logger.trace("Sending Performance Information");
+                        pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Performance Information");
+                        pse.setParam("req_id", reqId);
+                        pse.setParam("seq_id", seqId);
+                        pse.setParam("pathstage", pathStage);
+                        pse.setParam("sstep", String.valueOf(sstep));
+                        pse.setParam("perf_log", pt.getResults());
+                        plugin.sendMsgEvent(pse);
+                    }
+                    pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Pipeline Output");
+                    pse.setParam("req_id", reqId);
+                    pse.setParam("seq_id", seqId);
+                    pse.setParam("pathstage", pathStage);
+                    pse.setParam("sstep", String.valueOf(sstep));
+                    pse.setParam("output_log", output.toString());
+                    plugin.sendMsgEvent(pse);
+                } catch (IOException ioe) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("File read/write exception [%s:%s]",
+                                    ioe.getClass().getCanonicalName(), ioe.getMessage()));
+                } catch (InterruptedException ie) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Process was interrupted [%s:%s]",
+                                    ie.getClass().getCanonicalName(), ie.getMessage()));
+                } catch (Exception e) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Exception [%s:%s]",
+                                    e.getClass().getCanonicalName(), e.getMessage()));
+                }
+                logger.trace("Pipeline has finished");
+                Thread.sleep(2000);
+                if (p != null) {
+                    switch (p.exitValue()) {
+                        case 0:     // Container finished successfully
+                            sstep = 5;
+                            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    "Pipeline has completed");
+                            break;
+                        case 1:     // Container error encountered
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    "General Docker error encountered (Err: 1)");
+                            break;
+                        case 100:   // Script failure encountered
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    "Pre-Processor encountered an error (Err: 100)");
+                            break;
+                        case 125:   // Container failed to run
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    "Container failed to run (Err: 125)");
+                            break;
+                        case 126:   // Container command cannot be invoked
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    "Container command failed to be invoked (Err: 126)");
+                            break;
+                        case 127:   // Container command cannot be found
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    "Container command could not be found (Err: 127)");
+                            break;
+                        case 137:   // Container was killed
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    "Container was manually stopped (Err: 137)");
+                            break;
+                        default:    // Other return code encountered
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    String.format("Unknown container return code (Err: %d)", p.exitValue()));
+                            break;
+                    }
+                } else {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            "Error retrieving return code from container");
+                }
+                Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
+                postClear.waitFor();
+            } catch (Exception e) {
+                sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("processBaggedSequence exception encountered [%s:%s]",
+                                e.getClass().getCanonicalName(), e.getMessage()));
+            }
+
         }
+        pstep = 2;
+    }
+
+    public void testSampleDataUpload(String seqId, String reqId, boolean trackPerf) {
+        logger.debug("processBaggedSequence('{}','{}',{})", seqId, reqId, trackPerf);
+        ObjectEngine oe = new ObjectEngine(plugin);
+        pstep = 3;
+        int sstep = 0;
+        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
+        if (clinical_bucket_name == null || clinical_bucket_name.equals("") ||
+                !oe.doesBucketExist(clinical_bucket_name)) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Clinical bucket [%s] does not exist",
+                            clinical_bucket_name != null ? clinical_bucket_name : "NULL"));
+            plugin.PathProcessorActive = false;
+            return;
+        }
+        String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        logger.trace("Checking to see if research bucket [{}] exists", research_bucket_name);
+        if (research_bucket_name == null || research_bucket_name.equals("") ||
+                !oe.doesBucketExist(research_bucket_name)) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Research bucket [%s] does not exist",
+                            research_bucket_name != null ? research_bucket_name : "NULL"));
+            plugin.PathProcessorActive = false;
+            return;
+        }
+        sstep = 1;
+        String remoteDir = seqId;
+        MsgEvent pse;
+        String workDirName = null;
+        try {
+            workDirName = incoming_directory;
+            workDirName = workDirName.replace("//", "/");
+            if (!workDirName.endsWith("/")) {
+                workDirName += "/";
+            }
+            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                    "Retrieving bagged sequence");
+            sstep = 2;
+            if (new File(workDirName + seqId + "/").exists())
+                sstep = 3;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
+        }
+        sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                "Creating output directory");
+        String resultDirName = outgoing_directory; //create random tmp location
+        logger.trace("Clearing/resetting output directory");
+        resultDirName = resultDirName.replace("//", "/");
+        if (!resultDirName.endsWith("/")) {
+            resultDirName += "/";
+        }
+        File resultDir = new File(resultDirName);
+        /*if (resultDir.exists()) {
+            deleteDirectory(resultDir);
+        }*/
+        logger.trace("Creating output directory: {}", resultDirName);
+        resultDir.mkdir();
+
+        String clinicalResultsDirName = resultDirName + "clinical/";
+        /*if (new File(clinicalResultsDirName).exists())
+            deleteDirectory(new File(clinicalResultsDirName));
+        new File(clinicalResultsDirName).mkdir();*/
+        String researchResultsDirName = resultDirName + "research/";
+        /*if (new File(researchResultsDirName).exists())
+            deleteDirectory(new File(researchResultsDirName));
+        new File(researchResultsDirName).mkdir();*/
+        sstep = 5;
+        sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                "Pipeline has completed");
+        sstep = 6;
+        if (new File(clinicalResultsDirName + seqId + "/").exists()) {
+            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                    "Transferring Clinical Results Directory");
+            String sampleList = getSampleList(resultDirName + "clinical/" + seqId + "/");
+            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Sample list: %s", sampleList));
+
+        }
+        pstep = 2;
     }
 
     public void processBaggedSequence(String seqId, String reqId, boolean trackPerf) {
