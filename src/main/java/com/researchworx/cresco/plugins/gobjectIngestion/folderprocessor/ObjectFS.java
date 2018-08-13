@@ -442,6 +442,7 @@ public class ObjectFS implements Runnable {
                     String.format("Sample list: %s", sampleList));
             String samples[] = sampleList.split(",");
             for (String sample : samples) {
+                oe = new ObjectEngine(plugin);
                 try {
                     if (oe.uploadBaggedDirectory(clinical_bucket_name, clinicalResultsDirName +
                             seqId + "/" + sample, sample, seqId, null, reqId, String.valueOf(sstep))) {

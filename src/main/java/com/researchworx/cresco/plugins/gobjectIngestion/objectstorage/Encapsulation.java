@@ -382,6 +382,10 @@ public class Encapsulation {
      * @throws IOException
      */
     public static void pack(File name, File... files) throws IOException {
+        String filesToString = "";
+        for (File file : files)
+            filesToString += file.getName();
+        logger.debug("pack('{}', '{}')", name, filesToString);
         try (TarArchiveOutputStream out = getTarArchiveOutputStream(name)){
             for (File file : files){
                 addToArchiveCompression(out, file, ".");
@@ -396,6 +400,10 @@ public class Encapsulation {
      * @throws IOException
      */
     public static void compress(File name, File... files) throws IOException {
+        String filesToString = "";
+        for (File file : files)
+            filesToString += file.getName();
+        logger.debug("compress('{}', '{}')", name, filesToString);
         try (TarArchiveOutputStream out = getGZIPTarArchiveOutputStream(name)){
             for (File file : files){
                 addToArchiveCompression(out, file, ".");
