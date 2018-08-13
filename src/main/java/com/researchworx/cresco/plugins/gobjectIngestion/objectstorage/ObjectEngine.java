@@ -1294,7 +1294,7 @@ public class ObjectEngine {
         if ((int)rate < unit) return String.format("%.1f bps", rate);
         int exp = (int) (Math.log(rate) / Math.log(unit));
         String pre = "kMGTPE".charAt(exp - 1) + "";
-        return String.format("%.1f %sbps", rate / Math.pow(unit, exp), pre);
+        return String.format("%.1f %sb/s", rate / Math.pow(unit, exp), pre);
     }
 
     private static String formatDuration(Duration duration) {

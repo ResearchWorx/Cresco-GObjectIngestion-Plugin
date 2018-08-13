@@ -118,7 +118,7 @@ public class ObjectFS implements Runnable {
             sstep = 2;
             if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
                     String.valueOf(sstep))) {
-                String baggedSequenceFile = workDirName + seqId + ".tar";
+                File baggedSequenceFile = new File(workDirName + seqId + ".tar");
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
                 /*if (!Encapsulation.unBoxIt(baggedSequenceFile)) {
@@ -127,7 +127,12 @@ public class ObjectFS implements Runnable {
                     pstep = 2;
                     return;
                 }*/
-                Encapsulation.decompress(baggedSequenceFile, workDir);
+                if (!Encapsulation.unarchive(baggedSequenceFile, workDir)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
+                    pstep = 2;
+                    return;
+                }
                 String unboxed = workDirName + seqId + "/";
                 if (!new File(unboxed).exists() || !new File(unboxed).isDirectory()) {
                     sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
@@ -136,7 +141,7 @@ public class ObjectFS implements Runnable {
                     return;
                 }
                 logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
-                new File(baggedSequenceFile).delete();
+                baggedSequenceFile.delete();
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Validating sequence [%s]", unboxed));
                 if (!Encapsulation.isBag(unboxed)) {
@@ -157,7 +162,7 @@ public class ObjectFS implements Runnable {
                 //workDirName = unboxed;
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
-                sstep = 3;
+                sstep = 2;
             }
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),

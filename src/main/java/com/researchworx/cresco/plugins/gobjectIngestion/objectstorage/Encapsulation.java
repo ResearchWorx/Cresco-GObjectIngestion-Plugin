@@ -23,7 +23,12 @@ import net.java.truevfs.kernel.spec.FsAccessOption;
 import net.java.truevfs.kernel.spec.FsSyncException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.tika.Tika;
 
 import java.io.*;
 import java.nio.file.*;
@@ -105,19 +110,60 @@ public class Encapsulation {
      * @param src File to restore
      * @return The absolute file path to the restored
      */
-    /*public static String restore(String src) {
-        String unboxed = unBoxIt(src);
-        if (unboxed == null)
+    public static String restore(String src) {
+        logger.debug("Call to restore('{}')", src);
+        File toRestore = new File(src);
+        if (!toRestore.exists()) {
+            logger.error("Archive to restore [{}] does not exist", toRestore.getAbsolutePath());
+            return null;
+        }
+        String unboxed = null;
+        if (toRestore.isFile()) {
+            if (unarchive(toRestore, toRestore.getParentFile())) {
+                Tika tika = new Tika();
+                try {
+                    String inType = tika.detect(toRestore);
+                    logger.trace("Detected type (in): {}", inType);
+                    switch (inType) {
+                        case "application/x-tar":
+                        case "application/gzip":
+                            int idx = toRestore.getAbsolutePath().lastIndexOf(".tar");
+                            if (idx == -1)
+                                idx = toRestore.getAbsolutePath().lastIndexOf(".tgz");
+                            if (idx > 0)
+                                unboxed = toRestore.getAbsolutePath().substring(0, idx);
+                            else
+                                logger.error("Failed to detect file extension of [{}]", toRestore.getAbsolutePath());
+                            break;
+                        default:
+                            logger.error("[{}] employs a type of archive [{}] that is not currently supported",
+                                    toRestore.getAbsolutePath(), inType);
+                            break;
+                    }
+                } catch (IOException ioe) {
+                    logger.error("Failed to detect type [{}] - [{}:{}]\n{}",
+                            toRestore.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage(),
+                            ExceptionUtils.getStackTrace(ioe));
+                    return null;
+                }
+            }
+            if (unboxed != null) {
+                new File(src).delete();
+            }
+        } else if (toRestore.isDirectory()) {
             unboxed = src;
-        else
-            new File(src).delete();
+        }
+        if (unboxed == null) {
+            logger.error("Failed to unarchive source [{}]", toRestore.getAbsolutePath());
+            return null;
+        }
         if (isBag(unboxed)) {
             if (!verifyBag(unboxed, true))
                 return null;
             debagify(unboxed);
         }
         return unboxed;
-    }*/
+    }
 
     public static boolean isBag(String src) {
         logger.trace("Call to isBag('{}')", src);
@@ -329,135 +375,170 @@ public class Encapsulation {
         return new File(archiveName);
     }
 
-    public static boolean decompress(String in, File out) {
-        logger.trace("decompress('{}','{}')", in, out.getAbsolutePath());
-        try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(in))){
-            TarArchiveEntry entry;
-            while ((entry = fin.getNextTarEntry()) != null) {
-                if (entry.isDirectory()) {
-                    continue;
-                }
-                File curfile = new File(out, entry.getName());
-                //logger.trace("Extracting [{}]", entry.getName());
-                File parent = curfile.getParentFile();
-                if (!parent.exists()) {
-                    parent.mkdirs();
-                }
-                IOUtils.copy(fin, new FileOutputStream(curfile));
+    /**
+     * Packs a TAR archive with the given files
+     * @param name
+     * @param files
+     * @throws IOException
+     */
+    public static void pack(File name, File... files) throws IOException {
+        try (TarArchiveOutputStream out = getTarArchiveOutputStream(name)){
+            for (File file : files){
+                addToArchiveCompression(out, file, ".");
             }
+        }
+    }
+
+    /**
+     *
+     * @param name
+     * @param files
+     * @throws IOException
+     */
+    public static void compress(File name, File... files) throws IOException {
+        try (TarArchiveOutputStream out = getGZIPTarArchiveOutputStream(name)){
+            for (File file : files){
+                addToArchiveCompression(out, file, ".");
+            }
+        }
+    }
+
+    private static TarArchiveOutputStream getTarArchiveOutputStream(File name) throws IOException {
+        TarArchiveOutputStream taos = new TarArchiveOutputStream(new FileOutputStream(name));
+        // TAR has an 8 gig file limit by default, this gets around that
+        taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+        // TAR originally didn't support long file names, so enable the support for it
+        taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+        taos.setAddPaxHeadersForNonAsciiNames(true);
+        return taos;
+    }
+
+    private static TarArchiveOutputStream getGZIPTarArchiveOutputStream(File name) throws IOException {
+        TarArchiveOutputStream taos = new TarArchiveOutputStream(new GzipCompressorOutputStream(new FileOutputStream(name)));
+        // TAR has an 8 gig file limit by default, this gets around that
+        taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+        // TAR originally didn't support long file names, so enable the support for it
+        taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+        taos.setAddPaxHeadersForNonAsciiNames(true);
+        return taos;
+    }
+
+    private static void addToArchiveCompression(TarArchiveOutputStream out, File file, String dir) throws IOException {
+        String entry = dir + File.separator + file.getName();
+        if (file.isFile()){
+            out.putArchiveEntry(new TarArchiveEntry(file, entry));
+            try (FileInputStream in = new FileInputStream(file)){
+                IOUtils.copy(in, out);
+            }
+            out.closeArchiveEntry();
+        } else if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null){
+                for (File child : children){
+                    addToArchiveCompression(out, child, entry);
+                }
+            }
+        } else {
+            logger.error(file.getName() + " is not supported");
+        }
+    }
+
+    public static boolean unarchive(String in, String out) {
+        return unarchive(new File(in), new File(out));
+    }
+
+    public static boolean unarchive(File in, File out) {
+        logger.debug("unarchive('{}','{}')", in.getAbsolutePath(), out.getAbsolutePath());
+        Tika tika = new Tika();
+        try {
+            String inType = tika.detect(in);
+            logger.trace("Detected type (in): {}", inType);
+            switch (inType) {
+                case "application/x-tar":
+                    return unpack(in, out);
+                case "application/gzip":
+                    return decompress(in, out);
+                default:
+                    logger.error("[{}] has archive type [{}] which is unsupported currently", in.getAbsolutePath(), inType);
+                    return false;
+            }
+        } catch (IOException ioe) {
+            logger.error("Failed to detect type [{}] - [{}:{}]\n{}",
+                    in, ioe.getClass().getCanonicalName(), ioe.getMessage(), ExceptionUtils.getStackTrace(ioe));
+            return false;
+        }
+    }
+
+    public static boolean unpack(String in, String out) {
+        return unpack(new File(in), new File(out));
+    }
+
+    public static boolean unpack(File in, File out) {
+        logger.debug("unpack('{}','{}')", in.getAbsolutePath(), out.getAbsolutePath());
+        if (!in.exists() || !in.isFile()) {
+            logger.error("Unpacking input [{}] does not exist or is not a file", in.getAbsolutePath());
+            return false;
+        }
+        if (!out.exists())
+            out.mkdirs();
+        else if (!out.isDirectory()) {
+            logger.error("Unpacking output [{}] is not a directory", out.getAbsolutePath());
+            return false;
+        }
+        try (TarArchiveInputStream fin = new TarArchiveInputStream(new FileInputStream(in))){
+            extractStream(fin, out);
+            return true;
+        } catch (FileNotFoundException fnfe) {
+            logger.error("Failed to unpack [{}], file not found [{}:{}]",
+                    in, fnfe.getClass().getCanonicalName(), fnfe.getMessage());
+            return false;
+        } catch (IOException ioe) {
+            logger.error("Failed to unpack [{}] - [{}:{}]\n{}",
+                    in, ioe.getClass().getCanonicalName(), ioe.getMessage(), ExceptionUtils.getStackTrace(ioe));
+            return false;
+        }
+    }
+
+    public static boolean decompress(String in, String out) {
+        return decompress(new File(in), new File(out));
+    }
+
+    public static boolean decompress(File in, File out) {
+        logger.debug("decompress('{}','{}')", in, out.getAbsolutePath());
+        if (!in.exists() || !in.isFile()) {
+            logger.error("Decompression input [{}] does not exist or is not a file", in.getAbsolutePath());
+            return false;
+        }
+        if (!out.exists() || !out.isDirectory()) {
+            logger.error("Decompression output [{}] does not exist or is not a directory", out.getAbsolutePath());
+            return false;
+        }
+        try (TarArchiveInputStream fin = new TarArchiveInputStream(new GzipCompressorInputStream(new FileInputStream(in)))){
+            extractStream(fin, out);
             return true;
         } catch (FileNotFoundException fnfe) {
             logger.error("Failed to decompress [{}], file not found [{}:{}]",
                     in, fnfe.getClass().getCanonicalName(), fnfe.getMessage());
             return false;
         } catch (IOException ioe) {
-            logger.error("Failed to decompress [{}], encountered I/O exception [{}:{}]",
-                    in, ioe.getClass().getCanonicalName(), ioe.getMessage());
+            logger.error("Failed to decompress [{}] -  [{}:{}]\n{}",
+                    in, ioe.getClass().getCanonicalName(), ioe.getMessage(), ExceptionUtils.getStackTrace(ioe));
             return false;
         }
     }
 
-    public static boolean unBoxIt(String filePath) {
-        logger.trace("unBoxIt('{}')", filePath);
-        if (filePath == null || filePath.equals("")) {
-            logger.error("Empty filepath given");
-            return false;
-        }
-        logger.trace("Building TArchiveDetector");
-        TConfig.current().setArchiveDetector(new TArchiveDetector(TArchiveDetector.NULL, new Object[][] {
-                //{ "jar", new JarDriver() },
-                { "tar", new TarDriver() },
-                { "tar.gz", new TarGZipDriver() },
-                { "tar.xz", new TarXZDriver() },
-                { "tar.bz2", new TarBZip2Driver() },
-                { "zip", new ZipDriver() },
-        }));
-        logger.trace("Setting TConfig preferences");
-        TConfig.current().setAccessPreference(FsAccessOption.GROW, true);
-        TConfig.current().setAccessPreference(FsAccessOption.STORE, true);
-        TFile archive = new TFile(new File(filePath));
-        logger.trace("Checking if [{}] exists", filePath);
-        if (!archive.exists()) {
-            logger.error("[{}] does not exist", archive.getAbsolutePath());
-            return false;
-        }
-        logger.trace("Checking if [{}] is an archive", filePath);
-        if (!archive.isArchive()) {
-            logger.error("[{}] is not an archive", archive.getAbsolutePath());
-            return false;
-        }
-        /*logger.trace("archive.canRead() = {}", archive.canRead());
-        logger.trace("archive.canWrite() = {}", archive.canWrite());
-        logger.trace("archive.canExecute() = {}", archive.canExecute());
-        if (archive.getParentFile() == null) {
-            logger.error("Failed to get parent folder of [{}]", archive.getAbsolutePath());
-            return null;
-        }
-        logger.trace("archive.getParentFile().getAbsolutePath() = {}", archive.getParentFile().getAbsolutePath());
-        String[] archiveFiles = archive.list();
-        if (archiveFiles == null) {
-            logger.error("Archive [{}] has a null file list", archive.getAbsolutePath());
-            return null;
-        }
-        if (archiveFiles.length < 1) {
-            logger.error("Archive [{}] has no files", archive.getAbsolutePath());
-            return null;
-        }
-        logger.trace("archiveFiles.length = {}", archiveFiles.length);
-        String topInnerFolder = archiveFiles[0];
-        if (topInnerFolder == null) {
-            logger.error("Failed to get top inner folder of archive [{}]", archive.getAbsolutePath());
-            return null;
-        }
-        logger.trace("topInnerFolder: {}", topInnerFolder);
-        String folder = new File(archive.getParentFile().getAbsolutePath() + "/" + topInnerFolder).getAbsolutePath();
-        if (folder == null || folder.equals("")) {
-            logger.error("Improperly formatted archive lacking internal top level directory");
-            return null;
-        }
-        logger.debug("folder: {}", folder);
-        TFile folderFS = new TFile(folder);
-        if (folderFS.exists()) {
-            logger.trace("Archive top level directory already exists, deleting");
-            try {
-                folderFS.rm_r();
-                TVFS.umount();
-            } catch (IOException e) {
-                logger.error("Failed to remove existing directory [{}] {}:{}", folder, e.getClass().getName(), e.getMessage());
-                return null;
+    private static void extractStream(TarArchiveInputStream fin, File out) throws IOException {
+        TarArchiveEntry entry;
+        while ((entry = fin.getNextTarEntry()) != null) {
+            if (entry.isDirectory()) {
+                continue;
             }
-        }*/
-        try {
-            if (archive.getParentFile() == null) {
-                logger.error("archive.getParentFile() == null");
-                return false;
+            File curfile = new File(out, entry.getName());
+            File parent = curfile.getParentFile();
+            if (!parent.exists()) {
+                parent.mkdirs();
             }
-            logger.trace("Setting bag = [{}]", archive.getParentFile().getAbsolutePath());
-            String archiveParent = archive.getParent();
-            if (archiveParent == null) {
-                logger.error("Archive [{}] has a null parent directory", archive);
-                return false;
-            }
-            logger.trace("archive.getParent() = {}", (archiveParent != null) ? archiveParent : "null");
-            TFile bag = new TFile(archive.getParent());
-            if (!bag.isDirectory()) {
-                logger.error("Bag [{}] is not a directory", bag.getAbsolutePath());
-                return false;
-            }
-            logger.debug("archive: {}", archive.getAbsolutePath());
-            logger.debug("bag: {}", bag.getAbsolutePath());
-            TFile.cp_rp(archive, bag, TArchiveDetector.NULL, TArchiveDetector.NULL);
-            try {
-                TVFS.umount();
-                logger.trace("[{}] successfully unboxed", archive.getAbsolutePath());
-                return true;
-            } catch (FsSyncException e) {
-                logger.error("unBoxIt : Failed to sync changes to the filesystem: ", e.getMessage());
-                return false;
-            }
-        } catch (IOException ioe) {
-            logger.error("Failed to unbox [{}]: {}:{}:{}", archive.getAbsolutePath(), ioe.getClass().getCanonicalName(), ioe.getMessage(), ioe.getCause().toString());
-            return false;
+            IOUtils.copy(fin, new FileOutputStream(curfile));
         }
     }
 
