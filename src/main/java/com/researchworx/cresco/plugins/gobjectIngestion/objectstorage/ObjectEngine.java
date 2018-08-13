@@ -50,7 +50,7 @@ public class ObjectEngine {
     private static final boolean hiddenFiles = true;
     private static final String compression = "tar";
     private static final String extension = ".tar";
-    private static final boolean removeExisting = false;
+    private static final boolean removeExisting = true;
 
     private CLogger logger;
     private static AmazonS3 conn;

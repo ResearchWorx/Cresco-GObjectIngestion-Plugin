@@ -71,6 +71,200 @@ public class ObjectFS implements Runnable {
         }
     }
 
+    public void testBaggedSequenceDownload(String seqId, String reqId, boolean trackPerf) {
+        logger.debug("testBaggedSequenceDownload('{}','{}',{})", seqId, reqId, trackPerf);
+        ObjectEngine oe = new ObjectEngine(plugin);
+        pstep = 3;
+        int sstep = 0;
+        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
+        if (clinical_bucket_name == null || clinical_bucket_name.equals("") ||
+                !oe.doesBucketExist(clinical_bucket_name)) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Clinical bucket [%s] does not exist",
+                            clinical_bucket_name != null ? clinical_bucket_name : "NULL"));
+            plugin.PathProcessorActive = false;
+            return;
+        }
+        String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        logger.trace("Checking to see if research bucket [{}] exists", research_bucket_name);
+        if (research_bucket_name == null || research_bucket_name.equals("") ||
+                !oe.doesBucketExist(research_bucket_name)) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Research bucket [%s] does not exist",
+                            research_bucket_name != null ? research_bucket_name : "NULL"));
+            plugin.PathProcessorActive = false;
+            return;
+        }
+        sstep = 1;
+        String remoteDir = seqId;
+        MsgEvent pse;
+        String workDirName = null;
+        try {
+            workDirName = incoming_directory;
+            workDirName = workDirName.replace("//", "/");
+            if (!workDirName.endsWith("/")) {
+                workDirName += "/";
+            }
+            File workDir = new File(workDirName);
+            if (workDir.exists()) {
+                if (!deleteDirectory(workDir))
+                    logger.error("deleteDirectory('{}') = false", workDir.getAbsolutePath());
+            }
+            if (!workDir.mkdir())
+                logger.error("workDir.mkdir() = false (workDir = '{}')", workDir.getAbsolutePath());
+            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                    "Retrieving bagged sequence");
+            sstep = 2;
+            if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
+                    String.valueOf(sstep))) {
+                File baggedSequenceFile = new File(workDirName + seqId + ".tar");
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
+
+                if (!Encapsulation.unarchive(baggedSequenceFile, workDir)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
+                    pstep = 2;
+                    return;
+                }
+                String unboxed = workDirName + seqId + "/";
+                if (!new File(unboxed).exists() || !new File(unboxed).isDirectory()) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxing to [%s] failed", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
+                baggedSequenceFile.delete();
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Validating sequence [%s]", unboxed));
+                if (!Encapsulation.isBag(unboxed)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxed sequence [%s] does not contain BagIt data", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                if (!Encapsulation.verifyBag(unboxed, true)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxed sequence [%s] failed BagIt verification", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Restoring sequence [%s]", unboxed));
+                Encapsulation.debagify(unboxed);
+                //workDirName = unboxed;
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
+                sstep = 3;
+            }
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
+        }
+        pstep = 2;
+    }
+
+    public void testPreProcessSequence(String seqId, String reqId, boolean trackPerf) {
+        logger.debug("processBaggedSequence('{}','{}',{})", seqId, reqId, trackPerf);
+        ObjectEngine oe = new ObjectEngine(plugin);
+        pstep = 3;
+        int sstep = 0;
+        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
+        if (clinical_bucket_name == null || clinical_bucket_name.equals("") ||
+                !oe.doesBucketExist(clinical_bucket_name)) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Clinical bucket [%s] does not exist",
+                            clinical_bucket_name != null ? clinical_bucket_name : "NULL"));
+            plugin.PathProcessorActive = false;
+            return;
+        }
+        String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        logger.trace("Checking to see if research bucket [{}] exists", research_bucket_name);
+        if (research_bucket_name == null || research_bucket_name.equals("") ||
+                !oe.doesBucketExist(research_bucket_name)) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Research bucket [%s] does not exist",
+                            research_bucket_name != null ? research_bucket_name : "NULL"));
+            plugin.PathProcessorActive = false;
+            return;
+        }
+        sstep = 1;
+        String remoteDir = seqId;
+        MsgEvent pse;
+        String workDirName = null;
+        try {
+            workDirName = incoming_directory;
+            workDirName = workDirName.replace("//", "/");
+            if (!workDirName.endsWith("/")) {
+                workDirName += "/";
+            }
+            File workDir = new File(workDirName);
+            /*if (workDir.exists()) {
+                if (!deleteDirectory(workDir))
+                    logger.error("deleteDirectory('{}') = false", workDir.getAbsolutePath());
+            }
+            if (!workDir.mkdir())
+                logger.error("workDir.mkdir() = false (workDir = '{}')", workDir.getAbsolutePath());*/
+            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                    "Retrieving bagged sequence");
+            sstep = 2;
+            /*if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
+                    String.valueOf(sstep))) {
+                File baggedSequenceFile = new File(workDirName + seqId + ".tar");
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
+
+                if (!Encapsulation.unarchive(baggedSequenceFile, workDir)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
+                    pstep = 2;
+                    return;
+                }
+                String unboxed = workDirName + seqId + "/";
+                if (!new File(unboxed).exists() || !new File(unboxed).isDirectory()) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxing to [%s] failed", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                logger.trace("unBoxIt result: {}, deleting TAR file", unboxed);
+                baggedSequenceFile.delete();
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Validating sequence [%s]", unboxed));
+                if (!Encapsulation.isBag(unboxed)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxed sequence [%s] does not contain BagIt data", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                if (!Encapsulation.verifyBag(unboxed, true)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Unboxed sequence [%s] failed BagIt verification", unboxed));
+                    pstep = 2;
+                    return;
+                }
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Restoring sequence [%s]", unboxed));
+                Encapsulation.debagify(unboxed);
+                //workDirName = unboxed;
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
+            }*/
+            if (new File(workDirName + seqId + "/").exists())
+                sstep = 3;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Exception encountered: [%s:%s]", e.getClass().getCanonicalName(), e.getMessage()));
+        }
+        if (sstep == 3) {
+            sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                    "Executing Pipeline");
+        }
+    }
+
     public void processBaggedSequence(String seqId, String reqId, boolean trackPerf) {
         logger.debug("processBaggedSequence('{}','{}',{})", seqId, reqId, trackPerf);
         ObjectEngine oe = new ObjectEngine(plugin);
@@ -162,7 +356,7 @@ public class ObjectFS implements Runnable {
                 //workDirName = unboxed;
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
-                sstep = 2;
+                sstep = 3;
             }
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
@@ -288,10 +482,10 @@ public class ObjectFS implements Runnable {
                             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                     "Pipeline has completed");
                             sstep = 6;
-                            /*if (new File(resultDirName + "clinical/" + seqId + "/").exists()) {
+                            if (new File(resultDirName + "clinical/" + seqId + "/").exists()) {
                                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                         "Transferring Clinical Results Directory");
-                                if (oe.uploadBaggedDirectory(clinical_bucket_name, resultDirName + "clinical/" +
+                                /*if (oe.uploadBaggedDirectory(clinical_bucket_name, resultDirName + "clinical/" +
                                         seqId + "/", seqId, seqId, null, reqId, String.valueOf(sstep))) {
                                     sstep = 7;
                                     logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
@@ -311,9 +505,11 @@ public class ObjectFS implements Runnable {
                                     }
                                     pse.setParam("sstep", String.valueOf(sstep));
                                     plugin.sendMsgEvent(pse);
-                                }
+                                }*/
+                                String sampleList = getSampleList(resultDirName + "clinical/" + seqId + "/");
+
                             }
-                            if (new File(resultDirName + "research/" + seqId + "/").exists()) {
+                            /*if (new File(resultDirName + "research/" + seqId + "/").exists()) {
                                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                         "Transferring Research Results Directory");
                                 if (oe.uploadBaggedDirectory(research_bucket_name, resultDirName + "research/" +
