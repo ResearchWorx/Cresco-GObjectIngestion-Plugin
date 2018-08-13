@@ -427,21 +427,8 @@ public class ObjectFS implements Runnable {
         if (!resultDirName.endsWith("/")) {
             resultDirName += "/";
         }
-        File resultDir = new File(resultDirName);
-        /*if (resultDir.exists()) {
-            deleteDirectory(resultDir);
-        }*/
-        logger.trace("Creating output directory: {}", resultDirName);
-        resultDir.mkdir();
-
         String clinicalResultsDirName = resultDirName + "clinical/";
-        /*if (new File(clinicalResultsDirName).exists())
-            deleteDirectory(new File(clinicalResultsDirName));
-        new File(clinicalResultsDirName).mkdir();*/
         String researchResultsDirName = resultDirName + "research/";
-        /*if (new File(researchResultsDirName).exists())
-            deleteDirectory(new File(researchResultsDirName));
-        new File(researchResultsDirName).mkdir();*/
         sstep = 5;
         sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                 "Pipeline has completed");
@@ -452,7 +439,14 @@ public class ObjectFS implements Runnable {
             String sampleList = getSampleList(resultDirName + "clinical/" + seqId + "/");
             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                     String.format("Sample list: %s", sampleList));
-
+            String samples[] = sampleList.split(",");
+            for (String sample : samples) {
+                if (oe.uploadBaggedDirectory(clinical_bucket_name, clinicalResultsDirName +
+                        seqId + "/", seqId, seqId, null, reqId, String.valueOf(sstep))) {
+                    sendUpdateInfoMessage(seqId, sample, reqId, String.valueOf(sstep),
+                            String.format("Uploaded [%s] to [%s]", sample, clinical_bucket_name));
+                }
+            }
         }
         pstep = 2;
     }

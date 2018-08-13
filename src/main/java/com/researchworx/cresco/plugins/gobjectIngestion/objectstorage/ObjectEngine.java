@@ -22,6 +22,7 @@ import com.amazonaws.util.StringUtils;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -187,7 +188,41 @@ public class ObjectEngine {
             return false;
         }
         sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Boxing up [%s]", inFile.getAbsolutePath()));
-        File boxed = Encapsulation.boxItUp(bagged, compression);
+        //File boxed = Encapsulation.boxItUp(bagged, compression);
+        File boxed = null;
+        switch (compression) {
+            case "tar":
+                logger.trace("Using TAR archiving method");
+                File packFile = new File(bagged.getAbsolutePath() + ".tar");
+                try {
+                    Encapsulation.pack(packFile, bagged);
+                    boxed = packFile;
+                } catch (IOException ioe) {
+                    logger.error("[{}:{}]\n{}", ioe.getClass().getCanonicalName(), ioe.getMessage(),
+                            ExceptionUtils.getStackTrace(ioe));
+                    boxed = null;
+                }
+                break;
+            case "gzip":
+                logger.trace("Using GZIP archiving method");
+                File compressFile = new File(bagged.getAbsolutePath() + ".tar.gz");
+                try {
+                    Encapsulation.compress(compressFile, bagged);
+                    boxed = compressFile;
+                } catch (IOException ioe) {
+                    logger.error("[{}:{}]\n{}", ioe.getClass().getCanonicalName(), ioe.getMessage(),
+                            ExceptionUtils.getStackTrace(ioe));
+                    boxed = null;
+                }
+                break;
+            case "none":
+                logger.trace("No archiving requested");
+                break;
+            default:
+                logger.error("Archive mode [{}] not currently supported", compression);
+                boxed = null;
+                break;
+        }
         if (boxed == null || !boxed.exists()) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Failed to box up directory [%s]",
                     inFile.getAbsolutePath()));
