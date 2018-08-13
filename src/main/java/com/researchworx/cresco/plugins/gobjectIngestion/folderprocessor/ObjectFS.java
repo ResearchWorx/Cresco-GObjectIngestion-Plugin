@@ -445,7 +445,7 @@ public class ObjectFS implements Runnable {
                 oe = new ObjectEngine(plugin);
                 try {
                     if (oe.uploadBaggedDirectory(clinical_bucket_name, clinicalResultsDirName +
-                            seqId + "/" + sample, sample, seqId, null, reqId, String.valueOf(sstep))) {
+                            seqId + "/" + sample, seqId, seqId, null, reqId, String.valueOf(sstep))) {
                         sendUpdateInfoMessage(seqId, sample, reqId, String.valueOf(sstep),
                                 String.format("Uploaded [%s] to [%s]", sample, clinical_bucket_name));
                     }
