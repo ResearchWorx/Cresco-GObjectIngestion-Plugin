@@ -5,6 +5,7 @@ import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
@@ -441,10 +442,16 @@ public class ObjectFS implements Runnable {
                     String.format("Sample list: %s", sampleList));
             String samples[] = sampleList.split(",");
             for (String sample : samples) {
-                if (oe.uploadBaggedDirectory(clinical_bucket_name, clinicalResultsDirName +
-                        seqId + "/" + sample, sample, seqId, null, reqId, String.valueOf(sstep))) {
-                    sendUpdateInfoMessage(seqId, sample, reqId, String.valueOf(sstep),
-                            String.format("Uploaded [%s] to [%s]", sample, clinical_bucket_name));
+                try {
+                    if (oe.uploadBaggedDirectory(clinical_bucket_name, clinicalResultsDirName +
+                            seqId + "/" + sample, sample, seqId, null, reqId, String.valueOf(sstep))) {
+                        sendUpdateInfoMessage(seqId, sample, reqId, String.valueOf(sstep),
+                                String.format("Uploaded [%s] to [%s]", sample, clinical_bucket_name));
+                    }
+                } catch (Exception e) {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                        String.format("processBaggedSequence exception encountered [%s:%s]\n%s",
+                                e.getClass().getCanonicalName(), e.getMessage(), ExceptionUtils.getStackTrace(e)));
                 }
             }
         }
