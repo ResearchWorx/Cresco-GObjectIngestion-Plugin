@@ -677,38 +677,57 @@ public class ObjectFS implements Runnable {
                                     "Pipeline has completed");
                             sstep = 6;
                             if (new File(resultDirName + "clinical/" + seqId + "/").exists()) {
-                                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
-                                        "Transferring Clinical Results Directory");
-                                /*if (oe.uploadBaggedDirectory(clinical_bucket_name, resultDirName + "clinical/" +
-                                        seqId + "/", seqId, seqId, null, reqId, String.valueOf(sstep))) {
-                                    sstep = 7;
-                                    logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
-                                    logger.trace("Sample Directory: " + resultDirName + "clinical/" +
-                                            seqId + "/");
-                                    String sampleList = getSampleList(resultDirName + "clinical/" + seqId + "/");
-                                    pse = plugin.genGMessage(MsgEvent.Type.INFO,
-                                            "Clinical Results Directory Transfer Complete");
-                                    pse.setParam("req_id", reqId);
-                                    pse.setParam("seq_id", seqId);
-                                    pse.setParam("pathstage", pathStage);
-                                    if (sampleList != null) {
-                                        logger.trace("Samples : " + sampleList);
-                                        pse.setParam("sample_list", sampleList);
-                                    } else {
-                                        pse.setParam("sample_list", "");
-                                    }
-                                    pse.setParam("sstep", String.valueOf(sstep));
-                                    plugin.sendMsgEvent(pse);
-                                }*/
                                 String sampleList = getSampleList(resultDirName + "clinical/" + seqId + "/");
-
+                                if (sampleList != null) {
+                                    sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                                            String.format("Transferring Clinical Results Directory. Sample list: %s", sampleList));
+                                    String samples[] = sampleList.split(",");
+                                    boolean uploaded = true;
+                                    for (String sample : samples) {
+                                        oe = new ObjectEngine(plugin);
+                                        try {
+                                            if (oe.uploadBaggedDirectory(clinical_bucket_name, clinicalResultsDirName +
+                                                    seqId + "/" + sample, seqId, seqId, null, reqId, String.valueOf(sstep))) {
+                                                sendUpdateInfoMessage(seqId, sample, reqId, String.valueOf(sstep),
+                                                        String.format("Uploaded [%s] to [%s]", sample, clinical_bucket_name));
+                                            } else {
+                                                sendUpdateErrorMessage(seqId, sample, reqId, String.valueOf(sstep),
+                                                        String.format("Failed to upload [%s]", sample));
+                                                uploaded = false;
+                                            }
+                                        } catch (Exception e) {
+                                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                                    String.format("processBaggedSequence exception encountered [%s:%s]\n%s",
+                                                            e.getClass().getCanonicalName(), e.getMessage(), ExceptionUtils.getStackTrace(e)));
+                                        }
+                                    }
+                                    if (uploaded) {
+                                        sstep = 7;
+                                        pse = plugin.genGMessage(MsgEvent.Type.INFO,
+                                                "Clinical Results Directory Transfer Complete");
+                                        pse.setParam("req_id", reqId);
+                                        pse.setParam("seq_id", seqId);
+                                        pse.setParam("pathstage", pathStage);
+                                        pse.setParam("sample_list", sampleList);
+                                        pse.setParam("sstep", String.valueOf(sstep));
+                                        plugin.sendMsgEvent(pse);
+                                    }
+                                } else {
+                                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                            "No samples found");
+                                    sstep = 8;
+                                }
+                            } else {
+                                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                                        "No clinical results generated");
+                                sstep = 8;
                             }
-                            /*if (new File(resultDirName + "research/" + seqId + "/").exists()) {
+                            if (new File(resultDirName + "research/" + seqId + "/").exists()) {
                                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                         "Transferring Research Results Directory");
                                 if (oe.uploadBaggedDirectory(research_bucket_name, resultDirName + "research/" +
                                         seqId + "/", seqId, seqId, null, reqId, String.valueOf(sstep))) {
-                                    sstep = 8;
+                                    sstep = 9;
                                     logger.debug("Results Directory Sycned [inDir = {}]", resultDir);
                                     pse = plugin.genGMessage(MsgEvent.Type.INFO,
                                             "Research Results Directory Transferred");
@@ -717,9 +736,15 @@ public class ObjectFS implements Runnable {
                                     pse.setParam("pathstage", pathStage);
                                     pse.setParam("sstep", String.valueOf(sstep));
                                     plugin.sendMsgEvent(pse);
+                                } else {
+                                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                            String.format("Failed to upload research results [%s]", seqId));
                                 }
-                            }*/
-                            sstep = 9;
+                            } else {
+                                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                                        "No research results generated");
+                            }
+                            sstep = 10;
                             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                     "Pre-processing is complete");
                             break;
