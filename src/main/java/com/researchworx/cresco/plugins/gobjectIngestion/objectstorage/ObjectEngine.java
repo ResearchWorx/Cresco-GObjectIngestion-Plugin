@@ -22,6 +22,7 @@ import com.amazonaws.util.StringUtils;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -176,6 +177,15 @@ public class ObjectEngine {
                     inFile.getAbsolutePath()));
             return false;
         }
+        long freeSpace = inFile.getUsableSpace();
+        long uncompressedSize = FileUtils.sizeOfDirectory(inFile);
+        long requiredSpace = uncompressedSize + (1024 * 1024 * 1024);
+        if (requiredSpace > freeSpace) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Not enough free space to bag up [%s], needs [%d] has [%d]",
+                            inFile.getAbsolutePath(), requiredSpace, freeSpace));
+            return false;
+        }
         if (s3Prefix == null)
             s3Prefix = "";
         if (!s3Prefix.equals("") && !s3Prefix.endsWith("/"))
@@ -263,10 +273,10 @@ public class ObjectEngine {
                                 s3PrefixRename);
                         InitiateMultipartUploadResult initResult = conn.initiateMultipartUpload(initRequest);
                         long objectSize = existingObject.getObjectMetadata().getContentLength();
-                        long partSize = 5 * 1024 * 1024;
+                        long partsize = 1024 * 1024 * partSize;
                         long bytePosition = 0;
                         int partNum = 1;
-                        int numParts = (int)(objectSize / partSize);
+                        int numParts = (int)(objectSize / partsize);
                         int notificationStep = 5;
                         int percentDone = 0;
                         int nextPercent = percentDone + notificationStep;
@@ -318,7 +328,10 @@ public class ObjectEngine {
             sendUpdateInfoMessage(seqId, sampleId, reqId, step,
                     String.format("Starting Upload to S3: [%s] => [%s/%s]",
                             boxed.getAbsolutePath(), bucket, s3Prefix));
-            PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, boxed);
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.addUserMetadata("uncompressedSize", String.valueOf(uncompressedSize));
+            metadata.addUserMetadata("partSize", String.valueOf(partSize));
+            PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, boxed).withMetadata(metadata);
             request.setGeneralProgressListener(new LoggingProgressListener(seqId, sampleId, reqId, step, boxed.length()));
             logger.trace("Starting upload to S3");
             long uploadStartTime = System.currentTimeMillis();
@@ -383,6 +396,8 @@ public class ObjectEngine {
                     String.format("Bucket [%s] does not contain [%s]", bucket, objectToDownload));
             return false;
         }
+        S3Object s3Object = conn.getObject(bucket, objectToDownload);
+        long s3ObjectSize = s3Object.getObjectMetadata().getContentLength();
         if (!destinationDirectory.endsWith("/"))
             destinationDirectory += "/";
         File downloadDir = new File(destinationDirectory);
@@ -400,7 +415,6 @@ public class ObjectEngine {
         TransferManager manager = null;
         logger.debug("Building TransferManager");
         try {
-            S3Object s3Object = conn.getObject(bucket, objectToDownload);
             String s3Checksum = s3Object.getObjectMetadata().getETag();
             logger.trace("s3Checksum: {}", s3Checksum);
             manager = TransferManagerBuilder.standard()

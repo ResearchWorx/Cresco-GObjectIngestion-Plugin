@@ -209,12 +209,7 @@ public class FSObject implements Runnable {
             ArrayList<String> samples = new ArrayList<>();
             logger.trace("Processing Sequence Directory : " + inDir);
             File file = new File(inDir);
-            String[] directories = file.list(new FilenameFilter() {
-                @Override
-                public boolean accept(File current, String name) {
-                    return new File(current, name).isDirectory();
-                }
-            });
+            String[] directories = file.list((dir, name) -> new File(dir, name).isDirectory());
 
             List<String> subDirectories = new ArrayList<>();
 
@@ -223,12 +218,7 @@ public class FSObject implements Runnable {
                     logger.trace("Searching for sub-directories of {}", inDir + "/" + subDir);
                     subDirectories.add(subDir);
                     File subFile = new File(inDir + "/" + subDir);
-                    String[] subSubDirs = subFile.list(new FilenameFilter() {
-                        @Override
-                        public boolean accept(File current, String name) {
-                            return new File(current, name).isDirectory();
-                        }
-                    });
+                    String[] subSubDirs = subFile.list((dir, name) -> new File(dir, name).isDirectory());
                     if (subSubDirs != null) {
                         for (String subSubDir : subSubDirs) {
                             logger.trace("Found sub-directory {}", inDir + "/" + subDir + "/" + subSubDir);
@@ -295,13 +285,7 @@ public class FSObject implements Runnable {
         if (status.equals("no")) {
 
             me = plugin.genGMessage(MsgEvent.Type.INFO, "Start transfer directory");
-            me.setParam("indir", inDir);
-            me.setParam("outdir", outDir);
             me.setParam("seq_id", seqId);
-            me.setParam("transfer_watch_file", transfer_watch_file);
-            me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name", bucket_name);
-            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             me.setParam("pathstage", pathStage);
             me.setParam("sstep", "1");
             plugin.sendMsgEvent(me);
