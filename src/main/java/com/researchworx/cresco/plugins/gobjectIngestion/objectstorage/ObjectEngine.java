@@ -178,12 +178,16 @@ public class ObjectEngine {
             return false;
         }
         long freeSpace = inFile.getUsableSpace();
+        logger.trace("freeSpace: {}", freeSpace);
         long uncompressedSize = FileUtils.sizeOfDirectory(inFile);
+        logger.trace("uncompressedSize: {}", uncompressedSize);
         long requiredSpace = uncompressedSize + (1024 * 1024 * 1024);
+        logger.trace("requiredSpace: {}", requiredSpace);
         if (requiredSpace > freeSpace) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, step,
-                    String.format("Not enough free space to bag up [%s], needs [%d] has [%d]",
-                            inFile.getAbsolutePath(), requiredSpace, freeSpace));
+                    String.format("Not enough free space to bag up [%s], needs [%s] has [%s]",
+                            inFile.getAbsolutePath(), humanReadableByteCount(requiredSpace, true),
+                            humanReadableByteCount(freeSpace, true)));
             return false;
         }
         if (s3Prefix == null)
