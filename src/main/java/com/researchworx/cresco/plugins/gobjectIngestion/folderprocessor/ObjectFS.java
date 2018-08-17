@@ -10,6 +10,7 @@ import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngi
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.io.*;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -1533,9 +1534,22 @@ public class ObjectFS implements Runnable {
         sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Downloading sample file");
         try {
             ObjectEngine oe = new ObjectEngine(plugin);
-            return oe.downloadBaggedDirectory(clinical_bucket_name, sampleId, incoming_directory, seqId, sampleId, reqId,
-                    String.valueOf(ssstep));
-            //return true;
+            File workDir = Paths.get(incoming_directory, seqId).toFile();
+            if (!oe.downloadBaggedDirectory(clinical_bucket_name, sampleId,
+                    workDir.getAbsolutePath(), seqId, sampleId, reqId,
+                    String.valueOf(ssstep))) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
+                return false;
+            }
+            File baggedSampleFile = new File(incoming_directory + sampleId + ObjectEngine.extension);
+            sendUpdateInfoMessage(seqId, null, reqId, ssstep,
+                    String.format("Download successful, unboxing sample file [%s]", baggedSampleFile.getAbsolutePath()));
+            if (!Encapsulation.unarchive(baggedSampleFile, workDir)) {
+                sendUpdateErrorMessage(seqId, null, reqId, ssstep,
+                        String.format("Failed to unarchive sample file [%s]", baggedSampleFile.getAbsolutePath()));
+                return false;
+            }
+            return true;
         } /*catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample download was interrupted");
             return false;
