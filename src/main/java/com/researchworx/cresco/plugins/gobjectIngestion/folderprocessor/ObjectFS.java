@@ -17,6 +17,10 @@ public class ObjectFS implements Runnable {
     private final String transfer_status_file;
 
     private String bucket_name;
+    private String raw_bucket_name;
+    private String clinical_bucket_name;
+    private String research_bucket_name;
+    private String results_bucket_name;
     private String incoming_directory;
     private String outgoing_directory;
     private Plugin plugin;
@@ -42,8 +46,15 @@ public class ObjectFS implements Runnable {
         transfer_watch_file = plugin.getConfig().getStringParam("transfer_watch_file");
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
 
-        bucket_name = plugin.getConfig().getStringParam("bucket");
-        logger.debug("\"pathstage" + pathStage + "\" --> \"bucket\" from config [{}]", bucket_name);
+        bucket_name = plugin.getConfig().getStringParam("raw_bucket");
+        raw_bucket_name = plugin.getConfig().getStringParam("raw_bucket");
+        logger.debug("\"pathstage" + pathStage + "\" --> \"raw_bucket\" from config [{}]", raw_bucket_name);
+        bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        logger.debug("\"pathstage" + pathStage + "\" --> \"clinical_bucket\" from config [{}]", clinical_bucket_name);
+        bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        logger.debug("\"pathstage" + pathStage + "\" --> \"research_bucket\" from config [{}]", research_bucket_name);
+        bucket_name = plugin.getConfig().getStringParam("results_bucket");
+        logger.debug("\"pathstage" + pathStage + "\" --> \"results_bucket\" from config [{}]", results_bucket_name);
 
         MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "InPathPreProcessor instantiated");
         //me.setParam("transfer_watch_file", transfer_watch_file);
@@ -77,7 +88,7 @@ public class ObjectFS implements Runnable {
         ObjectEngine oe = new ObjectEngine(plugin);
         pstep = 3;
         int sstep = 0;
-        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        //String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
         logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
         if (clinical_bucket_name == null || clinical_bucket_name.equals("") ||
                 !oe.doesBucketExist(clinical_bucket_name)) {
@@ -87,7 +98,7 @@ public class ObjectFS implements Runnable {
             plugin.PathProcessorActive = false;
             return;
         }
-        String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        //String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
         logger.trace("Checking to see if research bucket [{}] exists", research_bucket_name);
         if (research_bucket_name == null || research_bucket_name.equals("") ||
                 !oe.doesBucketExist(research_bucket_name)) {
@@ -117,7 +128,7 @@ public class ObjectFS implements Runnable {
             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                     "Retrieving bagged sequence");
             sstep = 2;
-            if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
+            if (oe.downloadBaggedDirectory(raw_bucket_name, remoteDir, workDirName, seqId, null, reqId,
                     String.valueOf(sstep))) {
                 File baggedSequenceFile = new File(workDirName + seqId + ".tar");
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
@@ -464,7 +475,16 @@ public class ObjectFS implements Runnable {
         ObjectEngine oe = new ObjectEngine(plugin);
         pstep = 3;
         int sstep = 0;
-        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        //String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        logger.trace("Checking to see if raw bucket [{}] exists", raw_bucket_name);
+        if (raw_bucket_name == null || raw_bucket_name.equals("") ||
+                !oe.doesBucketExist(raw_bucket_name)) {
+            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                    String.format("Raw bucket [%s] does not exist",
+                            raw_bucket_name != null ? raw_bucket_name : "NULL"));
+            plugin.PathProcessorActive = false;
+            return;
+        }
         logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
         if (clinical_bucket_name == null || clinical_bucket_name.equals("") ||
                 !oe.doesBucketExist(clinical_bucket_name)) {
@@ -474,7 +494,7 @@ public class ObjectFS implements Runnable {
             plugin.PathProcessorActive = false;
             return;
         }
-        String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        //String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
         logger.trace("Checking to see if research bucket [{}] exists", research_bucket_name);
         if (research_bucket_name == null || research_bucket_name.equals("") ||
                 !oe.doesBucketExist(research_bucket_name)) {
@@ -504,7 +524,7 @@ public class ObjectFS implements Runnable {
             sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                     "Retrieving bagged sequence");
             sstep = 2;
-            if (oe.downloadBaggedDirectory(bucket_name, remoteDir, workDirName, seqId, null, reqId,
+            if (oe.downloadBaggedDirectory(raw_bucket_name, remoteDir, workDirName, seqId, null, reqId,
                     String.valueOf(sstep))) {
                 File baggedSequenceFile = new File(workDirName + seqId + ".tar");
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
