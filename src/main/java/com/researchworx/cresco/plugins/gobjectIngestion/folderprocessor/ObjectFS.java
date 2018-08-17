@@ -1,5 +1,7 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.SdkClientException;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
@@ -1406,11 +1408,22 @@ public class ObjectFS implements Runnable {
     public void processBaggedSample(String seqId, String sampleId, String reqId, boolean trackPerf) {
         logger.debug("processBaggedSample('{}','{}','{}',{})", seqId, sampleId, reqId, trackPerf);
         pstep = 3;
-        int ssstep = 1;
+        int ssstep = 0;
         try {
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Starting to process sample");
             Thread.sleep(1000);
-            processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep);
+            if (!processBaggedSampleCheckAndPrepare(seqId, sampleId, reqId, ssstep)) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed sample processor initialization");
+                pstep = 2;
+                return;
+            }
+            ssstep++;
+            Thread.sleep(1000);
+            if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep)) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
+                pstep = 2;
+                return;
+            }
             ssstep++;
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Sample processing complete");
             pstep = 2;
@@ -1422,15 +1435,99 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    private void processBaggedSampleDownloadSample(String seqId, String sampleId, String reqId, int ssstep) {
+    private boolean processBaggedSampleCheckAndPrepare(String seqId, String sampleId, String reqId, int ssstep) {
+        logger.debug("processBaggedSampleCheckAndPrepare('{}','{}','{}',{})", seqId, sampleId, reqId, ssstep);
+        sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Checking and preparing sample processor");
+        try {
+            ObjectEngine oe = new ObjectEngine(plugin);
+            if (clinical_bucket_name == null || clinical_bucket_name.equals("")) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        "Clinical bucket is not properly set on this processor");
+                return false;
+            }
+            if (results_bucket_name == null || results_bucket_name.equals("")) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        "Results bucket is not properly set on this processor");
+                return false;
+            }
+            if (incoming_directory == null || incoming_directory.equals("")) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        "Incoming (working) directory is not properly set on this processor");
+                return false;
+            }
+            if (outgoing_directory == null || outgoing_directory.equals("")) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        "Outgoing (results) directory is not properly set on this processor");
+                return false;
+            }
+            logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
+            if (!oe.doesBucketExist(clinical_bucket_name)) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Clinical bucket [%s] does not exist for given S3 credentials", clinical_bucket_name));
+                return false;
+            }
+            logger.trace("Checking to see if results bucket [{}] exists", results_bucket_name);
+            if (!oe.doesBucketExist(results_bucket_name)) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Results bucket [%s] does not exist for given S3 credentials", results_bucket_name));
+                return false;
+            }
+            File workDir = new File(incoming_directory);
+            if (workDir.exists())
+                if (!deleteDirectory(workDir)) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                            String.format("Failed to remove existing work directory [%s]", incoming_directory));
+                    return false;
+                }
+            if (!workDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Failed to create work directory [%s]", incoming_directory));
+                return false;
+            }
+            File resultsDir = new File(outgoing_directory);
+            if (resultsDir.exists())
+                if (!deleteDirectory(resultsDir)) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                            String.format("Failed to remove existing results directory [%s]", outgoing_directory));
+                    return false;
+                }
+            if (!resultsDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Failed to create results directory [%s]", outgoing_directory));
+                return false;
+            }
+            return true;
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Caught an AmazonServiceException, which means your request made it " +
+                            "to Amazon S3, but was rejected with an error response for some reason - %s", ase.getMessage()));
+            return false;
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                            + "a serious internal problem while trying to communicate with S3, "
+                            + "such as not being able to access the network - %s", ace.getMessage()));
+            return false;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Check and prepare exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
+        }
+    }
+
+    private boolean processBaggedSampleDownloadSample(String seqId, String sampleId, String reqId, int ssstep) {
         logger.debug("processBaggedSampleDownloadSample('{}','{}','{}',{})", seqId, sampleId, reqId, ssstep);
+        sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Downloading sample file");
         try {
             Thread.sleep(2000);
+            return true;
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample download was interrupted");
+            return false;
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Processing exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
         }
     }
 
