@@ -51,11 +51,11 @@ public class ObjectFS implements Runnable {
         bucket_name = plugin.getConfig().getStringParam("raw_bucket");
         raw_bucket_name = plugin.getConfig().getStringParam("raw_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"raw_bucket\" from config [{}]", raw_bucket_name);
-        bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"clinical_bucket\" from config [{}]", clinical_bucket_name);
-        bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"research_bucket\" from config [{}]", research_bucket_name);
-        bucket_name = plugin.getConfig().getStringParam("results_bucket");
+        results_bucket_name = plugin.getConfig().getStringParam("results_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"results_bucket\" from config [{}]", results_bucket_name);
 
         MsgEvent me = plugin.genGMessage(MsgEvent.Type.INFO, "InPathPreProcessor instantiated");
