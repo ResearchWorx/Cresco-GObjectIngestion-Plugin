@@ -1424,7 +1424,8 @@ public class ObjectFS implements Runnable {
             }
             ssstep++;
             Thread.sleep(1000);
-            if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep)) {
+            if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
+                    incoming_directory)) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
                 pstep = 2;
                 return;
@@ -1526,14 +1527,28 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    private boolean processBaggedSampleDownloadSample(String seqId, String sampleId, String reqId, int ssstep) {
+    private boolean processBaggedSampleDownloadSample(String seqId, String sampleId, String reqId, int ssstep,
+                                                      String clinical_bucket_name, String incoming_directory) {
         logger.debug("processBaggedSampleDownloadSample('{}','{}','{}',{})", seqId, sampleId, reqId, ssstep);
         sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Downloading sample file");
         try {
-            Thread.sleep(2000);
-            return true;
-        } catch (InterruptedException ie) {
+            ObjectEngine oe = new ObjectEngine(plugin);
+            return oe.downloadBaggedDirectory(clinical_bucket_name, sampleId, incoming_directory, seqId, sampleId, reqId,
+                    String.valueOf(ssstep));
+            //return true;
+        } /*catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample download was interrupted");
+            return false;
+        }*/ catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Caught an AmazonServiceException, which means your request made it " +
+                            "to Amazon S3, but was rejected with an error response for some reason - %s", ase.getMessage()));
+            return false;
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                            + "a serious internal problem while trying to communicate with S3, "
+                            + "such as not being able to access the network - %s", ace.getMessage()));
             return false;
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
