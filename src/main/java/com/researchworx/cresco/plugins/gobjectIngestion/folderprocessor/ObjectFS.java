@@ -1414,37 +1414,55 @@ public class ObjectFS implements Runnable {
         String results_bucket_name = plugin.getConfig().getStringParam("results_bucket");
         String incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
         String outgoing_directory = plugin.getConfig().getStringParam("outgoing_directory");
+        String gpackage_directory = plugin.getConfig().getStringParam("gpackage_directory");
+        String container_name = plugin.getConfig().getStringParam("container_name");
         try {
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Starting to process sample");
             Thread.sleep(1000);
             if (!processBaggedSampleCheckAndPrepare(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
-                    results_bucket_name, incoming_directory, outgoing_directory)) {
+                    results_bucket_name, incoming_directory, outgoing_directory, gpackage_directory,
+                    container_name)) {
+                Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed sample processor initialization");
                 pstep = 2;
                 return;
             }
+            File workDir = new File(incoming_directory);
+            File resultsDir = new File(outgoing_directory);
+            File gPackageDir = new File(gpackage_directory);
             ssstep++;
             Thread.sleep(1000);
             if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
                     incoming_directory)) {
+                Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
                 pstep = 2;
                 return;
             }
+            workDir = Paths.get(workDir.getAbsolutePath(), sampleId).toFile();
             ssstep++;
+            Thread.sleep(1000);
+            if (!processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir, resultsDir,
+                    container_name)) {
+                Thread.sleep(1000);
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to process sample");
+                pstep = 2;
+                return;
+            }
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Sample processing complete");
-            pstep = 2;
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Processing exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
+        pstep = 2;
     }
 
     private boolean processBaggedSampleCheckAndPrepare(String seqId, String sampleId, String reqId, int ssstep,
                                                        String clinical_bucket_name, String results_bucket_name,
-                                                       String incoming_directory, String outgoing_directory) {
+                                                       String incoming_directory, String outgoing_directory,
+                                                       String gpackage_directory, String container_name) {
         logger.debug("processBaggedSampleCheckAndPrepare('{}','{}','{}',{})", seqId, sampleId, reqId, ssstep);
         sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Checking and preparing sample processor");
         try {
@@ -1470,6 +1488,18 @@ public class ObjectFS implements Runnable {
             if (outgoing_directory == null || outgoing_directory.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Outgoing (results) directory is not properly set on this processor");
+                plugin.PathProcessorActive = false;
+                return false;
+            }
+            if (gpackage_directory == null || gpackage_directory.equals("")) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        "Genomic package directory is not properly set on this processor");
+                plugin.PathProcessorActive = false;
+                return false;
+            }
+            if (container_name == null || container_name.equals("")) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        "Docker container name is not properly set on this processor");
                 plugin.PathProcessorActive = false;
                 return false;
             }
@@ -1507,6 +1537,12 @@ public class ObjectFS implements Runnable {
             if (!resultsDir.mkdirs()) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         String.format("Failed to create results directory [%s]", outgoing_directory));
+                return false;
+            }
+            File gPackageDir = new File(gpackage_directory);
+            if (!gPackageDir.exists() || !gPackageDir.isDirectory()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Genomic package directory [%s] does not exist", gPackageDir.getAbsolutePath()));
                 return false;
             }
             return true;
@@ -1555,7 +1591,10 @@ public class ObjectFS implements Runnable {
                         String.format("Unboxing to [%s] failed", unboxed));
                 return false;
             }
-            baggedSampleFile.delete();
+            if (!baggedSampleFile.delete()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Failed to delete sample archive file [%s]", baggedSampleFile.getAbsolutePath()));
+            }
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
             if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
@@ -1573,11 +1612,17 @@ public class ObjectFS implements Runnable {
             Encapsulation.debagify(unboxed.getAbsolutePath());
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Sample [%s] restored to [%s]", sampleId, unboxed));
+            File commands_main = Paths.get(unboxed.getAbsolutePath(), "commands_main.sh").toFile();
+            if (!commands_main.exists() || !commands_main.isFile()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Commands file is missing");
+                return false;
+            }
+            if (!commands_main.setExecutable(true)) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to make commands file executable");
+                return false;
+            }
             return true;
-        } /*catch (InterruptedException ie) {
-            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample download was interrupted");
-            return false;
-        }*/ catch (AmazonServiceException ase) {
+        } catch (AmazonServiceException ase) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Caught an AmazonServiceException, which means your request made it " +
                             "to Amazon S3, but was rejected with an error response for some reason - %s", ase.getMessage()));
@@ -1593,6 +1638,35 @@ public class ObjectFS implements Runnable {
                     String.format("Processing exception encountered - %s", ExceptionUtils.getStackTrace(e)));
             return false;
         }
+    }
+
+    private boolean processBaggedSampleRunContainer(String seqId, String sampleId, String reqId, int ssstep,
+                                                    File gPackageDir, File workDir, File resultDir,
+                                                    String container) {
+        sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Starting pipeline via Docker container");
+        try {
+            String containerName = "procsam." + sampleId.replace("/", ".");
+            Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
+            kill.waitFor();
+            Thread.sleep(500);
+            Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
+            clear.waitFor();
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    "Interrupted while clearing out existing containers");
+            return false;
+        } catch (IOException ioe) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Failed to execute shell command(s) to clean out existing containers "
+                            + "- %s", ExceptionUtils.getStackTrace(ioe)));
+            return false;
+        }
+        String command = String.format("docker run -t -v %s:/gpackage -v %s:/gdata/input -v %s:/gdata/output "
+                        + "--name procsam.%s %s /gdata/input/commands_main.sh", gPackageDir.getAbsolutePath(),
+                workDir.getAbsolutePath(), resultDir.getAbsolutePath(), sampleId.replace("/", "."),
+                container);
+        sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, String.format("Executing command: %s", command));
+        return true;
     }
 
     public void processSample(String seqId, String sampleId, String reqId, boolean trackPerf) {
