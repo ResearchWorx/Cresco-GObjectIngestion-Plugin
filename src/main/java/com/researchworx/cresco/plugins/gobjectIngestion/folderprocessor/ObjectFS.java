@@ -1409,10 +1409,15 @@ public class ObjectFS implements Runnable {
         logger.debug("processBaggedSample('{}','{}','{}',{})", seqId, sampleId, reqId, trackPerf);
         pstep = 3;
         int ssstep = 0;
+        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        String results_bucket_name = plugin.getConfig().getStringParam("results_bucket");
+        String incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
+        String outgoing_directory = plugin.getConfig().getStringParam("outgoing_directory");
         try {
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Starting to process sample");
             Thread.sleep(1000);
-            if (!processBaggedSampleCheckAndPrepare(seqId, sampleId, reqId, ssstep)) {
+            if (!processBaggedSampleCheckAndPrepare(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
+                    results_bucket_name, incoming_directory, outgoing_directory)) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed sample processor initialization");
                 pstep = 2;
                 return;
@@ -1435,7 +1440,9 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    private boolean processBaggedSampleCheckAndPrepare(String seqId, String sampleId, String reqId, int ssstep) {
+    private boolean processBaggedSampleCheckAndPrepare(String seqId, String sampleId, String reqId, int ssstep,
+                                                       String clinical_bucket_name, String results_bucket_name,
+                                                       String incoming_directory, String outgoing_directory) {
         logger.debug("processBaggedSampleCheckAndPrepare('{}','{}','{}',{})", seqId, sampleId, reqId, ssstep);
         sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Checking and preparing sample processor");
         try {
@@ -1443,21 +1450,25 @@ public class ObjectFS implements Runnable {
             if (clinical_bucket_name == null || clinical_bucket_name.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Clinical bucket is not properly set on this processor");
+                plugin.PathProcessorActive = false;
                 return false;
             }
             if (results_bucket_name == null || results_bucket_name.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Results bucket is not properly set on this processor");
+                plugin.PathProcessorActive = false;
                 return false;
             }
             if (incoming_directory == null || incoming_directory.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Incoming (working) directory is not properly set on this processor");
+                plugin.PathProcessorActive = false;
                 return false;
             }
             if (outgoing_directory == null || outgoing_directory.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Outgoing (results) directory is not properly set on this processor");
+                plugin.PathProcessorActive = false;
                 return false;
             }
             logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
