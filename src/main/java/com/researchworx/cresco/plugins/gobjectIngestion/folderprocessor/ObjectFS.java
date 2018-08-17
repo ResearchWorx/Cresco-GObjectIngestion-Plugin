@@ -1541,7 +1541,7 @@ public class ObjectFS implements Runnable {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
                 return false;
             }
-            File baggedSampleFile = new File(incoming_directory + sampleId + ObjectEngine.extension);
+            File baggedSampleFile = Paths.get(incoming_directory, sampleId + ObjectEngine.extension).toFile();
             sendUpdateInfoMessage(seqId, null, reqId, ssstep,
                     String.format("Download successful, unboxing sample file [%s]", baggedSampleFile.getAbsolutePath()));
             if (!Encapsulation.unarchive(baggedSampleFile, workDir)) {
