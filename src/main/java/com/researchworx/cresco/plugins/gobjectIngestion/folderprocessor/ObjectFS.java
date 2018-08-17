@@ -1542,13 +1542,37 @@ public class ObjectFS implements Runnable {
                 return false;
             }
             File baggedSampleFile = Paths.get(incoming_directory, sampleId + ObjectEngine.extension).toFile();
-            sendUpdateInfoMessage(seqId, null, reqId, ssstep,
+            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Download successful, unboxing sample file [%s]", baggedSampleFile.getAbsolutePath()));
             if (!Encapsulation.unarchive(baggedSampleFile, workDir)) {
-                sendUpdateErrorMessage(seqId, null, reqId, ssstep,
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         String.format("Failed to unarchive sample file [%s]", baggedSampleFile.getAbsolutePath()));
                 return false;
             }
+            File unboxed = Paths.get(incoming_directory, sampleId).toFile();
+            if (!unboxed.exists() || !unboxed.isDirectory()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Unboxing to [%s] failed", unboxed));
+                return false;
+            }
+            baggedSampleFile.delete();
+            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
+            if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Unboxed sample [%s] does not contain BagIt data", unboxed.getAbsolutePath()));
+                return false;
+            }
+            if (!Encapsulation.verifyBag(unboxed.getAbsolutePath(), true)) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        String.format("Unboxed sample [%s] failed BagIt verification", unboxed.getAbsolutePath()));
+                return false;
+            }
+            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Restoring sample [%s]", unboxed.getAbsolutePath()));
+            Encapsulation.debagify(unboxed.getAbsolutePath());
+            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Sample [%s] restored to [%s]", sampleId, unboxed));
             return true;
         } /*catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample download was interrupted");
