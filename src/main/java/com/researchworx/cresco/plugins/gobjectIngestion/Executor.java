@@ -184,6 +184,17 @@ public class Executor extends CExecutor {
         String pathStageName = "pathStage" + String.valueOf(pathStage);
         try {
             MsgEvent.Type eventType = MsgEvent.Type.valueOf(pme.getParam("gmsg_type"));
+
+            //String transfer_status_file = pme.getParam("transfer_status_file");
+            //String bucket_name = pme.getParam("bucket_name");
+            //String transfer_watch_file = pme.getParam("transfer_watch_file");
+            String message = pme.getParam("msg");
+            //String endpoint = pme.getParam("endpoint");
+            String seqId = pme.getParam("seq_id");
+            String sampleId = pme.getParam("sample_id");
+            String reqId = pme.getParam("req_id");
+            if (reqId == null)
+                reqId = "unknown";
             logger.info(pathStageName + " " + eventType.name() + " message");
             if(eventType.equals(MsgEvent.Type.INFO)) {
                 int sStep = Integer.parseInt(pme.getParam("sstep"));
@@ -191,14 +202,16 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        //Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);
                         break;
                     case 3:
                         break;
                     case 4:
                         break;
                     case 7:
-                        Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        //Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
+                        Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);
                         break;
                     case 999:
                         Plugin.objectToFSp.endProcessSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"));
