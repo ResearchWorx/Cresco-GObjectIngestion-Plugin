@@ -74,9 +74,9 @@ public class ObjectFS implements Runnable {
         try {
             pstep = 2;
             logger.trace("Setting [PathProcessorActive] to true");
-            plugin.PathProcessorActive = true;
+            Plugin.setActive();
             logger.trace("Entering while-loop");
-            while (plugin.PathProcessorActive) {
+            while (Plugin.processorIsActive()) {
                 sendUpdateInfoMessage(null, null, null, String.valueOf(pstep), "Idle");
                 Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval", 5000));
             }
@@ -1423,7 +1423,8 @@ public class ObjectFS implements Runnable {
                     results_bucket_name, incoming_directory, outgoing_directory, gpackage_directory,
                     container_name)) {
                 Thread.sleep(1000);
-                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed sample processor initialization");
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                        "Failed sample processor initialization");
                 pstep = 2;
                 return;
             }
@@ -1442,19 +1443,63 @@ public class ObjectFS implements Runnable {
             workDir = Paths.get(workDir.getAbsolutePath(), sampleId).toFile();
             ssstep++;
             Thread.sleep(1000);
-            if (!processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir, resultsDir,
-                    container_name)) {
+            int retCode = processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir,
+                    resultsDir, container_name, trackPerf);
+            if (retCode != 0) {
                 Thread.sleep(1000);
-                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to process sample");
+                if (retCode == -1)
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to process sample");
+                else {
+                    switch (retCode) {
+                        case 1:     // Container error encountered
+                            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                    "General Docker Error Encountered (Err: 1)");
+                            break;
+                        case 100:   // Script failure encountered
+                            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                    "Processing Pipeline encountered an error (Err: 100)");
+                            break;
+                        case 125:   // Container failed to run
+                            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                    "Container failed to run (Err: 125)");
+                            break;
+                        case 126:   // Container command cannot be invoked
+                            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                    "Container command failed to be invoked (Err: 126)");
+                            break;
+                        case 127:   // Container command cannot be found
+                            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                    "Container command could not be found (Err: 127)");
+                            break;
+                        case 137:   // Container was killed
+                            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                    "Container was manually stopped (Err: 137)");
+                            break;
+                        default:    // Other return code encountered
+                            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                    String.format("Unknown container return code (Err: %d)", retCode));
+                            break;
+                    }
+                }
                 pstep = 2;
                 return;
             }
+            ssstep++;
+            Thread.sleep(1000);
+            if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
+                Thread.sleep(1000);
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload sample results");
+                pstep = 2;
+                return;
+            }
+            ssstep++;
+            Thread.sleep(1000);
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Sample processing complete");
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
-                    String.format("Processing exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+                    String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
         pstep = 2;
     }
@@ -1470,37 +1515,37 @@ public class ObjectFS implements Runnable {
             if (clinical_bucket_name == null || clinical_bucket_name.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Clinical bucket is not properly set on this processor");
-                plugin.PathProcessorActive = false;
+                Plugin.setInactive();
                 return false;
             }
             if (results_bucket_name == null || results_bucket_name.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Results bucket is not properly set on this processor");
-                plugin.PathProcessorActive = false;
+                Plugin.setInactive();
                 return false;
             }
             if (incoming_directory == null || incoming_directory.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Incoming (working) directory is not properly set on this processor");
-                plugin.PathProcessorActive = false;
+                Plugin.setInactive();
                 return false;
             }
             if (outgoing_directory == null || outgoing_directory.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Outgoing (results) directory is not properly set on this processor");
-                plugin.PathProcessorActive = false;
+                Plugin.setInactive();
                 return false;
             }
             if (gpackage_directory == null || gpackage_directory.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Genomic package directory is not properly set on this processor");
-                plugin.PathProcessorActive = false;
+                Plugin.setInactive();
                 return false;
             }
             if (container_name == null || container_name.equals("")) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Docker container name is not properly set on this processor");
-                plugin.PathProcessorActive = false;
+                Plugin.setInactive();
                 return false;
             }
             logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
@@ -1635,17 +1680,17 @@ public class ObjectFS implements Runnable {
             return false;
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
-                    String.format("Processing exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+                    String.format("Sample download exception encountered - %s", ExceptionUtils.getStackTrace(e)));
             return false;
         }
     }
 
-    private boolean processBaggedSampleRunContainer(String seqId, String sampleId, String reqId, int ssstep,
+    private int processBaggedSampleRunContainer(String seqId, String sampleId, String reqId, int ssstep,
                                                     File gPackageDir, File workDir, File resultDir,
-                                                    String container) {
+                                                    String container, boolean trackPerf) {
         sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Starting pipeline via Docker container");
+        String containerName = "procsam." + sampleId.replace("/", ".");
         try {
-            String containerName = "procsam." + sampleId.replace("/", ".");
             Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
             kill.waitFor();
             Thread.sleep(500);
@@ -1654,19 +1699,118 @@ public class ObjectFS implements Runnable {
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                     "Interrupted while clearing out existing containers");
-            return false;
+            return -1;
         } catch (IOException ioe) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Failed to execute shell command(s) to clean out existing containers "
                             + "- %s", ExceptionUtils.getStackTrace(ioe)));
-            return false;
+            return -1;
         }
         String command = String.format("docker run -t -v %s:/gpackage -v %s:/gdata/input -v %s:/gdata/output "
                         + "--name procsam.%s %s /gdata/input/commands_main.sh", gPackageDir.getAbsolutePath(),
                 workDir.getAbsolutePath(), resultDir.getAbsolutePath(), sampleId.replace("/", "."),
                 container);
         sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, String.format("Executing command: %s", command));
-        return true;
+
+        PerfTracker pt = null;
+        if (trackPerf) {
+            logger.trace("Starting performance monitoring");
+            pt = new PerfTracker();
+            new Thread(pt).start();
+        }
+        StringBuilder output = new StringBuilder();
+        Process p;
+        try {
+            p = Runtime.getRuntime().exec(command);
+            BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String outputLine;
+            while ((outputLine = outputFeed.readLine()) != null) {
+                output.append(outputLine);
+                output.append("\n");
+
+                String[] outputStr = outputLine.split("\\|\\|");
+
+                for (int i = 0; i < outputStr.length; i++) {
+                    outputStr[i] = outputStr[i].trim();
+                }
+
+                if ((outputStr.length == 5) &&
+                        ((outputLine.toLowerCase().startsWith("info")) ||
+                                (outputLine.toLowerCase().startsWith("error")))) {
+                    if (outputStr[0].toLowerCase().equals("info")) {
+                        if (!stagePhase.equals(outputStr[3]))
+                            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
+                                    String.format("Pipeline is now in phase: %s", outputStr[3]));
+                        stagePhase = outputStr[3];
+                    } else if (outputStr[0].toLowerCase().equals("error"))
+                        sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                                String.format("Pipeline error: %s", outputLine));
+                }
+                logger.debug(outputLine);
+            }
+            logger.trace("Waiting for Docker process to finish");
+            p.waitFor();
+            logger.trace("Docker exit code = {}", p.exitValue());
+            MsgEvent pse;
+            if (trackPerf) {
+                logger.trace("Ending Performance Monitor");
+                pt.isActive = false;
+                logger.trace("Sending Performance Information");
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Performance Information");
+                pse.setParam("req_id", reqId);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("sample_id", sampleId);
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("ssstep", String.valueOf(ssstep));
+                pse.setParam("perf_log", pt.getResults());
+                plugin.sendMsgEvent(pse);
+            }
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Pipeline Output");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("sample_id", sampleId);
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("ssstep", String.valueOf(ssstep));
+            pse.setParam("output_log", output.toString());
+            plugin.sendMsgEvent(pse);
+            Thread.sleep(2000);
+            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Pipeline has completed");
+            Thread.sleep(500);
+            Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
+            postClear.waitFor();
+            return p.exitValue();
+        } catch (IOException ioe) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Run container I/O exception encountered - %s", ExceptionUtils.getStackTrace(ioe)));
+            return -1;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Container interrupted - %s", ExceptionUtils.getStackTrace(ie)));
+            return -1;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Run container exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return -1;
+        }
+    }
+
+    private boolean processBaggedSampleUploadResults(String seqId, String sampleId, String reqId, int ssstep,
+                                                    File resultDir, String results_bucket_name) {
+        try {
+            ObjectEngine oe = new ObjectEngine(plugin);
+            if (!oe.uploadBaggedDirectory(results_bucket_name, resultDir.getAbsolutePath(), sampleId, seqId, sampleId,
+                    reqId, String.valueOf(ssstep))) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload processing results");
+                return true;
+            }
+            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Uploaded results to [%s]", results_bucket_name));
+            return true;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("Results upload exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
+        }
     }
 
     public void processSample(String seqId, String sampleId, String reqId, boolean trackPerf) {
@@ -2682,200 +2826,6 @@ public class ObjectFS implements Runnable {
         }
         pstep = 2;
     }
-
-
-    /*
-    private void legacy() {
-        logger.trace("Thread starting");
-        try {
-            logger.trace("Setting [PathProcessorActive] to true");
-            plugin.PathProcessorActive = true;
-            ObjectEngine oe = new ObjectEngine(plugin);
-            logger.trace("Entering while-loop");
-            while (plugin.PathProcessorActive) {
-                me = plugin.genGMessage(MsgEvent.Type.INFO,"Start Object Scan");
-                me.setParam("transfer_watch_file",transfer_watch_file);
-                me.setParam("transfer_status_file", transfer_status_file);
-                me.setParam("bucket_name",bucket_name);
-                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage",pathStage);
-                me.setParam("pstep","2");
-                plugin.sendMsgEvent(me);
-
-                try {
-                    //oe.deleteBucketContents(bucket_name);
-                    logger.trace("Populating [remoteDirs]");
-                    List<String> remoteDirs = oe.listBucketDirs(bucket_name);
-                    for(String remoteDir : remoteDirs) {
-                        logger.trace("Remote Dir : " + remoteDir);
-                    }
-                    logger.trace("Populating [localDirs]");
-                    List<String> localDirs = getWalkPath(incoming_directory);
-                    for(String localDir : localDirs) {
-                        logger.trace("Local Dir : " + localDir);
-                    }
-
-                    List<String> newDirs = new ArrayList<>();
-                    for (String remoteDir : remoteDirs) {
-                        logger.trace("Checking for existance of RemoteDir [" + remoteDir + "] locally");
-                        if (!localDirs.contains(remoteDir)) {
-                            logger.trace("RemoteDir [" + remoteDir + "] does not exist locally");
-                            if (oe.doesObjectExist(bucket_name, remoteDir + transfer_watch_file)) {
-                                logger.debug("Adding [remoteDir = {}] to [newDirs]", remoteDir);
-                                newDirs.add(remoteDir);
-                            }
-                        }
-                    }
-                    if (!newDirs.isEmpty()) {
-                        logger.trace("[newDirs] has buckets to process");
-                        processBucket(newDirs);
-                    }
-                    Thread.sleep(30000);
-                } catch (Exception ex) {
-                    logger.error("run : while {}", ex.getMessage());
-                    me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error during Object scan");
-                    me.setParam("transfer_watch_file",transfer_watch_file);
-                    me.setParam("transfer_status_file", transfer_status_file);
-                    me.setParam("bucket_name",bucket_name);
-                    me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                    me.setParam("pathstage",pathStage);
-                    me.setParam("error_message",ex.getMessage());
-                    me.setParam("pstep","2");
-                    plugin.sendMsgEvent(me);
-                }
-                //message end of scan
-                me = plugin.genGMessage(MsgEvent.Type.INFO,"End Object Scan");
-                me.setParam("transfer_watch_file",transfer_watch_file);
-                me.setParam("transfer_status_file", transfer_status_file);
-                me.setParam("bucket_name",bucket_name);
-                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage",pathStage);
-                me.setParam("pstep","3");
-                plugin.sendMsgEvent(me);
-
-            }
-        } catch (Exception ex) {
-            logger.error("run {}", ex.getMessage());
-            me = plugin.genGMessage(MsgEvent.Type.ERROR,"Error Path Run");
-            me.setParam("transfer_watch_file",transfer_watch_file);
-            me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name",bucket_name);
-            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathstage",pathStage);
-            me.setParam("error_message",ex.getMessage());
-            me.setParam("pstep","2");
-            plugin.sendMsgEvent(me);
-        }
-
-    }
-    private void processBucket(List<String> newDirs) {
-        logger.debug("Call to processBucket [newDir = {}]", newDirs.toString());
-        ObjectEngine oe = new ObjectEngine(plugin);
-
-        for (String remoteDir : newDirs) {
-            logger.debug("Downloading directory {} to [incoming_directory]", remoteDir);
-
-            String seqId = remoteDir.substring(remoteDir.lastIndexOf("/") + 1, remoteDir.length());
-
-            me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
-            me.setParam("inDir", remoteDir);
-            me.setParam("outDir", incoming_directory);
-            me.setParam("seq_id", seqId);
-            me.setParam("transfer_watch_file",transfer_watch_file);
-            me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name",bucket_name);
-            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-            me.setParam("pathstage",pathStage);
-            me.setParam("sstep","1");
-            plugin.sendMsgEvent(me);
-
-            oe.downloadDirectory(bucket_name, remoteDir, incoming_directory);
-
-            List<String> filterList = new ArrayList<>();
-            logger.trace("Add [transfer_status_file] to [filterList]");
-            filterList.add(transfer_status_file);
-            String inDir = incoming_directory;
-            if (!inDir.endsWith("/")) {
-                inDir = inDir + "/";
-            }
-            inDir = inDir + remoteDir;
-            logger.debug("[inDir = {}]", inDir);
-            oe = new ObjectEngine(plugin);
-            if (oe.isSyncDir(bucket_name, remoteDir, inDir, filterList)) {
-                logger.debug("Directory Sycned [inDir = {}]", inDir);
-                Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
-                logger.trace("Set MD5 hash");
-                setTransferFileMD5(inDir + transfer_status_file, md5map);
-                me = plugin.genGMessage(MsgEvent.Type.INFO,"Directory Transfered");
-                me.setParam("indir", inDir);
-                me.setParam("outdir", remoteDir);
-                me.setParam("seq_id", seqId);
-                me.setParam("transfer_watch_file",transfer_watch_file);
-                me.setParam("transfer_status_file", transfer_status_file);
-                me.setParam("bucket_name",bucket_name);
-                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage",pathStage);
-                me.setParam("sstep","2");
-                plugin.sendMsgEvent(me);
-            }
-        }
-
-    }
-*/
-    private void setTransferFileMD5(String dir, Map<String, String> md5map) {
-        logger.debug("Call to setTransferFileMD5 [dir = {}]", dir);
-        try {
-            PrintWriter out = null;
-            try {
-                logger.trace("Opening [dir] to write");
-                out = new PrintWriter(new BufferedWriter(new FileWriter(dir, true)));
-                for (Map.Entry<String, String> entry : md5map.entrySet()) {
-                    String md5file = entry.getKey().replace(incoming_directory, "");
-                    if (md5file.startsWith("/")) {
-                        md5file = md5file.substring(1);
-                    }
-                    out.write(md5file + ":" + entry.getValue() + "\n");
-                    logger.debug("[md5file = {}, entry = {}] written", md5file, entry.getValue());
-                }
-            } finally {
-                try {
-                    assert out != null;
-                    out.flush();
-                    out.close();
-                } catch (AssertionError e) {
-                    logger.error("setTransferFileMd5 - PrintWriter was pre-emptively shutdown");
-                }
-            }
-        } catch (Exception ex) {
-            logger.error("setTransferFile {}", ex.getMessage());
-        }
-    }
-
-    /*private List<String> getWalkPath(String path) {
-        logger.debug("Call to getWalkPath [path = {}]", path);
-        if (!path.endsWith("/")) {
-            path = path + "/";
-        }
-        List<String> dirList = new ArrayList<>();
-
-        File root = new File(path);
-        File[] list = root.listFiles();
-
-        if (list == null) {
-            logger.trace("[list] is null, returning [dirList (empty array)]");
-            return dirList;
-        }
-
-        for (File f : list) {
-            if (f.isDirectory()) {
-                //walkPath( f.getAbsolutePath() );
-                String dir = f.getAbsolutePath().replace(path, "");
-                logger.debug("Adding \"{}/\" to [dirList]", dir);
-                dirList.add(dir + "/");
-            }
-        }
-        return dirList;
-    }*/
 }
 
 

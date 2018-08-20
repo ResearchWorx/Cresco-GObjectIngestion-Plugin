@@ -26,6 +26,17 @@ public class Plugin extends CPlugin {
     public static ObjectFS objectToFSp;
     public static FSObject fStoObjectp;
 
+    public static boolean processorIsActive() {
+        return PathProcessorActive;
+    }
+
+    public static void setActive() {
+        PathProcessorActive = true;
+    }
+
+    public static void setInactive() {
+        PathProcessorActive = false;
+    }
 
     public void setExecutor() {
         setExec(new Executor(this));
