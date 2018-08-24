@@ -870,7 +870,7 @@ public class ObjectFS implements Runnable {
         try {
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Starting to process sample");
             Thread.sleep(1000);
-            /*if (!processBaggedSampleCheckAndPrepare(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
+            if (!processBaggedSampleCheckAndPrepare(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
                     results_bucket_name, incoming_directory, outgoing_directory, gpackage_directory,
                     container_name)) {
                 Thread.sleep(1000);
@@ -878,23 +878,23 @@ public class ObjectFS implements Runnable {
                         "Failed sample processor initialization");
                 pstep = 2;
                 return;
-            }*/
+            }
             File workDir = new File(incoming_directory);
             File resultsDir = new File(outgoing_directory);
             File gPackageDir = new File(gpackage_directory);
             ssstep++;
             Thread.sleep(1000);
-            /*if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
+            if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
                     incoming_directory)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
                 pstep = 2;
                 return;
-            }*/
+            }
             workDir = Paths.get(workDir.getAbsolutePath(), sampleId).toFile();
             ssstep++;
             Thread.sleep(1000);
-            int retCode = processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir,
+            /*int retCode = processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir,
                     resultsDir, container_name, trackPerf);
             if (retCode != 0) {
                 Thread.sleep(1000);
@@ -944,7 +944,7 @@ public class ObjectFS implements Runnable {
                 return;
             }
             ssstep++;
-            Thread.sleep(1000);
+            Thread.sleep(1000);*/
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Sample processing complete");
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
@@ -1091,7 +1091,7 @@ public class ObjectFS implements Runnable {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         String.format("Failed to delete sample archive file [%s]", baggedSampleFile.getAbsolutePath()));
             }
-            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
+            /*sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
             if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
@@ -1117,7 +1117,7 @@ public class ObjectFS implements Runnable {
             if (!commands_main.setExecutable(true)) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to make commands file executable");
                 return false;
-            }
+            }*/
             return true;
         } catch (AmazonServiceException ase) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
