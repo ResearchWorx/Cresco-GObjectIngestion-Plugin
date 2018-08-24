@@ -879,10 +879,15 @@ public class ObjectFS implements Runnable {
                 pstep = 2;
                 return;
             }
-            File workDir = new File(incoming_directory);
-            File resultsDir = new File(outgoing_directory);
-            File gPackageDir = new File(gpackage_directory);
             ssstep++;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        try {
+            File workDir = new File(incoming_directory);
             Thread.sleep(1000);
             if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
                     incoming_directory)) {
@@ -893,6 +898,16 @@ public class ObjectFS implements Runnable {
             }
             workDir = Paths.get(workDir.getAbsolutePath(), sampleId).toFile();
             ssstep++;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        try {
+            File workDir = new File(incoming_directory);
+            File resultsDir = new File(outgoing_directory);
+            File gPackageDir = new File(gpackage_directory);
             Thread.sleep(1000);
             /*int retCode = processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir,
                     resultsDir, container_name, trackPerf);
@@ -934,17 +949,24 @@ public class ObjectFS implements Runnable {
                 }
                 pstep = 2;
                 return;
-            }
+            }*/
             ssstep++;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
+                    String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        try {
             Thread.sleep(1000);
-            if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
+            /*if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload sample results");
                 pstep = 2;
                 return;
-            }
+            }*/
             ssstep++;
-            Thread.sleep(1000);*/
+            Thread.sleep(1000);
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Sample processing complete");
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
