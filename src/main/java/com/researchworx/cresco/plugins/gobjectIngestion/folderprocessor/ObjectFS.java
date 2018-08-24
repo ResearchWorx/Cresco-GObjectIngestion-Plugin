@@ -1109,14 +1109,15 @@ public class ObjectFS implements Runnable {
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Sample [%s] restored to [%s]", sampleId, unboxed));
             File commands_main = Paths.get(unboxed.getAbsolutePath(), "commands_main.sh").toFile();
-            if (!commands_main.exists() || !commands_main.isFile()) {
+            /*if (!commands_main.exists() || !commands_main.isFile()) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Commands file is missing");
                 return false;
-            }
-            if (!commands_main.setExecutable(true)) {
+            }*/
+            commands_main.setExecutable(true);
+            /*if (!commands_main.setExecutable(true)) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to make commands file executable");
                 return false;
-            }
+            }*/
             return true;
         } catch (AmazonServiceException ase) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
