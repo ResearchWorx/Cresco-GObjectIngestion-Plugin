@@ -887,7 +887,6 @@ public class ObjectFS implements Runnable {
                     String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
         try {
-            File workDir = new File(incoming_directory);
             Thread.sleep(1000);
             if (!processBaggedSampleDownloadSample(seqId, sampleId, reqId, ssstep, clinical_bucket_name,
                     incoming_directory)) {
@@ -896,7 +895,6 @@ public class ObjectFS implements Runnable {
                 pstep = 2;
                 return;
             }
-            workDir = Paths.get(workDir.getAbsolutePath(), sampleId).toFile();
             ssstep++;
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
@@ -905,7 +903,7 @@ public class ObjectFS implements Runnable {
                     String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
         try {
-            File workDir = new File(incoming_directory);
+            File workDir = Paths.get(new File(incoming_directory).getCanonicalPath(), sampleId).toFile();
             File resultsDir = new File(outgoing_directory);
             File gPackageDir = new File(gpackage_directory);
             Thread.sleep(1000);
