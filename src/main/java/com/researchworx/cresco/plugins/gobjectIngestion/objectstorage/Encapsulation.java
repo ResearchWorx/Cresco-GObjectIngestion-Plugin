@@ -457,8 +457,8 @@ public class Encapsulation {
 
     public static boolean unarchive(File in, File out) {
         logger.debug("unarchive('{}','{}')", in.getAbsolutePath(), out.getAbsolutePath());
-        Tika tika = new Tika();
         try {
+            Tika tika = new Tika();
             String inType = tika.detect(in);
             logger.trace("Detected type (in): {}", inType);
             switch (inType) {
@@ -546,7 +546,9 @@ public class Encapsulation {
             if (!parent.exists()) {
                 parent.mkdirs();
             }
-            IOUtils.copy(fin, new FileOutputStream(curfile));
+            FileOutputStream fout = new FileOutputStream(curfile);
+            IOUtils.copy(fin, fout);
+            fout.close();
         }
     }
 
