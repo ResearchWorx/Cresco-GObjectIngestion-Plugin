@@ -958,6 +958,7 @@ public class ObjectFS implements Runnable {
                     String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
         try {
+            File resultsDir = new File(outgoing_directory);
             Thread.sleep(1000);
             if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
                 Thread.sleep(1000);
