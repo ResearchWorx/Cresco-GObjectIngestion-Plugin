@@ -1103,7 +1103,7 @@ public class ObjectFS implements Runnable {
                         String.format("Failed to unarchive sample file [%s]", baggedSampleFile.getAbsolutePath()));
                 return false;
             }
-            File unboxed = Paths.get(incoming_directory, sampleId).toFile();
+            /*File unboxed = Paths.get(incoming_directory, sampleId).toFile();
             if (!unboxed.exists() || !unboxed.isDirectory()) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         String.format("Unboxing to [%s] failed", unboxed));
@@ -1113,7 +1113,7 @@ public class ObjectFS implements Runnable {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         String.format("Failed to delete sample archive file [%s]", baggedSampleFile.getAbsolutePath()));
             }
-            /*sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
+            sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
             if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
