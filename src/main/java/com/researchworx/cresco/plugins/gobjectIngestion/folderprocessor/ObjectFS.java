@@ -909,7 +909,7 @@ public class ObjectFS implements Runnable {
             File resultsDir = new File(outgoing_directory);
             File gPackageDir = new File(gpackage_directory);
             Thread.sleep(1000);
-            /*int retCode = processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir,
+            int retCode = processBaggedSampleRunContainer(seqId, sampleId, reqId, ssstep, gPackageDir, workDir,
                     resultsDir, container_name, trackPerf);
             if (retCode != 0) {
                 Thread.sleep(1000);
@@ -949,7 +949,7 @@ public class ObjectFS implements Runnable {
                 }
                 pstep = 2;
                 return;
-            }*/
+            }
             ssstep++;
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Sample processing was interrupted");
@@ -959,12 +959,12 @@ public class ObjectFS implements Runnable {
         }
         try {
             Thread.sleep(1000);
-            /*if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
+            if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload sample results");
                 pstep = 2;
                 return;
-            }*/
+            }
             ssstep++;
             Thread.sleep(1000);
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Sample processing complete");
@@ -1103,7 +1103,7 @@ public class ObjectFS implements Runnable {
                         String.format("Failed to unarchive sample file [%s]", baggedSampleFile.getAbsolutePath()));
                 return false;
             }
-            /*File unboxed = Paths.get(incoming_directory, sampleId).toFile();
+            File unboxed = Paths.get(incoming_directory, sampleId).toFile();
             if (!unboxed.exists() || !unboxed.isDirectory()) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         String.format("Unboxing to [%s] failed", unboxed));
@@ -1135,11 +1135,10 @@ public class ObjectFS implements Runnable {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Commands file is missing");
                 return false;
             }
-            commands_main.setExecutable(true);
             if (!commands_main.setExecutable(true)) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to make commands file executable");
                 return false;
-            }*/
+            }
             return true;
         } catch (AmazonServiceException ase) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
