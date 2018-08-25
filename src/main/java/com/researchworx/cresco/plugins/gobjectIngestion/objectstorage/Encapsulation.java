@@ -546,9 +546,9 @@ public class Encapsulation {
             if (!parent.exists()) {
                 parent.mkdirs();
             }
-            FileOutputStream fout = new FileOutputStream(curfile);
+            OutputStream fout = new FileOutputStream(curfile);
             IOUtils.copy(fin, fout);
-            fout.close();
+            IOUtils.closeQuietly(fout);
         }
     }
 
