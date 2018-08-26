@@ -1270,7 +1270,8 @@ public class ObjectFS implements Runnable {
                                                     File resultDir, String results_bucket_name) {
         try {
             ObjectEngine oe = new ObjectEngine(plugin);
-            if (!oe.uploadBaggedDirectory(results_bucket_name, resultDir.getAbsolutePath(), sampleId, seqId, sampleId,
+            if (!oe.uploadBaggedDirectory(results_bucket_name,
+                    Paths.get(resultDir.getAbsolutePath(), sampleId).toString(), seqId, seqId, sampleId,
                     reqId, String.valueOf(ssstep))) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload processing results");
                 return true;
