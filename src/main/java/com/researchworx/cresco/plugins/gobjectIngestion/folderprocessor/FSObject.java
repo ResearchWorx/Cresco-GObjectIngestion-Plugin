@@ -344,12 +344,12 @@ public class FSObject implements Runnable {
                     plugin.sendMsgEvent(me);
                 }
             }
-        } else if (status.equals("yes")) {
+        } /*else if (status.equals("yes")) {
             logger.trace("[status = \"yes\"]");
             if (oe.isSyncDir(bucket_name, outDir, inDir, filterList)) {
                 logger.debug("Directory Sycned inDir={} outDir={}", inDir, outDir);
             }
-        }
+        }*/
     }
 
     private void setTransferFileMD5(Path dir, Map<String, String> md5map) {
