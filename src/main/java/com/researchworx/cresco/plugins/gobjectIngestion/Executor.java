@@ -91,8 +91,7 @@ public class Executor extends CExecutor {
             } else {
                 logger.error("Unknown MsgEvent.Type : " + pathStageName);
             }
-        }
-        catch(Exception ex) {
+        } catch(Exception ex) {
             logger.error("main " + pathStageName + " : " + ex.getMessage() + " " + pme.getParams().toString());
             ex.printStackTrace();
         }
@@ -102,12 +101,7 @@ public class Executor extends CExecutor {
         String pathStageName = "pathStage" + String.valueOf(pathStage);
         try {
             MsgEvent.Type eventType = MsgEvent.Type.valueOf(pme.getParam("gmsg_type"));
-
-            //String transfer_status_file = pme.getParam("transfer_status_file");
-            //String bucket_name = pme.getParam("bucket_name");
-            //String transfer_watch_file = pme.getParam("transfer_watch_file");
             String message = pme.getParam("msg");
-            //String endpoint = pme.getParam("endpoint");
             String seqId = pme.getParam("seq_id");
             String reqId = pme.getParam("req_id");
             if (reqId == null)
@@ -121,9 +115,7 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                        Plugin.objectToFSp.processBaggedSequence(seqId, reqId, false);
-                        //Plugin.objectToFSp.testPreProcessSequence(seqId, reqId, false);
-                        //Plugin.objectToFSp.testSampleDataUpload(seqId, reqId, false);
+                        Plugin.objectToFSp.preprocessBaggedSequence(seqId, reqId, false);
                         break;
                     case 3:
                         break;
@@ -141,8 +133,7 @@ public class Executor extends CExecutor {
             } else {
                 logger.error("Unknown MsgEvent.Type : " + pathStageName);
             }
-        }
-        catch(Exception ex) {
+        } catch(Exception ex) {
             logger.error("main " + pathStageName + " : " + ex.getMessage() + " " + pme.getParams().toString());
             ex.printStackTrace();
         }
@@ -173,8 +164,7 @@ public class Executor extends CExecutor {
             } else {
                 logger.error("Unknown MsgEvent.Type : " + pathStageName);
             }
-        }
-        catch(Exception ex) {
+        } catch(Exception ex) {
             logger.error("main " + pathStageName + " : " + ex.getMessage() + " " + pme.getParams().toString());
             ex.printStackTrace();
         }
@@ -184,15 +174,10 @@ public class Executor extends CExecutor {
         String pathStageName = "pathStage" + String.valueOf(pathStage);
         try {
             MsgEvent.Type eventType = MsgEvent.Type.valueOf(pme.getParam("gmsg_type"));
-
-            //String transfer_status_file = pme.getParam("transfer_status_file");
-            //String bucket_name = pme.getParam("bucket_name");
-            //String transfer_watch_file = pme.getParam("transfer_watch_file");
             String message = pme.getParam("msg");
-            //String endpoint = pme.getParam("endpoint");
             String seqId = pme.getParam("seq_id");
-            String sampleId = pme.getParam("sample_id");
             String reqId = pme.getParam("req_id");
+            String sampleId = pme.getParam("sample_id");
             if (reqId == null)
                 reqId = "unknown";
             logger.info(pathStageName + " " + eventType.name() + " message");
@@ -202,7 +187,6 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                        //Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
                         Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);
                         break;
                     case 3:
@@ -210,11 +194,10 @@ public class Executor extends CExecutor {
                     case 4:
                         break;
                     case 7:
-                        //Plugin.objectToFSp.processSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"), true);
                         Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);
                         break;
                     case 999:
-                        Plugin.objectToFSp.endProcessSample(pme.getParam("seq_id"), pme.getParam("sample_id"), pme.getParam("req_id"));
+                        Plugin.objectToFSp.endProcessSample(seqId, sampleId, reqId);
                         break;
                     default:
                         logger.error("Undefined sStep " + pathStageName + " !");

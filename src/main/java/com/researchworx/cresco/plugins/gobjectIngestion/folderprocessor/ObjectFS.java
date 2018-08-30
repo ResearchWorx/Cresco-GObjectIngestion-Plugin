@@ -817,6 +817,393 @@ public class ObjectFS implements Runnable {
         pstep = 2;
     }
 
+    public void preprocessBaggedSequence(String seqId, String reqId, boolean trackPerf) {
+        logger.debug("preprocessBaggedSequence('{}','{}',{})", seqId, reqId, trackPerf);
+        pstep = 3;
+        int sstep = 0;
+        String raw_bucket_name = plugin.getConfig().getStringParam("raw_bucket");
+        String clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
+        String research_bucket_name = plugin.getConfig().getStringParam("research_bucket");
+        String incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
+        String outgoing_directory = plugin.getConfig().getStringParam("outgoing_directory");
+        String container_name = plugin.getConfig().getStringParam("container_name");
+        try {
+            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Starting to preprocess sequence");
+            Thread.sleep(1000);
+            if (!preprocessBaggedSequenceCheckAndPrepare(seqId, reqId, sstep, raw_bucket_name, clinical_bucket_name,
+                    research_bucket_name, incoming_directory, outgoing_directory, container_name)) {
+                Thread.sleep(1000);
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Failed sequence preprocessor initialization");
+                pstep = 2;
+                return;
+            }
+            sstep++;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Preprocessor initialization was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        try {
+            Thread.sleep(1000);
+            if (!preprocessBaggedSequenceDownloadSequence(seqId, reqId, sstep, raw_bucket_name,
+                    incoming_directory)) {
+                Thread.sleep(1000);
+                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence file");
+                pstep = 2;
+                return;
+            }
+            sstep++;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Sequence download was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        try {
+            File workDir = Paths.get(new File(incoming_directory).getCanonicalPath(), seqId).toFile();
+            File resultsDir = new File(outgoing_directory);
+            Thread.sleep(1000);
+            int retCode = preprocessBaggedSequenceRunContainer(seqId, reqId, sstep, workDir, resultsDir,
+                    container_name, trackPerf);
+            if (retCode != 0) {
+                Thread.sleep(1000);
+                if (retCode == -1)
+                    sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to process sample");
+                else {
+                    switch (retCode) {
+                        case 1:     // Container error encountered
+                            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                    "General Docker Error Encountered (Err: 1)");
+                            break;
+                        case 100:   // Script failure encountered
+                            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                    "Processing Pipeline encountered an error (Err: 100)");
+                            break;
+                        case 125:   // Container failed to run
+                            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                    "Container failed to run (Err: 125)");
+                            break;
+                        case 126:   // Container command cannot be invoked
+                            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                    "Container command failed to be invoked (Err: 126)");
+                            break;
+                        case 127:   // Container command cannot be found
+                            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                    "Container command could not be found (Err: 127)");
+                            break;
+                        case 137:   // Container was killed
+                            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                    "Container was manually stopped (Err: 137)");
+                            break;
+                        default:    // Other return code encountered
+                            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                    String.format("Unknown container return code (Err: %d)", retCode));
+                            break;
+                    }
+                }
+                pstep = 2;
+                return;
+            }
+            sstep++;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Sample processing was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        pstep = 2;
+    }
+
+    private boolean preprocessBaggedSequenceCheckAndPrepare(String seqId, String reqId, int sstep, String raw_bucket_name,
+                                                         String clinical_bucket_name, String research_bucket_name,
+                                                         String incoming_directory, String outgoing_directory,
+                                                         String container_name) {
+        logger.debug("processBaggedSequenceCheckAndPrepare('{}','{}',{})", seqId, reqId, sstep);
+        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Checking and preparing sequence preprocessor");
+        try {
+            ObjectEngine oe = new ObjectEngine(plugin);
+            if (raw_bucket_name == null || raw_bucket_name.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Raw bucket is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            if (clinical_bucket_name == null || clinical_bucket_name.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Clinical bucket is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            if (research_bucket_name == null || research_bucket_name.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Research bucket is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            if (incoming_directory == null || incoming_directory.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Incoming (working) directory is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            if (outgoing_directory == null || outgoing_directory.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Outgoing (results) directory is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            if (container_name == null || container_name.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Docker container name is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            logger.trace("Checking to see if clinical bucket [{}] exists", clinical_bucket_name);
+            if (!oe.doesBucketExist(clinical_bucket_name)) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Clinical bucket [%s] does not exist for given S3 credentials", clinical_bucket_name));
+                return false;
+            }
+            logger.trace("Checking to see if research bucket [{}] exists", research_bucket_name);
+            if (!oe.doesBucketExist(research_bucket_name)) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Results bucket [%s] does not exist for given S3 credentials", research_bucket_name));
+                return false;
+            }
+            File workDir = new File(incoming_directory);
+            if (workDir.exists())
+                if (!deleteDirectory(workDir)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                            String.format("Failed to remove existing work directory [%s]", incoming_directory));
+                    return false;
+                }
+            if (!workDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to create work directory [%s]", incoming_directory));
+                return false;
+            }
+            File resultsDir = new File(outgoing_directory);
+            if (resultsDir.exists())
+                if (!deleteDirectory(resultsDir)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                            String.format("Failed to remove existing results directory [%s]",
+                                    resultsDir.getAbsolutePath()));
+                    return false;
+                }
+            if (!resultsDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to create results directory [%s]", resultsDir.getAbsolutePath()));
+                return false;
+            }
+            File clinicalResultsDir = Paths.get(resultsDir.getAbsolutePath(), "clinical").toFile();
+            if (!clinicalResultsDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to create clinical results directory [%s]",
+                                clinicalResultsDir.getAbsolutePath()));
+                return false;
+            }
+            File researchResultsDir = Paths.get(resultsDir.getAbsolutePath(), "research").toFile();
+            if (!researchResultsDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to create research results directory [%s]",
+                                researchResultsDir.getAbsolutePath()));
+                return false;
+            }
+            return true;
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonServiceException, which means your request made it " +
+                            "to Amazon S3, but was rejected with an error response for some reason - %s", ase.getMessage()));
+            return false;
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                            + "a serious internal problem while trying to communicate with S3, "
+                            + "such as not being able to access the network - %s", ace.getMessage()));
+            return false;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Check and prepare exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
+        }
+    }
+
+    private boolean preprocessBaggedSequenceDownloadSequence(String seqId, String reqId, int sstep,
+                                                      String raw_bucket_name, String incoming_directory) {
+        logger.debug("preprocessBaggedSequenceDownloadSequence('{}','{}','{}',{})", seqId, reqId, sstep);
+        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Downloading sequence file");
+        try {
+            ObjectEngine oe = new ObjectEngine(plugin);
+            File workDir = Paths.get(incoming_directory, seqId).toFile();
+            if (!oe.downloadBaggedDirectory(raw_bucket_name, seqId, workDir.getAbsolutePath(), seqId, null,
+                    reqId, String.valueOf(sstep))) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence raw file");
+                return false;
+            }
+            File baggedSequenceFile = Paths.get(incoming_directory, seqId + ObjectEngine.extension).toFile();
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
+            if (!Encapsulation.unarchive(baggedSequenceFile, workDir)) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
+                return false;
+            }
+            File unboxed = Paths.get(incoming_directory, seqId).toFile();
+            if (!unboxed.exists() || !unboxed.isDirectory()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Unboxing to [%s] failed", unboxed));
+                return false;
+            }
+            if (!baggedSequenceFile.delete()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to delete sample archive file [%s]", baggedSequenceFile.getAbsolutePath()));
+            }
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
+            if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Unboxed sequence [%s] does not contain BagIt data", unboxed.getAbsolutePath()));
+                return false;
+            }
+            if (!Encapsulation.verifyBag(unboxed.getAbsolutePath(), true)) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Unboxed sequence [%s] failed BagIt verification", unboxed.getAbsolutePath()));
+                return false;
+            }
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Restoring sample [%s]", unboxed.getAbsolutePath()));
+            Encapsulation.debagify(unboxed.getAbsolutePath());
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Sequence [%s] restored to [%s]", seqId, unboxed));
+            return true;
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonServiceException, which means your request made it " +
+                            "to Amazon S3, but was rejected with an error response for some reason - %s", ase.getMessage()));
+            return false;
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                            + "a serious internal problem while trying to communicate with S3, "
+                            + "such as not being able to access the network - %s", ace.getMessage()));
+            return false;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Sequence download exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
+        }
+    }
+
+    private int preprocessBaggedSequenceRunContainer(String seqId, String reqId, int sstep, File workDir,
+                                                     File resultsDir, String container, boolean trackPerf) {
+        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Starting pipeline via Docker container");
+        String containerName = "procseq." + seqId;
+        try {
+            Process kill = Runtime.getRuntime().exec("docker kill " + containerName);
+            kill.waitFor();
+            Thread.sleep(500);
+            Process clear = Runtime.getRuntime().exec("docker rm " + containerName);
+            clear.waitFor();
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    "Interrupted while clearing out existing containers");
+            return -1;
+        } catch (IOException ioe) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Failed to execute shell command(s) to clean out existing containers "
+                            + "- %s", ExceptionUtils.getStackTrace(ioe)));
+            return -1;
+        }
+        File clinicalResultsDir = Paths.get(resultsDir.getAbsolutePath(), "clinical").toFile();
+        File researchResultsDir = Paths.get(resultsDir.getAbsolutePath(), "research").toFile();
+        String command = String.format("docker run -v %s:/gdata/output/clinical -v %s:/gdata/output/research " +
+                "-v %s:/gdata/input -e INPUT_FOLDER_PATH=/gdata/input/%s --name %s " +
+                "-t %s /opt/pretools/raw_data_processing.pl", clinicalResultsDir.getAbsolutePath(),
+                researchResultsDir.getAbsolutePath(), workDir.getAbsolutePath(), seqId, containerName, container);
+        sendUpdateInfoMessage(seqId, null, reqId, sstep, String.format("Executing command: %s", command));
+
+        PerfTracker pt = null;
+        if (trackPerf) {
+            logger.trace("Starting performance monitoring");
+            pt = new PerfTracker();
+            new Thread(pt).start();
+        }
+        StringBuilder output = new StringBuilder();
+        Process p;
+        try {
+            p = Runtime.getRuntime().exec(command);
+            BufferedReader outputFeed = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String outputLine;
+            while ((outputLine = outputFeed.readLine()) != null) {
+                output.append(outputLine);
+                output.append("\n");
+
+                String[] outputStr = outputLine.split("\\|\\|");
+
+                for (int i = 0; i < outputStr.length; i++) {
+                    outputStr[i] = outputStr[i].trim();
+                }
+
+                if ((outputStr.length == 5) &&
+                        ((outputLine.toLowerCase().startsWith("info")) ||
+                                (outputLine.toLowerCase().startsWith("error")))) {
+                    if (outputStr[0].toLowerCase().equals("info")) {
+                        if (!stagePhase.equals(outputStr[3]))
+                            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                                    String.format("Pipeline is now in phase: %s", outputStr[3]));
+                        stagePhase = outputStr[3];
+                    } else if (outputStr[0].toLowerCase().equals("error"))
+                        sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                                String.format("Pipeline error: %s", outputLine));
+                }
+                logger.debug(outputLine);
+            }
+            logger.trace("Waiting for Docker process to finish");
+            p.waitFor();
+            logger.trace("Docker exit code = {}", p.exitValue());
+            MsgEvent pse;
+            if (trackPerf) {
+                logger.trace("Ending Performance Monitor");
+                pt.isActive = false;
+                logger.trace("Sending Performance Information");
+                pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Performance Information");
+                pse.setParam("req_id", reqId);
+                pse.setParam("seq_id", seqId);
+                pse.setParam("pathstage", pathStage);
+                pse.setParam("sstep", String.valueOf(sstep));
+                pse.setParam("perf_log", pt.getResults());
+                plugin.sendMsgEvent(pse);
+            }
+            pse = plugin.genGMessage(MsgEvent.Type.INFO, "Sending Pipeline Output");
+            pse.setParam("req_id", reqId);
+            pse.setParam("seq_id", seqId);
+            pse.setParam("pathstage", pathStage);
+            pse.setParam("sstep", String.valueOf(sstep));
+            pse.setParam("output_log", output.toString());
+            plugin.sendMsgEvent(pse);
+            Thread.sleep(2000);
+            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Pipeline has completed");
+            Thread.sleep(500);
+            Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
+            postClear.waitFor();
+            return p.exitValue();
+        } catch (IOException ioe) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Run container I/O exception encountered - %s", ExceptionUtils.getStackTrace(ioe)));
+            return -1;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Container interrupted - %s", ExceptionUtils.getStackTrace(ie)));
+            return -1;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Run container exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return -1;
+        }
+    }
+
     public void endProcessSequence(String seqId, String reqId) {
         MsgEvent pse;
         try {
