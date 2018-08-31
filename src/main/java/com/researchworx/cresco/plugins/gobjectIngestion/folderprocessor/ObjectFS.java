@@ -827,7 +827,7 @@ public class ObjectFS implements Runnable {
         String incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
         String outgoing_directory = plugin.getConfig().getStringParam("outgoing_directory");
         String container_name = plugin.getConfig().getStringParam("container_name");
-        /*try {
+        try {
             sendUpdateInfoMessage(seqId, null, reqId, sstep, "Starting to preprocess sequence");
             Thread.sleep(1000);
             if (!preprocessBaggedSequenceCheckAndPrepare(seqId, reqId, sstep, raw_bucket_name, clinical_bucket_name,
@@ -844,9 +844,8 @@ public class ObjectFS implements Runnable {
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
-        }*/
-        sstep++;
-        /*try {
+        }
+        try {
             Thread.sleep(1000);
             if (!preprocessBaggedSequenceDownloadSequence(seqId, reqId, sstep, raw_bucket_name,
                     incoming_directory)) {
@@ -861,9 +860,8 @@ public class ObjectFS implements Runnable {
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
-        }*/
-        sstep++;
-        /*try {
+        }
+        try {
             File workDir = new File(incoming_directory);
             File resultsDir = new File(outgoing_directory);
             Thread.sleep(1000);
@@ -914,8 +912,7 @@ public class ObjectFS implements Runnable {
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
-        }*/
-        sstep++;
+        }
         try {
             File resultsDir = new File(outgoing_directory);
             Thread.sleep(1000);
