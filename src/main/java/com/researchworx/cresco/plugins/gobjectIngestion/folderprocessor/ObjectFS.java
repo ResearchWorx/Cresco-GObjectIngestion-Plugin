@@ -1036,16 +1036,19 @@ public class ObjectFS implements Runnable {
         sendUpdateInfoMessage(seqId, null, reqId, sstep, "Downloading sequence file");
         try {
             ObjectEngine oe = new ObjectEngine(plugin);
-            File workDir = Paths.get(incoming_directory, seqId).toFile();
-            if (!oe.downloadBaggedDirectory(raw_bucket_name, seqId, workDir.getAbsolutePath(), seqId, null,
+            if (!oe.downloadBaggedDirectory(raw_bucket_name, seqId, incoming_directory, seqId, null,
                     reqId, String.valueOf(sstep))) {
                 sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence raw file");
                 return false;
             }
             File baggedSequenceFile = Paths.get(incoming_directory, seqId + ObjectEngine.extension).toFile();
+            if (!baggedSequenceFile.exists()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence raw file");
+                return false;
+            }
             sendUpdateInfoMessage(seqId, null, reqId, sstep,
                     String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
-            if (!Encapsulation.unarchive(baggedSequenceFile, workDir)) {
+            if (!Encapsulation.unarchive(baggedSequenceFile, new File(incoming_directory))) {
                 sendUpdateErrorMessage(seqId, null, reqId, sstep,
                         String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
                 return false;
