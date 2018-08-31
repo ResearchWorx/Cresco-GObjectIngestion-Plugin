@@ -827,7 +827,7 @@ public class ObjectFS implements Runnable {
         String incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
         String outgoing_directory = plugin.getConfig().getStringParam("outgoing_directory");
         String container_name = plugin.getConfig().getStringParam("container_name");
-        try {
+        /*try {
             sendUpdateInfoMessage(seqId, null, reqId, sstep, "Starting to preprocess sequence");
             Thread.sleep(1000);
             if (!preprocessBaggedSequenceCheckAndPrepare(seqId, reqId, sstep, raw_bucket_name, clinical_bucket_name,
@@ -912,7 +912,7 @@ public class ObjectFS implements Runnable {
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
-        }
+        }*/
         try {
             File resultsDir = new File(outgoing_directory);
             Thread.sleep(1000);
@@ -1243,10 +1243,10 @@ public class ObjectFS implements Runnable {
                         try {
                             if (oe.uploadBaggedDirectory(clinicalBucketName, samplePath, seqId, seqId,
                                     null, reqId, String.valueOf(sstep))) {
-                                sendUpdateInfoMessage(seqId, sample, reqId, String.valueOf(sstep),
+                                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                                         String.format("Uploaded [%s] to [%s]", sample, clinicalBucketName));
                             } else {
-                                sendUpdateErrorMessage(seqId, sample, reqId, String.valueOf(sstep),
+                                sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                                         String.format("Failed to upload [%s]", sample));
                                 uploaded = false;
                             }
