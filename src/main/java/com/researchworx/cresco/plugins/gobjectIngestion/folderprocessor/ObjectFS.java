@@ -862,7 +862,7 @@ public class ObjectFS implements Runnable {
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
         try {
-            File workDir = Paths.get(new File(incoming_directory).getCanonicalPath(), seqId).toFile();
+            File workDir = new File(incoming_directory);
             File resultsDir = new File(outgoing_directory);
             Thread.sleep(1000);
             int retCode = preprocessBaggedSequenceRunContainer(seqId, reqId, sstep, workDir, resultsDir,
@@ -908,10 +908,29 @@ public class ObjectFS implements Runnable {
             }
             sstep++;
         } catch (InterruptedException ie) {
-            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Sample processing was interrupted");
+            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Sequence preprocessing was interrupted");
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                    String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+                    String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        try {
+            File resultsDir = new File(outgoing_directory);
+            Thread.sleep(1000);
+            if (!preprocessBaggedSequenceUploadResults(seqId, reqId, sstep, resultsDir, clinical_bucket_name,
+                    research_bucket_name)) {
+                Thread.sleep(1000);
+                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to upload sequence results");
+                pstep = 2;
+                return;
+            }
+            sstep++;
+            Thread.sleep(1000);
+            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Sequence results upload complete");
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Sequence results upload was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
         pstep = 2;
     }
