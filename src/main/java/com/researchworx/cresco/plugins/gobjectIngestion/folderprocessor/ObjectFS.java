@@ -844,8 +844,9 @@ public class ObjectFS implements Runnable {
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
-        }
-        try {
+        }*/
+        sstep++;
+        /*try {
             Thread.sleep(1000);
             if (!preprocessBaggedSequenceDownloadSequence(seqId, reqId, sstep, raw_bucket_name,
                     incoming_directory)) {
@@ -860,8 +861,9 @@ public class ObjectFS implements Runnable {
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
-        }
-        try {
+        }*/
+        sstep++;
+        /*try {
             File workDir = new File(incoming_directory);
             File resultsDir = new File(outgoing_directory);
             Thread.sleep(1000);
@@ -913,6 +915,7 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }*/
+        sstep++;
         try {
             File resultsDir = new File(outgoing_directory);
             Thread.sleep(1000);
