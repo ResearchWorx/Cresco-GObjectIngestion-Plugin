@@ -180,7 +180,7 @@ public class Executor extends CExecutor {
             String sampleId = pme.getParam("sample_id");
             if (reqId == null)
                 reqId = "unknown";
-            logger.info(pathStageName + " " + eventType.name() + " message");
+            logger.info(pathStageName + " " + message + " " + eventType.name() + " message");
             if(eventType.equals(MsgEvent.Type.INFO)) {
                 int sStep = Integer.parseInt(pme.getParam("sstep"));
                 switch (sStep) {
@@ -190,8 +190,10 @@ public class Executor extends CExecutor {
                         Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);
                         break;
                     case 3:
+                        Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);
                         break;
                     case 4:
+                        Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);
                         break;
                     case 7:
                         Plugin.objectToFSp.processBaggedSample(seqId, sampleId, reqId, false);

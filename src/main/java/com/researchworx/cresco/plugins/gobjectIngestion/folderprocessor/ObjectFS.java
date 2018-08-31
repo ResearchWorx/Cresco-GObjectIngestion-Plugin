@@ -1204,6 +1204,86 @@ public class ObjectFS implements Runnable {
         }
     }
 
+    private boolean preprocessBaggedSequenceUploadResults(String seqId, String reqId, int sstep, File resultsDir,
+                                                          String clinicalBucketName, String researchBucketName) {
+        try {
+            File clinicalResultsDir = Paths.get(resultsDir.getAbsolutePath(), "clinical", seqId).toFile();
+            if (clinicalResultsDir.exists()) {
+                String sampleList = getSampleList(clinicalResultsDir.getAbsolutePath());
+                if (sampleList != null) {
+                    sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Transferring Clinical Results Directory. Sample list: %s", sampleList));
+                    String samples[] = sampleList.split(",");
+                    boolean uploaded = true;
+                    for (String sample : samples) {
+                        String samplePath = Paths.get(clinicalResultsDir.getAbsolutePath(), sample).toString();
+                        ObjectEngine oe = new ObjectEngine(plugin);
+                        try {
+                            if (oe.uploadBaggedDirectory(clinicalBucketName, samplePath, seqId, seqId,
+                                    null, reqId, String.valueOf(sstep))) {
+                                sendUpdateInfoMessage(seqId, sample, reqId, String.valueOf(sstep),
+                                        String.format("Uploaded [%s] to [%s]", sample, clinicalBucketName));
+                            } else {
+                                sendUpdateErrorMessage(seqId, sample, reqId, String.valueOf(sstep),
+                                        String.format("Failed to upload [%s]", sample));
+                                uploaded = false;
+                            }
+                        } catch (Exception e) {
+                            sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                    String.format("processBaggedSequence exception encountered [%s:%s]\n%s",
+                                            e.getClass().getCanonicalName(), e.getMessage(),
+                                            ExceptionUtils.getStackTrace(e)));
+                            return false;
+                        }
+                    }
+                    if (uploaded) {
+                        MsgEvent pse = plugin.genGMessage(MsgEvent.Type.INFO,
+                                "Clinical Results Directory Transfer Complete");
+                        pse.setParam("req_id", reqId);
+                        pse.setParam("seq_id", seqId);
+                        pse.setParam("pathstage", pathStage);
+                        pse.setParam("sample_list", sampleList);
+                        pse.setParam("sstep", String.valueOf(sstep));
+                        plugin.sendMsgEvent(pse);
+                    } else {
+                        sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                                "Some sample(s) failed to upload");
+                        return false;
+                    }
+                } else {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            "No samples found in clinical results folder");
+                }
+            } else {
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        "No clinical results generated");
+            }
+            File researchResultsDir = Paths.get(resultsDir.getAbsolutePath(), "research", seqId).toFile();
+            if (researchResultsDir.exists()) {
+                ObjectEngine oe = new ObjectEngine(plugin);
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                    "Transferring Research Results Directory");
+                if (oe.uploadBaggedDirectory(researchBucketName, researchResultsDir.getAbsolutePath(), seqId, seqId,
+                        null, reqId, String.valueOf(sstep))) {
+                    sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                            "Research results directory uploaded");
+                } else {
+                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
+                            String.format("Failed to upload research results [%s]", seqId));
+                    return false;
+                }
+            } else {
+                sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
+                        "No research results generated");
+            }
+            return true;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Results upload exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
+        }
+    }
+
     public void endProcessSequence(String seqId, String reqId) {
         MsgEvent pse;
         try {
