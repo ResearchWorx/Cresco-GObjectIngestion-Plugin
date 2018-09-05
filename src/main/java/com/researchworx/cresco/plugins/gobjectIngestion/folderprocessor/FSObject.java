@@ -36,7 +36,7 @@ public class FSObject implements Runnable {
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
         transfer_status_file = plugin.getConfig().getStringParam("transfer_status_file");
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_status_file\" from config [{}]", transfer_status_file);
-        bucket_name = plugin.getConfig().getStringParam("bucket");
+        bucket_name = plugin.getConfig().getStringParam("raw_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"bucket_name\" from config [{}]", bucket_name);
         me = plugin.genGMessage(MsgEvent.Type.INFO, "InPathPreProcessor instantiated");
         me.setParam("transfer_watch_file", transfer_watch_file);
@@ -56,8 +56,8 @@ public class FSObject implements Runnable {
             logger.trace("Setting [PathProcessorActive] to true");
             Plugin.PathProcessorActive = true;
             ObjectEngine oe = new ObjectEngine(plugin);
-            logger.trace("Issuing [ObjectEngine].createBucket using [bucket_name = {}]", bucket_name);
-            oe.createBucket(bucket_name);
+            //logger.trace("Issuing [ObjectEngine].createBucket using [bucket_name = {}]", bucket_name);
+            //oe.createBucket(bucket_name);
             logger.trace("Entering while-loop");
             while (Plugin.PathProcessorActive) {
                 //message start of scan
@@ -299,7 +299,7 @@ public class FSObject implements Runnable {
             //oe.deleteBucketDirectoryContents(bucket_name, outDir);
             //logger.trace("Transferring directory");
             //if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
-            if (oe.uploadBaggedDirectory(bucket_name, inDir, outDir, outDir, null,null, "1")) {
+            if (oe.uploadBaggedDirectory(bucket_name, inDir, "", outDir, null,null, "1")) {
                 if (setTransferFile(dir)) {
 
                     logger.debug("Directory Transfered [inDir = {}, outDir = {}]", inDir, outDir);
