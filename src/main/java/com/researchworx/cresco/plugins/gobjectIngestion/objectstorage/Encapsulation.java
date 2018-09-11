@@ -1,6 +1,5 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.objectstorage;
 
-import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
 import gov.loc.repository.bagit.creator.BagCreator;
@@ -37,10 +36,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Encapsulation {
-    private static CLogger logger = new CLogger(Encapsulation.class, new ConcurrentLinkedQueue<MsgEvent>(),
+    private static CLogger logger = new CLogger(Encapsulation.class, new LinkedBlockingQueue<>(),
             "", "", "");
     private static final int max_batch_size = 1000;
 

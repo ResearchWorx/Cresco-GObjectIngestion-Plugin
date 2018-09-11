@@ -16,13 +16,10 @@ import gov.loc.repository.bagit.verify.QuickVerifier;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class LargeBagVerifier implements AutoCloseable {
-    private static CLogger logger = new CLogger(Encapsulation.class, new ConcurrentLinkedQueue<MsgEvent>(), "", "", "");
+    private static CLogger logger = new CLogger(Encapsulation.class, new LinkedBlockingQueue<>(), "", "", "");
 
     public static void setLogger(CPlugin plugin) {
         logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
