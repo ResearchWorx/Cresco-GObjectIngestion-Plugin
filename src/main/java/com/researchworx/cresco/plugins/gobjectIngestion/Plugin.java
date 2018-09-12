@@ -20,11 +20,13 @@ public class Plugin extends CPlugin {
     public static boolean PathProcessorActive = false;
 
     public int pathStage;
-    public String genomicControllerRegion;
-    public String genomicControllerAgent;
-    public String genomicControllerPlugin;
-    public static ObjectFS objectToFSp;
-    public static FSObject fStoObjectp;
+
+    private String genomicControllerRegion;
+    private String genomicControllerAgent;
+    private String genomicControllerPlugin;
+
+    static ObjectFS objectToFSp;
+    static FSObject fStoObjectp;
 
     public static boolean processorIsActive() {
         return PathProcessorActive;
@@ -247,6 +249,7 @@ public class Plugin extends CPlugin {
 
     @Override
     public void cleanUp() {
+        setInactive();
         MsgEvent me = genGMessage(MsgEvent.Type.INFO, "Shutdown");
         me.setParam("pathstage", String.valueOf(pathStage));
         me.setParam("pstep","0");
