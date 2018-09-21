@@ -57,7 +57,7 @@ public class Plugin extends CPlugin {
             conn.setRequestMethod("GET");
             BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             String instanceID = in.readLine();
-            logger.trace("Instance ID: {}", (instanceID != null) ? instanceID : "NULL");
+            logger.info("Instance ID: {}", (instanceID != null) ? instanceID : "NULL");
         } catch (ProtocolException e) {
             logger.error("Protocol exception when getting instance ID: {}", e.getMessage());
         } catch (IOException e) {
