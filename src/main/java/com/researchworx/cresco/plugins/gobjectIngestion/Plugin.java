@@ -8,6 +8,12 @@ import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.ObjectFS
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.WatchDirectory;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.ProtocolException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -45,6 +51,20 @@ public class Plugin extends CPlugin {
     }
 
     public void start() {
+        try {
+            URL instanceIDURL = new URL("http://169.254.169.254/latest/meta-data/instance-id");
+            HttpURLConnection conn = (HttpURLConnection) instanceIDURL.openConnection();
+            conn.setRequestMethod("GET");
+            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String instanceID = in.readLine();
+            logger.trace("Instance ID: {}", (instanceID != null) ? instanceID : "NULL");
+        } catch (ProtocolException e) {
+            logger.error("Protocol exception when getting instance ID: {}", e.getMessage());
+        } catch (IOException e) {
+            logger.error("I/O exception when getting instance ID: {}", e.getMessage());
+        }
+
+
         setExec(new Executor(this));
         //logger.setLogLevel(CLogger.Level.Debug);
         logger.trace("Building new ConcurrentLinkedQueue");
