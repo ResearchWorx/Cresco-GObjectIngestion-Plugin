@@ -221,6 +221,8 @@ public class Executor extends CExecutor {
         String pathStageName = "pathStage" + String.valueOf(pathStage);
         try {
             MsgEvent.Type eventType = MsgEvent.Type.valueOf(pme.getParam("gmsg_type"));
+            String seqId = pme.getParam("seq_id");
+            String reqId = pme.getParam("req_id");
             logger.info(pathStageName + " " + eventType.name() + " message");
             if(eventType.equals(MsgEvent.Type.INFO)) {
                 int sStep = Integer.parseInt(pme.getParam("sstep"));
@@ -228,7 +230,7 @@ public class Executor extends CExecutor {
                     case 1:
                         break;
                     case 2:
-                        Plugin.objectToFSp.downloadResults(pme.getParam("seq_id"), pme.getParam("req_id"));
+                        Plugin.objectToFSp.downloadBaggedResults(seqId, reqId);
                         break;
                     case 3:
                         break;

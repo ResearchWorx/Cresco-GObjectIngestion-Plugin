@@ -939,7 +939,7 @@ public class ObjectFS implements Runnable {
                                                          String clinical_bucket_name, String research_bucket_name,
                                                          String incoming_directory, String outgoing_directory,
                                                          String container_name) {
-        logger.debug("processBaggedSequenceCheckAndPrepare('{}','{}',{})", seqId, reqId, sstep);
+        logger.debug("preprocessBaggedSequenceCheckAndPrepare('{}','{}',{})", seqId, reqId, sstep);
         sendUpdateInfoMessage(seqId, null, reqId, sstep, "Checking and preparing sequence preprocessor");
         try {
             ObjectEngine oe = new ObjectEngine(plugin);
@@ -2338,6 +2338,205 @@ public class ObjectFS implements Runnable {
             pse.setParam("error_message", e.getMessage());
             pse.setParam("ssstep", String.valueOf(0));
             plugin.sendMsgEvent(pse);
+        }
+    }
+
+    public void downloadBaggedResults(String seqId, String reqId) {
+        logger.debug("downloadBaggedResults('{}','{}')", seqId, reqId);
+        pstep = 3;
+        int sstep = 0;
+        String results_bucket_name = plugin.getConfig().getStringParam("results_bucket");
+        String incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
+        String outgoing_directory = plugin.getConfig().getStringParam("outgoing_directory");
+        try {
+            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Starting to preprocess sequence");
+            Thread.sleep(1000);
+            if (!downloadBaggedResultsCheckAndPrepare(seqId, reqId, sstep, results_bucket_name,
+                    incoming_directory, outgoing_directory)) {
+                Thread.sleep(1000);
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Failed sequence preprocessor initialization");
+                pstep = 2;
+                return;
+            }
+            sstep++;
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Results download initialization was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+        }
+        try {
+            Thread.sleep(1000);
+            if (!downloadBaggedResultsDownloadSequence(seqId, reqId, sstep, results_bucket_name,
+                    incoming_directory)) {
+                Thread.sleep(1000);
+                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence results");
+                pstep = 2;
+                return;
+            }
+            sstep++;
+            Thread.sleep(1000);
+            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Sequence results download complete");
+        } catch (InterruptedException ie) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep, "Results download was interrupted");
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("preprocessBaggedSequence exception encountered - %s",
+                            ExceptionUtils.getStackTrace(e)));
+        }
+    }
+
+    private boolean downloadBaggedResultsCheckAndPrepare(String seqId, String reqId, int sstep,
+                                                         String results_bucket_name, String incoming_directory,
+                                                         String outgoing_directory) {
+        logger.debug("downloadBaggedResultsCheckAndPrepare('{}','{}',{},'{}','{}','{}')",
+                seqId, reqId, sstep, results_bucket_name, incoming_directory, outgoing_directory);
+        sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                "Checking and preparing sequence results download");
+        try {
+            ObjectEngine oe = new ObjectEngine(plugin);
+            if (results_bucket_name == null || results_bucket_name.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Results bucket is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            if (incoming_directory == null || incoming_directory.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Incoming (working) directory is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            if (outgoing_directory == null || outgoing_directory.equals("")) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        "Outgoing (results) directory is not properly set on this processor");
+                Plugin.setInactive();
+                return false;
+            }
+            logger.trace("Checking to see if results bucket [{}] exists", results_bucket_name);
+            if (!oe.doesBucketExist(results_bucket_name)) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Research bucket [%s] does not exist for given S3 credentials",
+                                results_bucket_name));
+                return false;
+            }
+            File workDir = new File(incoming_directory);
+            if (workDir.exists())
+                if (!deleteDirectory(workDir)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                            String.format("Failed to remove existing work directory [%s]", incoming_directory));
+                    return false;
+                }
+            if (!workDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to create work directory [%s]", incoming_directory));
+                return false;
+            }
+            File resultsDir = new File(outgoing_directory);
+            if (resultsDir.exists())
+                if (!deleteDirectory(resultsDir)) {
+                    sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                            String.format("Failed to remove existing results directory [%s]",
+                                    resultsDir.getAbsolutePath()));
+                    return false;
+                }
+            if (!resultsDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to create results directory [%s]", resultsDir.getAbsolutePath()));
+                return false;
+            }
+            return true;
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonServiceException, which means your request made it " +
+                            "to Amazon S3, but was rejected with an error response for some reason - %s",
+                            ase.getMessage()));
+            return false;
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                            + "a serious internal problem while trying to communicate with S3, "
+                            + "such as not being able to access the network - %s", ace.getMessage()));
+            return false;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Check and prepare exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
+        }
+    }
+
+    private boolean downloadBaggedResultsDownloadSequence(String seqId, String reqId, int sstep,
+                                                             String results_bucket_name, String incoming_directory) {
+        logger.debug("downloadBaggedResultsDownloadSequence('{}','{}','{}',{})", seqId, reqId, sstep);
+        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Downloading sequence file");
+        try {
+            ObjectEngine oe = new ObjectEngine(plugin);
+            Map<String, Long> samples = oe.getlistBucketContents(results_bucket_name, seqId);
+            for (Map.Entry<String, Long> sample : samples.entrySet()) {
+                logger.info("Sample to download: s3://{}/{}/{} - {} bytes",
+                        results_bucket_name, seqId, sample.getKey(), sample.getValue());
+            }
+            /*if (!oe.downloadBaggedDirectory(raw_bucket_name, seqId, incoming_directory, seqId, null,
+                    reqId, String.valueOf(sstep))) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence raw file");
+                return false;
+            }
+            File baggedSequenceFile = Paths.get(incoming_directory, seqId + ObjectEngine.extension).toFile();
+            if (!baggedSequenceFile.exists()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence raw file");
+                return false;
+            }
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
+            if (!Encapsulation.unarchive(baggedSequenceFile, new File(incoming_directory))) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
+                return false;
+            }
+            File unboxed = Paths.get(incoming_directory, seqId).toFile();
+            if (!unboxed.exists() || !unboxed.isDirectory()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Unboxing to [%s] failed", unboxed));
+                return false;
+            }
+            if (!baggedSequenceFile.delete()) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Failed to delete sample archive file [%s]", baggedSequenceFile.getAbsolutePath()));
+            }
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
+            if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Unboxed sequence [%s] does not contain BagIt data", unboxed.getAbsolutePath()));
+                return false;
+            }
+            if (!Encapsulation.verifyBag(unboxed.getAbsolutePath(), true)) {
+                sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                        String.format("Unboxed sequence [%s] failed BagIt verification", unboxed.getAbsolutePath()));
+                return false;
+            }
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Restoring sample [%s]", unboxed.getAbsolutePath()));
+            Encapsulation.debagify(unboxed.getAbsolutePath());
+            sendUpdateInfoMessage(seqId, null, reqId, sstep,
+                    String.format("Sequence [%s] restored to [%s]", seqId, unboxed));*/
+            return true;
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonServiceException, which means your request made it " +
+                            "to Amazon S3, but was rejected with an error response for some reason - %s", ase.getMessage()));
+            return false;
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                            + "a serious internal problem while trying to communicate with S3, "
+                            + "such as not being able to access the network - %s", ace.getMessage()));
+            return false;
+        } catch (Exception e) {
+            sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                    String.format("Sequence download exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+            return false;
         }
     }
 

@@ -887,7 +887,7 @@ public class ObjectEngine {
         return wasTransfered;
     }
 
-    private Map<String, Long> getlistBucketContents(String bucket, String prefixKey) {
+    public Map<String, Long> getlistBucketContents(String bucket, String prefixKey) {
         if (!prefixKey.endsWith("/"))
             prefixKey = prefixKey + "/";
         logger.debug("Call to listBucketContents [bucket = {}, prefixKey = {}]", bucket, prefixKey);
