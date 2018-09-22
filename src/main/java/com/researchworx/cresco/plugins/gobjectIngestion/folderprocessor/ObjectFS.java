@@ -2490,27 +2490,27 @@ public class ObjectFS implements Runnable {
                     sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sequence raw file");
                     return false;
                 }
-                File baggedSequenceFile = Paths.get(incoming_directory, seqId + ObjectEngine.extension).toFile();
-                if (!baggedSequenceFile.exists()) {
-                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sequence raw file");
+                File baggedSampleFile = Paths.get(incoming_directory, sampleId + ObjectEngine.extension).toFile();
+                if (!baggedSampleFile.exists()) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sample results file");
                     return false;
                 }
                 sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
-                        String.format("Download successful, unboxing sample file [%s]", baggedSequenceFile.getAbsolutePath()));
-                if (!Encapsulation.unarchive(baggedSequenceFile, new File(incoming_directory))) {
+                        String.format("Download successful, unboxing sample file [%s]", baggedSampleFile.getAbsolutePath()));
+                if (!Encapsulation.unarchive(baggedSampleFile, workDir)) {
                     sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
-                            String.format("Failed to unarchive sample file [%s]", baggedSequenceFile.getAbsolutePath()));
+                            String.format("Failed to unarchive sample file [%s]", baggedSampleFile.getAbsolutePath()));
                     return false;
                 }
-                File unboxed = Paths.get(incoming_directory, seqId).toFile();
+                File unboxed = Paths.get(incoming_directory, sampleId).toFile();
                 if (!unboxed.exists() || !unboxed.isDirectory()) {
                     sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
                             String.format("Unboxing to [%s] failed", unboxed));
                     return false;
                 }
-                if (!baggedSequenceFile.delete()) {
+                if (!baggedSampleFile.delete()) {
                     sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
-                            String.format("Failed to delete sample archive file [%s]", baggedSequenceFile.getAbsolutePath()));
+                            String.format("Failed to delete sample archive file [%s]", baggedSampleFile.getAbsolutePath()));
                 }
                 sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
                         String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
