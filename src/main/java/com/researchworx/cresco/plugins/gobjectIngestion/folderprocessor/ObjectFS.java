@@ -2474,8 +2474,8 @@ public class ObjectFS implements Runnable {
             ObjectEngine oe = new ObjectEngine(plugin);
             Map<String, Long> samples = oe.getlistBucketContents(results_bucket_name, seqId);
             for (Map.Entry<String, Long> sample : samples.entrySet()) {
-                logger.info("Sample to download: s3://{}/{}/{} - {} bytes",
-                        results_bucket_name, seqId, sample.getKey(), sample.getValue());
+                logger.info("Sample to download: s3://{}/{} - {} bytes",
+                        results_bucket_name, sample.getKey(), sample.getValue());
             }
             /*if (!oe.downloadBaggedDirectory(raw_bucket_name, seqId, incoming_directory, seqId, null,
                     reqId, String.valueOf(sstep))) {
