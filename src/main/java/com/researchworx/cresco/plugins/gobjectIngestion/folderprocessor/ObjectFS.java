@@ -2485,7 +2485,8 @@ public class ObjectFS implements Runnable {
                     idx = sampleId.lastIndexOf(".tgz");
                 if (idx > 0)
                     sampleId = sampleId.substring(0, idx);
-                logger.info("SampleID: {}", sampleId);
+                sendUpdateInfoMessage(seqId, sampleId, reqId, sstep-1,
+                        String.format("Sent process request for sample results %s", sampleId));
                 if (!oe.downloadBaggedDirectory(results_bucket_name, sampleId,
                         workDir.getAbsolutePath(), seqId, sampleId, reqId,
                         String.valueOf(sstep))) {
@@ -2530,7 +2531,7 @@ public class ObjectFS implements Runnable {
                 sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
                         String.format("Restoring sample [%s]", unboxed.getAbsolutePath()));
                 Encapsulation.debagify(unboxed.getAbsolutePath());
-                sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
+                sendUpdateInfoMessage(seqId, sampleId, reqId, sstep+1,
                         String.format("Sample [%s] restored to [%s]", seqId, unboxed));
             }
             return true;
