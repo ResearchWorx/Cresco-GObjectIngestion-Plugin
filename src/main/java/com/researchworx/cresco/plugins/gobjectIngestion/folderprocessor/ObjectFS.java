@@ -2469,58 +2469,67 @@ public class ObjectFS implements Runnable {
     private boolean downloadBaggedResultsDownloadSequence(String seqId, String reqId, int sstep,
                                                              String results_bucket_name, String incoming_directory) {
         logger.debug("downloadBaggedResultsDownloadSequence('{}','{}','{}',{})", seqId, reqId, sstep);
-        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Downloading sequence file");
+        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Downloading sequence results");
         try {
             ObjectEngine oe = new ObjectEngine(plugin);
+            File workDir = Paths.get(incoming_directory, seqId).toFile();
             Map<String, Long> samples = oe.getlistBucketContents(results_bucket_name, seqId);
             for (Map.Entry<String, Long> sample : samples.entrySet()) {
                 logger.info("Sample to download: s3://{}/{} - {} bytes",
                         results_bucket_name, sample.getKey(), sample.getValue());
+                String sampleId = sample.getKey();
+                int idx = sampleId.lastIndexOf(".tar");
+                if (idx == -1)
+                    idx = sampleId.lastIndexOf(".tgz");
+                if (idx > 0)
+                    sampleId = sampleId.substring(0, idx);
+                logger.info("SampleID: {}", sampleId);
+                if (!oe.downloadBaggedDirectory(results_bucket_name, sample.getKey(),
+                        workDir.getAbsolutePath(), seqId, sampleId,
+                        reqId, String.valueOf(sstep))) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sequence raw file");
+                    return false;
+                }
+                File baggedSequenceFile = Paths.get(incoming_directory, seqId + ObjectEngine.extension).toFile();
+                if (!baggedSequenceFile.exists()) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sequence raw file");
+                    return false;
+                }
+                sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
+                        String.format("Download successful, unboxing sample file [%s]", baggedSequenceFile.getAbsolutePath()));
+                if (!Encapsulation.unarchive(baggedSequenceFile, new File(incoming_directory))) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
+                            String.format("Failed to unarchive sample file [%s]", baggedSequenceFile.getAbsolutePath()));
+                    return false;
+                }
+                File unboxed = Paths.get(incoming_directory, seqId).toFile();
+                if (!unboxed.exists() || !unboxed.isDirectory()) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
+                            String.format("Unboxing to [%s] failed", unboxed));
+                    return false;
+                }
+                if (!baggedSequenceFile.delete()) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
+                            String.format("Failed to delete sample archive file [%s]", baggedSequenceFile.getAbsolutePath()));
+                }
+                sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
+                        String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
+                if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
+                    sendUpdateErrorMessage(seqId, null, reqId, sstep,
+                            String.format("Unboxed sample [%s] does not contain BagIt data", unboxed.getAbsolutePath()));
+                    return false;
+                }
+                if (!Encapsulation.verifyBag(unboxed.getAbsolutePath(), true)) {
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
+                            String.format("Unboxed sample [%s] failed BagIt verification", unboxed.getAbsolutePath()));
+                    return false;
+                }
+                sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
+                        String.format("Restoring sample [%s]", unboxed.getAbsolutePath()));
+                Encapsulation.debagify(unboxed.getAbsolutePath());
+                sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
+                        String.format("Sample [%s] restored to [%s]", seqId, unboxed));
             }
-            /*if (!oe.downloadBaggedDirectory(raw_bucket_name, seqId, incoming_directory, seqId, null,
-                    reqId, String.valueOf(sstep))) {
-                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence raw file");
-                return false;
-            }
-            File baggedSequenceFile = Paths.get(incoming_directory, seqId + ObjectEngine.extension).toFile();
-            if (!baggedSequenceFile.exists()) {
-                sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence raw file");
-                return false;
-            }
-            sendUpdateInfoMessage(seqId, null, reqId, sstep,
-                    String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
-            if (!Encapsulation.unarchive(baggedSequenceFile, new File(incoming_directory))) {
-                sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                        String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
-                return false;
-            }
-            File unboxed = Paths.get(incoming_directory, seqId).toFile();
-            if (!unboxed.exists() || !unboxed.isDirectory()) {
-                sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                        String.format("Unboxing to [%s] failed", unboxed));
-                return false;
-            }
-            if (!baggedSequenceFile.delete()) {
-                sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                        String.format("Failed to delete sample archive file [%s]", baggedSequenceFile.getAbsolutePath()));
-            }
-            sendUpdateInfoMessage(seqId, null, reqId, sstep,
-                    String.format("Validating sample [%s]", unboxed.getAbsolutePath()));
-            if (!Encapsulation.isBag(unboxed.getAbsolutePath())) {
-                sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                        String.format("Unboxed sequence [%s] does not contain BagIt data", unboxed.getAbsolutePath()));
-                return false;
-            }
-            if (!Encapsulation.verifyBag(unboxed.getAbsolutePath(), true)) {
-                sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                        String.format("Unboxed sequence [%s] failed BagIt verification", unboxed.getAbsolutePath()));
-                return false;
-            }
-            sendUpdateInfoMessage(seqId, null, reqId, sstep,
-                    String.format("Restoring sample [%s]", unboxed.getAbsolutePath()));
-            Encapsulation.debagify(unboxed.getAbsolutePath());
-            sendUpdateInfoMessage(seqId, null, reqId, sstep,
-                    String.format("Sequence [%s] restored to [%s]", seqId, unboxed));*/
             return true;
         } catch (AmazonServiceException ase) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
