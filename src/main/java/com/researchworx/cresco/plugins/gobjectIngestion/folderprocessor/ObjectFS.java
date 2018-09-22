@@ -2484,7 +2484,7 @@ public class ObjectFS implements Runnable {
                 if (idx > 0)
                     sampleId = sampleId.substring(0, idx);
                 logger.info("SampleID: {}", sampleId);
-                if (!oe.downloadBaggedDirectory(results_bucket_name, sample.getKey(),
+                if (!oe.downloadBaggedDirectory(results_bucket_name, sampleId,
                         workDir.getAbsolutePath(), seqId, sampleId,
                         reqId, String.valueOf(sstep))) {
                     sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sequence raw file");
