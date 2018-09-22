@@ -2487,19 +2487,20 @@ public class ObjectFS implements Runnable {
                 if (!oe.downloadBaggedDirectory(results_bucket_name, sampleId,
                         workDir.getAbsolutePath(), seqId, sampleId,
                         reqId, String.valueOf(sstep))) {
-                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sequence raw file");
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sample results file");
                     return false;
                 }
                 File baggedSampleFile = Paths.get(incoming_directory, sampleId + ObjectEngine.extension).toFile();
                 if (!baggedSampleFile.exists()) {
-                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sample results file");
+                    sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
+                            String.format("Bagged sample results file [%s] does not exist", baggedSampleFile.getAbsolutePath()));
                     return false;
                 }
                 sendUpdateInfoMessage(seqId, sampleId, reqId, sstep,
                         String.format("Download successful, unboxing sample file [%s]", baggedSampleFile.getAbsolutePath()));
                 if (!Encapsulation.unarchive(baggedSampleFile, workDir)) {
                     sendUpdateErrorMessage(seqId, sampleId, reqId, sstep,
-                            String.format("Failed to unarchive sample file [%s]", baggedSampleFile.getAbsolutePath()));
+                            String.format("Failed to unbox sample file [%s]", baggedSampleFile.getAbsolutePath()));
                     return false;
                 }
                 File unboxed = Paths.get(incoming_directory, sampleId).toFile();
