@@ -2349,7 +2349,7 @@ public class ObjectFS implements Runnable {
         String incoming_directory = plugin.getConfig().getStringParam("incoming_directory");
         String outgoing_directory = plugin.getConfig().getStringParam("outgoing_directory");
         try {
-            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Starting to preprocess sequence");
+            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Starting to download processed sample results");
             Thread.sleep(1000);
             if (!downloadBaggedResultsCheckAndPrepare(seqId, reqId, sstep, results_bucket_name,
                     incoming_directory, outgoing_directory)) {
@@ -2377,7 +2377,7 @@ public class ObjectFS implements Runnable {
             }
             sstep++;
             Thread.sleep(1000);
-            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Sequence results download complete");
+            sendUpdateInfoMessage(seqId, null, reqId, sstep, "Processed sample results download complete");
         } catch (InterruptedException ie) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep, "Results download was interrupted");
         } catch (Exception e) {
@@ -2470,15 +2470,13 @@ public class ObjectFS implements Runnable {
     private boolean downloadBaggedResultsDownloadSequence(String seqId, String reqId, int sstep,
                                                              String results_bucket_name, String incoming_directory) {
         logger.debug("downloadBaggedResultsDownloadSequence('{}','{}','{}',{})", seqId, reqId, sstep);
-        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Downloading sequence results");
+        sendUpdateInfoMessage(seqId, null, reqId, sstep, "Downloading processed sample results");
         try {
             ObjectEngine oe = new ObjectEngine(plugin);
             File workDir = Paths.get(incoming_directory, seqId).toFile();
             Map<String, Long> samples = oe.getlistBucketContents(results_bucket_name, seqId);
             for (Map.Entry<String, Long> sample : samples.entrySet()) {
                 oe = new ObjectEngine(plugin);
-                logger.info("Sample to download: s3://{}/{} - {} bytes",
-                        results_bucket_name, sample.getKey(), sample.getValue());
                 String sampleId = sample.getKey();
                 int idx = sampleId.lastIndexOf(".tar");
                 if (idx == -1)
