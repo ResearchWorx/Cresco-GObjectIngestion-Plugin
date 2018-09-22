@@ -2364,7 +2364,7 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, null, reqId, sstep, "Results download initialization was interrupted");
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                    String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
+                    String.format("downloadBaggedResults exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
         try {
             Thread.sleep(1000);
@@ -2382,9 +2382,10 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, null, reqId, sstep, "Results download was interrupted");
         } catch (Exception e) {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
-                    String.format("preprocessBaggedSequence exception encountered - %s",
+                    String.format("downloadBaggedResults exception encountered - %s",
                             ExceptionUtils.getStackTrace(e)));
         }
+        pstep = 2;
     }
 
     private boolean downloadBaggedResultsCheckAndPrepare(String seqId, String reqId, int sstep,
@@ -2486,8 +2487,8 @@ public class ObjectFS implements Runnable {
                     sampleId = sampleId.substring(0, idx);
                 logger.info("SampleID: {}", sampleId);
                 if (!oe.downloadBaggedDirectory(results_bucket_name, sampleId,
-                        workDir.getAbsolutePath(), seqId, sampleId,
-                        reqId, String.valueOf(sstep))) {
+                        workDir.getAbsolutePath(), seqId, sampleId, reqId,
+                        String.valueOf(sstep))) {
                     sendUpdateErrorMessage(seqId, sampleId, reqId, sstep, "Failed to download sample results file");
                     return false;
                 }
