@@ -51,7 +51,7 @@ public class Plugin extends CPlugin {
     }
 
     public void start() {
-        try {
+        /*try {
             URL instanceIDURL = new URL("http://169.254.169.254/latest/meta-data/instance-id");
             HttpURLConnection conn = (HttpURLConnection) instanceIDURL.openConnection();
             conn.setRequestMethod("GET");
@@ -62,7 +62,7 @@ public class Plugin extends CPlugin {
             logger.error("Protocol exception when getting instance ID: {}", e.getMessage());
         } catch (IOException e) {
             logger.error("I/O exception when getting instance ID: {}", e.getMessage());
-        }
+        }*/
 
 
         setExec(new Executor(this));
