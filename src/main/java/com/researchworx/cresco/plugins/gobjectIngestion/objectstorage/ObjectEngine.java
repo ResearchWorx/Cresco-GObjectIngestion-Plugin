@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -256,11 +257,13 @@ public class ObjectEngine {
                     .withMultipartUploadThreshold(1024L * 1024L * partSize)
                     .withMinimumUploadPartSize(1024L * 1024L * partSize)
                     .build();
-            inPath = Paths.get(toUpload).toString();
-            logger.trace("New inFile: {}", inFile);
-            logger.trace("file.seperator: {}", File.separatorChar);
-            s3Prefix += inPath.substring((inPath.lastIndexOf(File.separatorChar) > -1 ?
-                    inPath.lastIndexOf(File.separatorChar) + 1 : 0));
+            Path uploadPath = Paths.get(toUpload);
+            s3Prefix += uploadPath.getFileName();
+            //inPath = Paths.get(toUpload).toString();
+            //logger.trace("New inFile: {}", inFile);
+            //logger.trace("file.seperator: {}", File.separatorChar);
+            //s3Prefix += inPath.substring((inPath.lastIndexOf(File.separatorChar) > -1 ?
+            //        inPath.lastIndexOf(File.separatorChar) + 1 : 0));
 
             logger.trace("s3Prefix: {}", s3Prefix);
             if (conn.doesObjectExist(bucket, s3Prefix)) {

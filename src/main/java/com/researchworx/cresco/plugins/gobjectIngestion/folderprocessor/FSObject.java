@@ -4,16 +4,14 @@ import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class FSObject implements Runnable {
 
@@ -115,7 +113,7 @@ public class FSObject implements Runnable {
                         Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval", 5000));
                     }
                 } catch (Exception ex) {
-                    logger.error("run : while {}", ex.getMessage());
+                    logger.error("run : while\n{}", ExceptionUtils.getStackTrace(ex));
                     //message start of scan
                     me = plugin.genGMessage(MsgEvent.Type.ERROR, "Error during Filesystem scan");
                     me.setParam("transfer_watch_file", transfer_watch_file);
@@ -350,10 +348,11 @@ public class FSObject implements Runnable {
                     plugin.sendMsgEvent(me);
                     try {
                         logger.info("Cleaning up uploaded sequence [{}]", inDir);
-                        deleteFolder(new File(inDir).toPath());
+                        FileUtils.deleteDirectory(new File(inDir));
+                        //deleteFolder(new File(inDir).toPath());
                     } catch (IOException e) {
-                        logger.error("Failed to remove sequence directory [{}] : {}",
-                                inDir, ExceptionUtils.getStackTrace(e));
+                        logger.error("Failed to remove sequence directory [{}]" + ExceptionUtils.getStackTrace(e),
+                                inDir);
                     }
                     //end
                 } else {
