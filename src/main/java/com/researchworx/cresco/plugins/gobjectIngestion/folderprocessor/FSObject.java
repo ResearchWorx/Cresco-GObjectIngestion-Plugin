@@ -306,10 +306,10 @@ public class FSObject implements Runnable {
                     deleteFolder(seqStageDir.toPath());
                 }
                 sendUpdateInfoMessage(seqId, null, null, 1,
-                        "Copying file(s) from watch directory to staging directory");
+                        "Copying/Renaming file(s) from watch directory to staging directory");
                 copyFolderContents(new File(inDir), seqStageDir);
                 sendUpdateInfoMessage(seqId, null, null, 1,
-                        "Deleting file(s) from  watch directory");
+                        "Deleting leftover folder(s) from  watch directory");
                 deleteFolder(Paths.get(inDir));
             } catch (IOException e) {
                 //logger.error("Failed to move sequence to staging directory [{}] -> [{}]\n" + ExceptionUtils.getStackTrace(e), inDir, seqStageDir);
