@@ -4,14 +4,16 @@ import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 public class FSObject implements Runnable {
 
@@ -348,8 +350,8 @@ public class FSObject implements Runnable {
                     plugin.sendMsgEvent(me);
                     try {
                         logger.info("Cleaning up uploaded sequence [{}]", inDir);
-                        FileUtils.deleteDirectory(new File(inDir));
-                        //deleteFolder(new File(inDir).toPath());
+                        //FileUtils.deleteDirectory(new File(inDir));
+                        deleteFolder(new File(inDir).toPath());
                     } catch (IOException e) {
                         logger.error("Failed to remove sequence directory [{}]" + ExceptionUtils.getStackTrace(e),
                                 inDir);
