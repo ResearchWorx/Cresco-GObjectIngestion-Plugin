@@ -269,8 +269,6 @@ public class FSObject implements Runnable {
     }
 
     private void processDir(Path dir) {
-        if (!dir.toFile().exists())
-            return;
         logger.debug("Call to processDir [dir = {}]", dir.toString());
 
         String inDir = dir.toString();
@@ -481,7 +479,7 @@ public class FSObject implements Runnable {
      */
     private void copyFolderContents(File src, File dst) throws IOException {
         //logger.trace("Call to copyFolderContents({},{})", src.getAbsolutePath(), dst.getAbsolutePath());
-        if (src.toString().endsWith(transfer_watch_file) || src.toString().endsWith(transfer_status_file)) {
+        if (src.toString().endsWith(transfer_status_file)) {
             Files.delete(src.toPath());
             return;
         }
