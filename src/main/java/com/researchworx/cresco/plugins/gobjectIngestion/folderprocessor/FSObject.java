@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+
 public class FSObject implements Runnable {
 
     private final String transfer_watch_file;
@@ -286,7 +288,8 @@ public class FSObject implements Runnable {
         File seqStageDir = Paths.get(staging_folder, seqId).toFile();
 
         logger.info("Start processing directory {}", outDir);
-
+        sendUpdateInfoMessage(seqId, null, null, 1,
+                "Discovered for upload");
 
         String status = transferStatus(dir, "transfer_complete_status");
         List<String> filterList = new ArrayList<>();
@@ -304,11 +307,13 @@ public class FSObject implements Runnable {
                     deleteFolder(seqStageDir.toPath());
                 }
                 sendUpdateInfoMessage(seqId, null, null, 1,
-                        "Copying/Renaming file(s) from watch directory to staging directory");
-                copyFolderContents(new File(inDir), seqStageDir);
-                sendUpdateInfoMessage(seqId, null, null, 1,
-                        "Deleting leftover folder(s) from  watch directory");
-                deleteFolder(Paths.get(inDir));
+                        "Moving files from watch directory to staging directory");
+                //copyFolderContents(new File(inDir), seqStageDir);
+                if (!moveFolder(inDir, seqStageDir.toString()))
+                    return;
+                //sendUpdateInfoMessage(seqId, null, null, 1,
+                //        "Deleting leftover folder(s) from  watch directory");
+                //deleteFolder(Paths.get(inDir));
             } catch (IOException e) {
                 //logger.error("Failed to move sequence to staging directory [{}] -> [{}]\n" + ExceptionUtils.getStackTrace(e), inDir, seqStageDir);
                 sendUpdateErrorMessage(seqId, null, null, 1, "Failed to move sequence to staging directory: " + ExceptionUtils.getStackTrace(e));
@@ -328,8 +333,8 @@ public class FSObject implements Runnable {
             ObjectEngine oe = new ObjectEngine(plugin);
             if (oe.uploadBaggedDirectory(bucket_name, seqStageDir.getAbsolutePath(), "", outDir,
                     null,null, "1")) {
-                //if (setTransferFile(dir)) {
-                if (new File(inDir).exists()) {
+                if (setTransferFile(seqStageDir.toPath().resolve(transfer_status_file))) {
+                /*if (new File(inDir).exists()) {
                     try {
                         //logger.info("Cleaning up uploaded sequence [{}]", inDir);
                         sendUpdateInfoMessage(seqId, null, null, 1,
@@ -341,48 +346,48 @@ public class FSObject implements Runnable {
                         sendUpdateErrorMessage(seqId, null, null, 1,
                                 "Failed to remove some files from watch directory, please clean manually");
                     }
-                }
-                logger.debug("Directory Transferred [inDir = {}, outDir = {}]", inDir, outDir);
-                me = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transferred");
-                me.setParam("indir", inDir);
-                me.setParam("outdir", outDir);
-                me.setParam("seq_id", seqId);
-                me.setParam("transfer_watch_file", transfer_watch_file);
-                me.setParam("transfer_status_file", transfer_status_file);
-                me.setParam("bucket_name", bucket_name);
-                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage", pathStage);
-                //if pathstage 3 we need to submit jobs for processing
-                logger.trace("pathStage = " + pathStage);
-                if (pathStage.equals("3")) {
-                    logger.trace("Sample Directory: " + inDir);
-                    String sampleList = getSampleList(inDir);
+                }*/
+                    logger.debug("Directory Transferred [inDir = {}, outDir = {}]", inDir, outDir);
+                    me = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transferred");
+                    me.setParam("indir", inDir);
+                    me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqId);
+                    me.setParam("transfer_watch_file", transfer_watch_file);
+                    me.setParam("transfer_status_file", transfer_status_file);
+                    me.setParam("bucket_name", bucket_name);
+                    me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    me.setParam("pathstage", pathStage);
+                    //if pathstage 3 we need to submit jobs for processing
+                    logger.trace("pathStage = " + pathStage);
+                    if (pathStage.equals("3")) {
+                        logger.trace("Sample Directory: " + inDir);
+                        String sampleList = getSampleList(inDir);
 
-                    if (sampleList != null) {
-                        logger.trace("Samples : " + sampleList);
-                        me.setParam("sample_list", sampleList);
-                    } else {
-                        me.setParam("sample_list", "");
+                        if (sampleList != null) {
+                            logger.trace("Samples : " + sampleList);
+                            me.setParam("sample_list", sampleList);
+                        } else {
+                            me.setParam("sample_list", "");
+                        }
                     }
+                    me.setParam("sstep", "2");
+                    plugin.sendMsgEvent(me);
+                    //end
+                } else {
+                    logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
+                    me = plugin.genGMessage(MsgEvent.Type.ERROR, "Failed Directory Transfer");
+                    me.setParam("indir", inDir);
+                    me.setParam("outdir", outDir);
+                    me.setParam("seq_id", seqId);
+                    me.setParam("transfer_watch_file", transfer_watch_file);
+                    me.setParam("transfer_status_file", transfer_status_file);
+                    me.setParam("bucket_name", bucket_name);
+                    me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
+                    me.setParam("pathstage", pathStage);
+                    me.setParam("sstep", "2");
+                    plugin.sendMsgEvent(me);
                 }
-                me.setParam("sstep", "2");
-                plugin.sendMsgEvent(me);
-                //end
-            } else {
-                logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
-                me = plugin.genGMessage(MsgEvent.Type.ERROR, "Failed Directory Transfer");
-                me.setParam("indir", inDir);
-                me.setParam("outdir", outDir);
-                me.setParam("seq_id", seqId);
-                me.setParam("transfer_watch_file", transfer_watch_file);
-                me.setParam("transfer_status_file", transfer_status_file);
-                me.setParam("bucket_name", bucket_name);
-                me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
-                me.setParam("pathstage", pathStage);
-                me.setParam("sstep", "2");
-                plugin.sendMsgEvent(me);
             }
-            //}
         } /*else if (status.equals("yes")) {
             logger.trace("[status = \"yes\"]");
             if (oe.isSyncDir(bucket_name, outDir, inDir, filterList)) {
@@ -426,7 +431,7 @@ public class FSObject implements Runnable {
     }
 
     private boolean setTransferFile(Path dir) {
-        logger.debug("Call to setTransferFile [dir = {}]");
+        logger.debug("Call to setTransferFile [dir = {}]", dir.toString().replace("\\", "\\\\"));
         boolean isSet = false;
         try {
             if (dir.toString().toLowerCase().endsWith(transfer_status_file.toLowerCase())) {
@@ -494,6 +499,25 @@ public class FSObject implements Runnable {
             }
         } else
             Files.move(Paths.get(src.toURI()), Paths.get(dst.toURI()));
+    }
+
+    private boolean moveFolder(String srcPathString, String dstPathString) {
+        try {
+            Path srcPath = Paths.get(srcPathString);
+            if (!Files.exists(srcPath)) {
+                logger.error("Folder to move [{}] does not exist", srcPathString.replace("\\", "\\\\"));
+                return false;
+            }
+            Path dstPath = Paths.get(dstPathString);
+            Files.deleteIfExists(dstPath);
+            long started = System.currentTimeMillis();
+            Files.move(srcPath, dstPath, ATOMIC_MOVE);
+            logger.trace("Moved folder in {}ms", (System.currentTimeMillis() - started));
+            return true;
+        } catch (IOException e) {
+            logger.error("Failed to move folder : {}", ExceptionUtils.getStackTrace(e).replace("\\", "\\\\"));
+            return false;
+        }
     }
 
     /**

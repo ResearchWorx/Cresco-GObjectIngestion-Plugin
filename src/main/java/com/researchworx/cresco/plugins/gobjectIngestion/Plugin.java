@@ -158,7 +158,7 @@ public class Plugin extends CPlugin {
             logger.trace("Instantiating new [WatchDirectory] from [watchDirectoryName] path");
             WatchDirectory wd;
             try {
-                wd = new WatchDirectory(dir, true, this);
+                wd = new WatchDirectory(dir, false, this);
                 Thread wdt = new Thread(wd);
                 wdt.start();
             }

@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+
 public class Encapsulation {
     private static CLogger logger = new CLogger(Encapsulation.class, new LinkedBlockingQueue<>(),
             "", "", "");
@@ -271,36 +273,45 @@ public class Encapsulation {
      */
     public static void debagify(String src) {
         logger.trace("Call to debagify({})", src);
-        File bag = new File(src);
-        if (bag.isFile())
+        Path bag = Paths.get(src);
+        if (Files.isRegularFile(bag))
             return;
-        File bagIt = new File(src + "/.bagit");
-        if (bagIt.exists())
+        Path bagIt = bag.resolve(".bagit");
+        if (Files.exists(bagIt)) {
             try {
-                deleteFolder(bagIt.toPath());
+                deleteFolder(bagIt);
             } catch (IOException e) {
                 logger.error("Failed to delete the .bagit directory for bag: {}", src);
             }
-        new File(src + "/bagit.txt").delete();
-        new File(src + "/bag-info.txt").delete();
-        new File(src + "/manifest-sha512.txt").delete();
-        new File(src + "/manifest-sha256.txt").delete();
-        new File(src + "/manifest-sha1.txt").delete();
-        new File(src + "/manifest-md5.txt").delete();
-        new File(src + "/tagmanifest-sha512.txt").delete();
-        new File(src + "/tagmanifest-sha256.txt").delete();
-        new File(src + "/tagmanifest-sha1.txt").delete();
-        new File(src + "/tagmanifest-md5.txt").delete();
-        File data = new File(src + "/data");
-        if (data.exists()) {
-            String tmpDataPath = src + "/" + UUID.randomUUID().toString();
-            data.renameTo(new File(tmpDataPath));
+        }
+        try {
+            Files.deleteIfExists(bag.resolve("bagit.txt"));
+            Files.deleteIfExists(bag.resolve("bag-info.txt"));
+            Files.deleteIfExists(bag.resolve("manifest-sha512.txt"));
+            Files.deleteIfExists(bag.resolve("manifest-sha256.txt"));
+            Files.deleteIfExists(bag.resolve("manifest-sha1.txt"));
+            Files.deleteIfExists(bag.resolve("manifest-md5.txt"));
+            Files.deleteIfExists(bag.resolve("tagmanifest-sha512.txt"));
+            Files.deleteIfExists(bag.resolve("tagmanifest-sha256.txt"));
+            Files.deleteIfExists(bag.resolve("tagmanifest-sha1.txt"));
+            Files.deleteIfExists(bag.resolve("tagmanifest-md5.txt"));
+        } catch (IOException e) {
+            logger.error("Failed to clean up BagIt metadata");
+        }
+        Path data = bag.resolve("data");
+        if (Files.exists(data)) {
             try {
-                copyFolderContents(new File(tmpDataPath), new File(src));
-                deleteFolder(new File(tmpDataPath).toPath());
-                new File(src + "/bag-info.txt").delete();
+                Path tmpDataPath = bag.resolve(UUID.randomUUID().toString());
+                Files.move(data, tmpDataPath);
+                if (!moveToFolder(tmpDataPath, bag)) {
+                    logger.error("Failed to move files out of BagIt data directory");
+                    return;
+                }
+                Files.deleteIfExists(tmpDataPath);
             } catch (IOException e) {
-                logger.error("Failed to move files from {} to {}", src + "/data", src);
+                logger.error("Failed to move files from {} to {}",
+                        data.toString().replace("\\", "\\\\"),
+                        bag.toString().replace("\\", "\\\\"));
             }
         }
     }
@@ -688,6 +699,60 @@ public class Encapsulation {
             }
         } else
             Files.move(Paths.get(src.toURI()), Paths.get(dst.toURI()));
+    }
+
+    private static boolean movePath(String srcPathString, String dstPathString) {
+        try {
+            Path srcPath = Paths.get(srcPathString);
+            if (!Files.exists(srcPath)) {
+                logger.error("Folder to move [{}] does not exist", srcPathString.replace("\\", "\\\\"));
+                return false;
+            }
+            Path dstPath = Paths.get(dstPathString);
+            Files.deleteIfExists(dstPath);
+            long started = System.currentTimeMillis();
+            Files.move(srcPath, dstPath, ATOMIC_MOVE);
+            logger.trace("Moved folder in {}ms", (System.currentTimeMillis() - started));
+            return true;
+        } catch (IOException e) {
+            logger.error("Failed to move [{}] to [{}] : {}",
+                    srcPathString.replace("\\", "\\\\"), dstPathString.replace("\\", "\\\\"),
+                    ExceptionUtils.getStackTrace(e).replace("\\", "\\\\"));
+            return false;
+        }
+    }
+
+    private static boolean moveToFolder(Path srcFolder, Path dstFolder) {
+        try {
+            //Path srcFolder = Paths.get(srcFolderString);
+            if (!Files.exists(srcFolder)) {
+                logger.error("Folder to move [{}] does not exist", srcFolder.toString().replace("\\", "\\\\"));
+                return false;
+            }
+            //Path dstFolder = Paths.get(dstFolderString);
+            if (!Files.exists(dstFolder)) {
+                logger.error("Destination folder [{}] does not exist", dstFolder.toString().replace("\\", "\\\\"));
+                return false;
+            }
+            try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(srcFolder)) {
+                boolean bSuccess = true;
+                for (Path path : directoryStream) {
+                    if (!movePath(path.toString(), dstFolder.resolve(path.getFileName()).toString()))
+                        bSuccess = false;
+                }
+                return bSuccess;
+            } catch (IOException e) {
+                logger.error("Failed to move [{}] to folder [{}] : {}",
+                        srcFolder.toString().replace("\\", "\\\\"), dstFolder.toString().replace("\\", "\\\\"),
+                        ExceptionUtils.getStackTrace(e).replace("\\", "\\\\"));
+                return false;
+            }
+        } catch (Exception e) {
+            logger.error("Failed to move [{}] to folder [{}] : {}",
+                    srcFolder.toString().replace("\\", "\\\\"), dstFolder.toString().replace("\\", "\\\\"),
+                    ExceptionUtils.getStackTrace(e).replace("\\", "\\\\"));
+            return false;
+        }
     }
 
     /**

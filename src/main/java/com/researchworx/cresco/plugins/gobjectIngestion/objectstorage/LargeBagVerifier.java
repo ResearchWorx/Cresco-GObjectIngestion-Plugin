@@ -25,7 +25,7 @@ public class LargeBagVerifier implements AutoCloseable {
         logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
     }
     private static final ResourceBundle messages = ResourceBundle.getBundle("MessageBundle");
-    private static final int max_batch_size = 1000;
+    private static final int max_batch_size = 100;
 
     private final PayloadVerifier manifestVerifier;
     private final ExecutorService executor;
