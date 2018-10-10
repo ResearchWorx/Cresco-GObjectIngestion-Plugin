@@ -150,6 +150,8 @@ public class FSObject implements Runnable {
     }
 
     private String transferStatus(Path dir, String statusString) {
+        if (!Files.exists(dir))
+            return null;
         logger.debug("Call to transferStatus [dir = {}, statusString = {}]", dir.toString(), statusString);
         String status = "no";
         try {
@@ -285,11 +287,10 @@ public class FSObject implements Runnable {
         String seqId = outDir;
         logger.debug("[outDir = {}]", outDir);
 
-        File seqStageDir = Paths.get(staging_folder, seqId).toFile();
+        //File seqStageDir = Paths.get(staging_folder, seqId).toFile();
+        Path seqStageDir = Paths.get(staging_folder, seqId);
 
         logger.info("Start processing directory {}", outDir);
-        sendUpdateInfoMessage(seqId, null, null, 1,
-                "Discovered for upload");
 
         String status = transferStatus(dir, "transfer_complete_status");
         List<String> filterList = new ArrayList<>();
@@ -298,13 +299,15 @@ public class FSObject implements Runnable {
 
 
         if (status.equals("no")) {
+            sendUpdateInfoMessage(seqId, null, null, 1,
+                    "Discovered for upload");
             try {
                 logger.info("Copying sequence to staging folder [{}] -> [{}]",
                         inDir, seqStageDir);
-                if (seqStageDir.exists()) {
+                if (Files.exists(seqStageDir)) {
                     sendUpdateInfoMessage(seqId, null, null, 1,
                             "Deleting existing file(s) from staging directory");
-                    deleteFolder(seqStageDir.toPath());
+                    deleteFolder(seqStageDir);
                 }
                 sendUpdateInfoMessage(seqId, null, null, 1,
                         "Moving files from watch directory to staging directory");
@@ -331,9 +334,9 @@ public class FSObject implements Runnable {
 
             logger.debug("[status = \"no\"]");
             ObjectEngine oe = new ObjectEngine(plugin);
-            if (oe.uploadBaggedDirectory(bucket_name, seqStageDir.getAbsolutePath(), "", outDir,
+            if (oe.uploadBaggedDirectory(bucket_name, seqStageDir.toString(), "", outDir,
                     null,null, "1")) {
-                if (setTransferFile(seqStageDir.toPath().resolve(transfer_status_file))) {
+                if (setTransferFile(seqStageDir.resolve(transfer_status_file))) {
                 /*if (new File(inDir).exists()) {
                     try {
                         //logger.info("Cleaning up uploaded sequence [{}]", inDir);

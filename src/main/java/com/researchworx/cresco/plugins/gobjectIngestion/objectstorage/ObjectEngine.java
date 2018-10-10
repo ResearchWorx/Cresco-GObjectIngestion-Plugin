@@ -179,11 +179,11 @@ public class ObjectEngine {
             return false;
         }
         long freeSpace = inFile.getUsableSpace();
-        logger.trace("freeSpace: {}", freeSpace);
+        logger.trace("freeSpace: {}", humanReadableByteCount(freeSpace, true));
         long uncompressedSize = FileUtils.sizeOfDirectory(inFile);
-        logger.trace("uncompressedSize: {}", uncompressedSize);
+        logger.trace("uncompressedSize: {}", humanReadableByteCount(uncompressedSize, true));
         long requiredSpace = uncompressedSize + (1024 * 1024 * 1024);
-        logger.trace("requiredSpace: {}", requiredSpace);
+        logger.trace("requiredSpace: {}", humanReadableByteCount(requiredSpace, true));
         if (requiredSpace > freeSpace) {
             sendUpdateErrorMessage(seqId, sampleId, reqId, step,
                     String.format("Not enough free space to bag up [%s], needs [%s] has [%s]",

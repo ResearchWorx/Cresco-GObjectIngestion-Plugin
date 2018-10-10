@@ -1,6 +1,5 @@
 package com.researchworx.cresco.plugins.gobjectIngestion.objectstorage;
 
-import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.library.utilities.CLogger;
 import gov.loc.repository.bagit.domain.Bag;
@@ -10,24 +9,27 @@ import gov.loc.repository.bagit.hash.BagitAlgorithmNameToSupportedAlgorithmMappi
 import gov.loc.repository.bagit.hash.StandardBagitAlgorithmNameToSupportedAlgorithmMapping;
 import gov.loc.repository.bagit.verify.CheckManifestHashesTask;
 import gov.loc.repository.bagit.verify.MandatoryVerifier;
-import gov.loc.repository.bagit.verify.PayloadVerifier;
 import gov.loc.repository.bagit.verify.QuickVerifier;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class LargeBagVerifier implements AutoCloseable {
-    private static CLogger logger = new CLogger(Encapsulation.class, new LinkedBlockingQueue<>(), "", "", "");
+    private static CLogger logger = new CLogger(LargeBagVerifier.class, new LinkedBlockingQueue<>(), "", "", "");
 
     public static void setLogger(CPlugin plugin) {
-        logger = new CLogger(ObjectEngine.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
+        logger = new CLogger(LargeBagVerifier.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
     }
+
     private static final ResourceBundle messages = ResourceBundle.getBundle("MessageBundle");
     private static final int max_batch_size = 100;
 
-    private final PayloadVerifier manifestVerifier;
+    private final ManifestVerifier manifestVerifier;
     private final ExecutorService executor;
 
     /**
@@ -35,7 +37,7 @@ public class LargeBagVerifier implements AutoCloseable {
      * {@link StandardBagitAlgorithmNameToSupportedAlgorithmMapping}
      */
     public LargeBagVerifier(){
-        this(Executors.newCachedThreadPool(), new StandardBagitAlgorithmNameToSupportedAlgorithmMapping());
+        this(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()), new StandardBagitAlgorithmNameToSupportedAlgorithmMapping());
     }
 
     /**
@@ -44,7 +46,7 @@ public class LargeBagVerifier implements AutoCloseable {
      * @param nameMapping the mapping between BagIt algorithm name and the java supported algorithm
      */
     public LargeBagVerifier(final BagitAlgorithmNameToSupportedAlgorithmMapping nameMapping){
-        this(Executors.newCachedThreadPool(), nameMapping);
+        this(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()), nameMapping);
     }
 
     /**
@@ -64,7 +66,7 @@ public class LargeBagVerifier implements AutoCloseable {
      * @param executor the thread pool to use when doing work
      */
     public LargeBagVerifier(final ExecutorService executor, final BagitAlgorithmNameToSupportedAlgorithmMapping nameMapping){
-        manifestVerifier = new PayloadVerifier(nameMapping, executor);
+        manifestVerifier = new ManifestVerifier(nameMapping, executor);
         this.executor = executor;
     }
 
@@ -94,7 +96,7 @@ public class LargeBagVerifier implements AutoCloseable {
      * @throws InvalidPayloadOxumException if either the total bytes or the number of files
      * calculated for the payload directory of the bag is different than the supplied values
      * @throws PayloadOxumDoesNotExistException if the bag does not contain a payload-oxum.
-     * To check, run {@link BagVerifier#canQuickVerify}
+     * To check, run {@link LargeBagVerifier#canQuickVerify}
      */
     public static void quicklyVerify(final Bag bag) throws IOException, InvalidPayloadOxumException{
         QuickVerifier.quicklyVerify(bag);
@@ -209,14 +211,14 @@ public class LargeBagVerifier implements AutoCloseable {
 
         MandatoryVerifier.checkIfAtLeastOnePayloadManifestsExist(bag.getRootDir(), bag.getVersion());
 
-        manifestVerifier.verifyPayload(bag, ignoreHiddenFiles);
+        manifestVerifier.verifyManifests(bag, ignoreHiddenFiles);
     }
 
     public ExecutorService getExecutor() {
         return executor;
     }
 
-    public PayloadVerifier getManifestVerifier() {
+    public ManifestVerifier getManifestVerifier() {
         return manifestVerifier;
     }
 }
