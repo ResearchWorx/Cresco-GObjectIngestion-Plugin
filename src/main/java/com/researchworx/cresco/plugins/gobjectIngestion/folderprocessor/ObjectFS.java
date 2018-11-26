@@ -1763,7 +1763,7 @@ public class ObjectFS implements Runnable {
                     Paths.get(resultDir.getAbsolutePath(), sampleId).toString(), seqId, seqId, sampleId,
                     reqId, String.valueOf(ssstep))) {
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload processing results");
-                return true;
+                return false;
             }
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep,
                     String.format("Uploaded results to [%s]", results_bucket_name));

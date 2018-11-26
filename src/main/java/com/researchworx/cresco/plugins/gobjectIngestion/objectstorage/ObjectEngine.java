@@ -1283,7 +1283,7 @@ public class ObjectEngine {
             this.totalTransferred += currentBytesTransferred;
             this.lastTransferred += currentBytesTransferred;
             float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
-            if (currentTransferPercentage > (float)nextUpdate) {
+            if (currentTransferPercentage > (float)nextUpdate - 0.01) {
                 long currentTimestamp = System.currentTimeMillis();
                 sendUpdateInfoMessage(seqId, sampleId, reqId, step,
                         String.format("Transferring (%s/%s %d%%) at %s",
@@ -1293,6 +1293,8 @@ public class ObjectEngine {
                 lastTransferred = 0L;
                 lastTimestamp = currentTimestamp;
                 nextUpdate += updatePercentStep;
+                if (currentTransferPercentage > (float)100)
+                    sendUpdateInfoMessage(seqId, sampleId, reqId, step, "Reassembling parallel transfer file(s)");
             }
         }
     }
