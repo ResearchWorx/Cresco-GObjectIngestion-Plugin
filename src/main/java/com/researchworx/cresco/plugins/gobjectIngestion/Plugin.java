@@ -6,6 +6,8 @@ import com.researchworx.cresco.library.plugin.core.CPlugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.FSObject;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.ObjectFS;
 import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.WatchDirectory;
+import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
+import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.LargeBagVerifier;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,18 +21,45 @@ public class Plugin extends CPlugin {
     public static boolean PathProcessorActive = false;
 
     public int pathStage;
-    public String genomicControllerRegion;
-    public String genomicControllerAgent;
-    public String genomicControllerPlugin;
-    public static ObjectFS objectToFSp;
-    public static FSObject fStoObjectp;
 
+    private String genomicControllerRegion;
+    private String genomicControllerAgent;
+    private String genomicControllerPlugin;
+
+    static ObjectFS objectToFSp;
+    static FSObject fStoObjectp;
+
+    public static boolean processorIsActive() {
+        return PathProcessorActive;
+    }
+
+    public static void setActive() {
+        PathProcessorActive = true;
+    }
+
+    public static void setInactive() {
+        PathProcessorActive = false;
+    }
 
     public void setExecutor() {
         setExec(new Executor(this));
     }
 
     public void start() {
+        /*try {
+            URL instanceIDURL = new URL("http://169.254.169.254/latest/meta-data/instance-id");
+            HttpURLConnection conn = (HttpURLConnection) instanceIDURL.openConnection();
+            conn.setRequestMethod("GET");
+            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String instanceID = in.readLine();
+            logger.info("Instance ID: {}", (instanceID != null) ? instanceID : "NULL");
+        } catch (ProtocolException e) {
+            logger.error("Protocol exception when getting instance ID: {}", e.getMessage());
+        } catch (IOException e) {
+            logger.error("I/O exception when getting instance ID: {}", e.getMessage());
+        }*/
+
+
         setExec(new Executor(this));
         //logger.setLogLevel(CLogger.Level.Debug);
         logger.trace("Building new ConcurrentLinkedQueue");
@@ -48,7 +77,8 @@ public class Plugin extends CPlugin {
         genomicControllerRegion = getConfig().getStringParam("genomic_controller_region",getRegion());
         genomicControllerAgent = getConfig().getStringParam("genomic_controller_agent",getAgent());
         genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
-
+        Encapsulation.setLogger(this);
+        LargeBagVerifier.setLogger(this);
 
         logger.debug("[pathStage] == {}", pathStage);
         logger.info("Building Stage [{}]", pathStage);
@@ -124,7 +154,7 @@ public class Plugin extends CPlugin {
             logger.trace("Instantiating new [WatchDirectory] from [watchDirectoryName] path");
             WatchDirectory wd;
             try {
-                wd = new WatchDirectory(dir, true, this);
+                wd = new WatchDirectory(dir, false, this);
                 Thread wdt = new Thread(wd);
                 wdt.start();
             }
@@ -235,6 +265,7 @@ public class Plugin extends CPlugin {
 
     @Override
     public void cleanUp() {
+        setInactive();
         MsgEvent me = genGMessage(MsgEvent.Type.INFO, "Shutdown");
         me.setParam("pathstage", String.valueOf(pathStage));
         me.setParam("pstep","0");

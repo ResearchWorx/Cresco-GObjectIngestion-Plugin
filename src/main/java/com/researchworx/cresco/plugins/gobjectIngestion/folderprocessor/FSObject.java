@@ -4,22 +4,26 @@ import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.ObjectEngine;
+import org.apache.commons.io.FileDeleteStrategy;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 
 public class FSObject implements Runnable {
 
     private final String transfer_watch_file;
     private final String transfer_status_file;
     private final String bucket_name;
+    private final String staging_folder;
     private Plugin plugin;
     private CLogger logger;
     private MsgEvent me;
@@ -36,8 +40,10 @@ public class FSObject implements Runnable {
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
         transfer_status_file = plugin.getConfig().getStringParam("transfer_status_file");
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_status_file\" from config [{}]", transfer_status_file);
-        bucket_name = plugin.getConfig().getStringParam("bucket");
+        bucket_name = plugin.getConfig().getStringParam("raw_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"bucket_name\" from config [{}]", bucket_name);
+        staging_folder = plugin.getConfig().getStringParam("stagingdirectory");
+        logger.debug("\"pathstage" + pathStage + "\" --> \"stagingdirectory\" from config [{}]", staging_folder);
         me = plugin.genGMessage(MsgEvent.Type.INFO, "InPathPreProcessor instantiated");
         me.setParam("transfer_watch_file", transfer_watch_file);
         me.setParam("transfer_status_file", transfer_status_file);
@@ -56,8 +62,14 @@ public class FSObject implements Runnable {
             logger.trace("Setting [PathProcessorActive] to true");
             Plugin.PathProcessorActive = true;
             ObjectEngine oe = new ObjectEngine(plugin);
-            logger.trace("Issuing [ObjectEngine].createBucket using [bucket_name = {}]", bucket_name);
-            oe.createBucket(bucket_name);
+            //logger.trace("Issuing [ObjectEngine].createBucket using [bucket_name = {}]", bucket_name);
+            //oe.createBucket(bucket_name);
+            File stagingDir = new File(staging_folder);
+            if (!stagingDir.exists())
+                if (!stagingDir.mkdirs()) {
+                    logger.error("Failed to create staging directory. Exiting");
+                    return;
+                }
             logger.trace("Entering while-loop");
             while (Plugin.PathProcessorActive) {
                 //message start of scan
@@ -106,7 +118,7 @@ public class FSObject implements Runnable {
                         Thread.sleep(plugin.getConfig().getIntegerParam("scan_interval", 5000));
                     }
                 } catch (Exception ex) {
-                    logger.error("run : while {}", ex.getMessage());
+                    logger.error("run : while\n{}", ExceptionUtils.getStackTrace(ex));
                     //message start of scan
                     me = plugin.genGMessage(MsgEvent.Type.ERROR, "Error during Filesystem scan");
                     me.setParam("transfer_watch_file", transfer_watch_file);
@@ -138,6 +150,8 @@ public class FSObject implements Runnable {
     }
 
     private String transferStatus(Path dir, String statusString) {
+        if (!Files.exists(dir))
+            return null;
         logger.debug("Call to transferStatus [dir = {}, statusString = {}]", dir.toString(), statusString);
         String status = "no";
         try {
@@ -206,15 +220,10 @@ public class FSObject implements Runnable {
             if (!inDir.endsWith("/")) {
                 inDir += "/";
             }
-            ArrayList<String> samples = new ArrayList();
+            ArrayList<String> samples = new ArrayList<>();
             logger.trace("Processing Sequence Directory : " + inDir);
             File file = new File(inDir);
-            String[] directories = file.list(new FilenameFilter() {
-                @Override
-                public boolean accept(File current, String name) {
-                    return new File(current, name).isDirectory();
-                }
-            });
+            String[] directories = file.list((dir, name) -> new File(dir, name).isDirectory());
 
             List<String> subDirectories = new ArrayList<>();
 
@@ -223,12 +232,7 @@ public class FSObject implements Runnable {
                     logger.trace("Searching for sub-directories of {}", inDir + "/" + subDir);
                     subDirectories.add(subDir);
                     File subFile = new File(inDir + "/" + subDir);
-                    String[] subSubDirs = subFile.list(new FilenameFilter() {
-                        @Override
-                        public boolean accept(File current, String name) {
-                            return new File(current, name).isDirectory();
-                        }
-                    });
+                    String[] subSubDirs = subFile.list((dir, name) -> new File(dir, name).isDirectory());
                     if (subSubDirs != null) {
                         for (String subSubDir : subSubDirs) {
                             logger.trace("Found sub-directory {}", inDir + "/" + subDir + "/" + subSubDir);
@@ -283,9 +287,11 @@ public class FSObject implements Runnable {
         String seqId = outDir;
         logger.debug("[outDir = {}]", outDir);
 
+        //File seqStageDir = Paths.get(staging_folder, seqId).toFile();
+        Path seqStageDir = Paths.get(staging_folder, seqId);
+
         logger.info("Start processing directory {}", outDir);
 
-        ObjectEngine oe = new ObjectEngine(plugin);
         String status = transferStatus(dir, "transfer_complete_status");
         List<String> filterList = new ArrayList<>();
         logger.trace("Adding [transfer_status_file] to [filterList]");
@@ -293,32 +299,59 @@ public class FSObject implements Runnable {
 
 
         if (status.equals("no")) {
+            sendUpdateInfoMessage(seqId, null, null, 1,
+                    "Discovered for upload");
+            try {
+                logger.info("Copying sequence to staging folder [{}] -> [{}]",
+                        inDir, seqStageDir);
+                if (Files.exists(seqStageDir)) {
+                    sendUpdateInfoMessage(seqId, null, null, 1,
+                            "Deleting existing file(s) from staging directory");
+                    deleteFolder(seqStageDir);
+                }
+                sendUpdateInfoMessage(seqId, null, null, 1,
+                        "Moving files from watch directory to staging directory");
+                //copyFolderContents(new File(inDir), seqStageDir);
+                if (!moveFolder(inDir, seqStageDir.toString()))
+                    return;
+                //sendUpdateInfoMessage(seqId, null, null, 1,
+                //        "Deleting leftover folder(s) from  watch directory");
+                //deleteFolder(Paths.get(inDir));
+            } catch (IOException e) {
+                //logger.error("Failed to move sequence to staging directory [{}] -> [{}]\n" + ExceptionUtils.getStackTrace(e), inDir, seqStageDir);
+                sendUpdateErrorMessage(seqId, null, null, 1, "Failed to move sequence to staging directory: " + ExceptionUtils.getStackTrace(e));
+                return;
+            }
 
-            me = plugin.genGMessage(MsgEvent.Type.INFO, "Start transfer directory");
-            me.setParam("indir", inDir);
-            me.setParam("outdir", outDir);
+            /*me = plugin.genGMessage(MsgEvent.Type.INFO, "Start transfer directory");
             me.setParam("seq_id", seqId);
-            me.setParam("transfer_watch_file", transfer_watch_file);
-            me.setParam("transfer_status_file", transfer_status_file);
-            me.setParam("bucket_name", bucket_name);
-            me.setParam("endpoint", plugin.getConfig().getStringParam("endpoint"));
             me.setParam("pathstage", pathStage);
             me.setParam("sstep", "1");
-            plugin.sendMsgEvent(me);
+            plugin.sendMsgEvent(me);*/
+            sendUpdateInfoMessage(seqId, null, null, 1,
+                    "Starting transfer from staging to object store");
 
 
             logger.debug("[status = \"no\"]");
-            //Map<String, String> md5map = oe.getDirMD5(inDir, filterList);
-            //logger.trace("Setting MD5 hash");
-            //setTransferFileMD5(dir, md5map);
-            logger.trace("Deleting any old files");
-            oe.deleteBucketDirectoryContents(bucket_name, outDir);
-            logger.trace("Transferring directory");
-            if (oe.uploadDirectory(bucket_name, inDir, outDir)) {
-                if (setTransferFile(dir)) {
-
-                    logger.debug("Directory Transfered [inDir = {}, outDir = {}]", inDir, outDir);
-                    me = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transfered");
+            ObjectEngine oe = new ObjectEngine(plugin);
+            if (oe.uploadBaggedDirectory(bucket_name, seqStageDir.toString(), "", outDir,
+                    null,null, "1")) {
+                if (setTransferFile(seqStageDir.resolve(transfer_status_file))) {
+                /*if (new File(inDir).exists()) {
+                    try {
+                        //logger.info("Cleaning up uploaded sequence [{}]", inDir);
+                        sendUpdateInfoMessage(seqId, null, null, 1,
+                                "Final cleanup in watch directory");
+                        //FileUtils.deleteDirectory(new File(inDir));
+                        deleteFolder(new File(inDir).toPath());
+                    } catch (IOException e) {
+                        //logger.error("Failed to remove sequence directory [{}]" + ExceptionUtils.getStackTrace(e), inDir);
+                        sendUpdateErrorMessage(seqId, null, null, 1,
+                                "Failed to remove some files from watch directory, please clean manually");
+                    }
+                }*/
+                    logger.debug("Directory Transferred [inDir = {}, outDir = {}]", inDir, outDir);
+                    me = plugin.genGMessage(MsgEvent.Type.INFO, "Directory Transferred");
                     me.setParam("indir", inDir);
                     me.setParam("outdir", outDir);
                     me.setParam("seq_id", seqId);
@@ -342,7 +375,6 @@ public class FSObject implements Runnable {
                     }
                     me.setParam("sstep", "2");
                     plugin.sendMsgEvent(me);
-
                     //end
                 } else {
                     logger.error("Directory Transfer Failed [inDir = {}, outDir = {}]", inDir, outDir);
@@ -359,12 +391,12 @@ public class FSObject implements Runnable {
                     plugin.sendMsgEvent(me);
                 }
             }
-        } else if (status.equals("yes")) {
+        } /*else if (status.equals("yes")) {
             logger.trace("[status = \"yes\"]");
             if (oe.isSyncDir(bucket_name, outDir, inDir, filterList)) {
                 logger.debug("Directory Sycned inDir={} outDir={}", inDir, outDir);
             }
-        }
+        }*/
     }
 
     private void setTransferFileMD5(Path dir, Map<String, String> md5map) {
@@ -402,7 +434,7 @@ public class FSObject implements Runnable {
     }
 
     private boolean setTransferFile(Path dir) {
-        logger.debug("Call to setTransferFile [dir = {}]");
+        logger.debug("Call to setTransferFile [dir = {}]", dir.toString().replace("\\", "\\\\"));
         boolean isSet = false;
         try {
             if (dir.toString().toLowerCase().endsWith(transfer_status_file.toLowerCase())) {
@@ -443,6 +475,114 @@ public class FSObject implements Runnable {
             logger.error("setTransferFile {}", ex.getMessage());
         }
         return isSet;
+    }
+
+
+
+    /**
+     * Copies the files from one directory to another
+     * @param src Source directory to copy files from
+     * @param dst Destination directory to copy files to
+     * @throws IOException
+     */
+    private void copyFolderContents(File src, File dst) throws IOException {
+        //logger.trace("Call to copyFolderContents({},{})", src.getAbsolutePath(), dst.getAbsolutePath());
+        if (src.toString().endsWith(transfer_status_file)) {
+            Files.delete(src.toPath());
+            return;
+        }
+        if (src.isDirectory()) {
+            if (!dst.exists())
+                dst.mkdir();
+            String files[] = src.list();
+            for (String file : files) {
+                File srcFile = new File(src, file);
+                File destFile = new File(dst, file);
+                copyFolderContents(srcFile,destFile);
+            }
+        } else
+            Files.move(Paths.get(src.toURI()), Paths.get(dst.toURI()));
+    }
+
+    private boolean moveFolder(String srcPathString, String dstPathString) {
+        try {
+            Path srcPath = Paths.get(srcPathString);
+            if (!Files.exists(srcPath)) {
+                logger.error("Folder to move [{}] does not exist", srcPathString.replace("\\", "\\\\"));
+                return false;
+            }
+            Path dstPath = Paths.get(dstPathString);
+            Files.deleteIfExists(dstPath);
+            long started = System.currentTimeMillis();
+            Files.move(srcPath, dstPath, ATOMIC_MOVE);
+            logger.trace("Moved folder in {}ms", (System.currentTimeMillis() - started));
+            return true;
+        } catch (IOException e) {
+            logger.error("Failed to move folder : {}", ExceptionUtils.getStackTrace(e).replace("\\", "\\\\"));
+            return false;
+        }
+    }
+
+    /**
+     * Deletes an entire folder structure
+     * @param folder Path of the folder to delete
+     * @throws IOException Thrown from sub-routines
+     */
+    private void deleteFolder(Path folder) throws IOException {
+        logger.trace("Call to deleteFolder({})", folder.toAbsolutePath());
+        Files.walkFileTree(folder, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                try {
+                    FileDeleteStrategy.FORCE.delete(dir.toFile());
+                } catch (FileNotFoundException e) { }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private void sendUpdateInfoMessage(String seqId, String sampleId, String reqId, int stepInt, String message) {
+        String step = String.valueOf(stepInt);
+        if (!message.equals("Idle"))
+            logger.info("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        if (sampleId != null) {
+            msgEvent.setParam("sample_id", sampleId);
+            msgEvent.setParam("ssstep", step);
+        } else if (seqId != null)
+            msgEvent.setParam("sstep", step);
+        else
+            msgEvent.setParam("pstep", step);
+        if (reqId != null)
+            msgEvent.setParam("req_id", reqId);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    private void sendUpdateErrorMessage(String seqId, String sampleId, String reqId, int stepInt, String message) {
+        String step = String.valueOf(stepInt);
+        logger.error("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, "");
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("error_message", message);
+        msgEvent.setParam("seq_id", seqId);
+        if (sampleId != null) {
+            msgEvent.setParam("sample_id", sampleId);
+            msgEvent.setParam("ssstep", step);
+        } else if (seqId != null)
+            msgEvent.setParam("sstep", step);
+        else
+            msgEvent.setParam("pstep", step);
+        if (reqId != null)
+            msgEvent.setParam("req_id", reqId);
+        plugin.sendMsgEvent(msgEvent);
     }
 }
 

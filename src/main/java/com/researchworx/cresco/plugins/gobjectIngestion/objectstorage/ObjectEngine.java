@@ -2,29 +2,39 @@ package com.researchworx.cresco.plugins.gobjectIngestion.objectstorage;
 
 //import java.io.ByteArrayInputStream;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.event.ProgressEvent;
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.iterable.S3Objects;
 import com.amazonaws.services.s3.model.*;
-import com.amazonaws.services.s3.transfer.MultipleFileDownload;
-import com.amazonaws.services.s3.transfer.MultipleFileUpload;
-import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
+import com.amazonaws.services.s3.transfer.*;
+import com.amazonaws.services.s3.transfer.model.UploadResult;
 import com.amazonaws.util.StringUtils;
 import com.researchworx.cresco.library.messaging.MsgEvent;
 import com.researchworx.cresco.library.utilities.CLogger;
 import com.researchworx.cresco.plugins.gobjectIngestion.Plugin;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +47,13 @@ import java.util.concurrent.Executors;
 public class ObjectEngine {
     private static final int MAX_FILES_FOR_S3_DOWNLOAD = 5000;
     private static final int NUMBER_OF_THREADS_FOR_DOWNLOAD = 10;
+
+    private static final String bagit = "standard";
+    private static final String hashing = "md5";
+    private static final boolean hiddenFiles = true;
+    private static final String compression = "tar";
+    public static final String extension = ".tar";
+    private static final boolean removeExisting = true;
 
     private CLogger logger;
     private static AmazonS3 conn;
@@ -80,7 +97,7 @@ public class ObjectEngine {
         conn = AmazonS3ClientBuilder.standard().withRegion(s3Region).withCredentials(new AWSStaticCredentialsProvider(credentials)).withForceGlobalBucketAccessEnabled(true).build();
         */
 
-        System.out.println("Building ClientConfiguration");
+        /*System.out.println("Building ClientConfiguration");
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setProtocol(Protocol.HTTPS);
         clientConfig.setSignerOverride("S3SignerType");
@@ -97,7 +114,22 @@ public class ObjectEngine {
                 .build();
         conn.setS3ClientOptions(s3ops);
 
-        conn.setEndpoint("https://iobjects.uky.edu");
+        conn.setEndpoint(endpoint);*/
+
+        logger.trace("Building S3 client configuration");
+        ClientConfiguration clientConfiguration = new ClientConfiguration();
+        clientConfiguration.setProtocol(Protocol.HTTPS);
+        clientConfiguration.setSignerOverride("S3SignerType");
+        //clientConfiguration.setMaxConnections(maxConnections);
+        logger.trace("Building S3 client");
+        conn = AmazonS3ClientBuilder.standard()
+                .withEndpointConfiguration(new EndpointConfiguration(endpoint, s3Region))
+                .withClientConfiguration(clientConfiguration)
+                .withCredentials(new AWSStaticCredentialsProvider(credentials))
+                .withAccelerateModeEnabled(false)
+                .withPathStyleAccessEnabled(true)
+                .withPayloadSigningEnabled(false)
+                .build();
 
 
         //conn.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
@@ -123,6 +155,340 @@ public class ObjectEngine {
 
     }
 
+    public boolean uploadBaggedDirectory(String bucket, String inPath, String s3Prefix, String seqId, String sampleId,
+                                         String reqId, String step) {
+        logger.debug("uploadBaggedDirectory('{}','{}','{}','{}','{}','{}')",
+                bucket, inPath, s3Prefix, seqId, sampleId, step);
+        if (bucket == null || bucket.equals("") || !doesBucketExist(bucket)) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, "You must supply a valid bucket name");
+            return false;
+        }
+        if (inPath == null || inPath.equals("")) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, "You must supply a valid directory folder to upload");
+            return false;
+        }
+        File inFile = new File(inPath);
+        if (!inFile.exists()) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Directory to upload [%s] does not exist",
+                    inFile.getAbsolutePath()));
+            return false;
+        }
+        if (!inFile.isDirectory()) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Directory to upload [%s] is not a directory",
+                    inFile.getAbsolutePath()));
+            return false;
+        }
+        long freeSpace = inFile.getUsableSpace();
+        logger.trace("freeSpace: {}", humanReadableByteCount(freeSpace, true));
+        long uncompressedSize = FileUtils.sizeOfDirectory(inFile);
+        logger.trace("uncompressedSize: {}", humanReadableByteCount(uncompressedSize, true));
+        long requiredSpace = uncompressedSize + (1024 * 1024 * 1024);
+        logger.trace("requiredSpace: {}", humanReadableByteCount(requiredSpace, true));
+        if (requiredSpace > freeSpace) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Not enough free space to bag up [%s], needs [%s] has [%s]",
+                            inFile.getAbsolutePath(), humanReadableByteCount(requiredSpace, true),
+                            humanReadableByteCount(freeSpace, true)));
+            return false;
+        }
+        if (s3Prefix == null)
+            s3Prefix = "";
+        if (!s3Prefix.equals("") && !s3Prefix.endsWith("/"))
+            s3Prefix += "/";
+        sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Bagging up [%s]", inFile.getAbsolutePath()));
+        File bagged = Encapsulation.bagItUp(inFile, bagit, hashing, hiddenFiles);
+        if (bagged == null || !bagged.exists()) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Failed to bag up directory [%s]",
+                    inFile.getAbsolutePath()));
+            return false;
+        }
+        sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Boxing up [%s]", inFile.getAbsolutePath()));
+        //File boxed = Encapsulation.boxItUp(bagged, compression);
+        File boxed = null;
+        switch (compression) {
+            case "tar":
+                logger.trace("Using TAR archiving method");
+                File packFile = new File(bagged.getAbsolutePath() + ".tar");
+                try {
+                    Encapsulation.pack(packFile, bagged);
+                    boxed = packFile;
+                } catch (IOException ioe) {
+                    logger.error("[{}:{}]\n{}", ioe.getClass().getCanonicalName(), ioe.getMessage(),
+                            ExceptionUtils.getStackTrace(ioe));
+                    boxed = null;
+                }
+                break;
+            case "gzip":
+                logger.trace("Using GZIP archiving method");
+                File compressFile = new File(bagged.getAbsolutePath() + ".tar.gz");
+                try {
+                    Encapsulation.compress(compressFile, bagged);
+                    boxed = compressFile;
+                } catch (IOException ioe) {
+                    logger.error("[{}:{}]\n{}", ioe.getClass().getCanonicalName(), ioe.getMessage(),
+                            ExceptionUtils.getStackTrace(ioe));
+                    boxed = null;
+                }
+                break;
+            case "none":
+                logger.trace("No archiving requested");
+                break;
+            default:
+                logger.error("Archive mode [{}] not currently supported", compression);
+                boxed = null;
+                break;
+        }
+        if (boxed == null || !boxed.exists()) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Failed to box up directory [%s]",
+                    inFile.getAbsolutePath()));
+            Encapsulation.debagify(inPath);
+            return false;
+        }
+        sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("Reverting bagging on directory [%s]",
+                inFile.getAbsolutePath()));
+        Encapsulation.debagify(inPath);
+        String toUpload = boxed.getAbsolutePath();
+        boolean success = false;
+        TransferManager manager = null;
+        logger.trace("Building TransferManager");
+        try {
+            manager = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
+            Path uploadPath = Paths.get(toUpload);
+            s3Prefix += uploadPath.getFileName();
+            //inPath = Paths.get(toUpload).toString();
+            //logger.trace("New inFile: {}", inFile);
+            //logger.trace("file.seperator: {}", File.separatorChar);
+            //s3Prefix += inPath.substring((inPath.lastIndexOf(File.separatorChar) > -1 ?
+            //        inPath.lastIndexOf(File.separatorChar) + 1 : 0));
+
+            logger.trace("s3Prefix: {}", s3Prefix);
+            if (conn.doesObjectExist(bucket, s3Prefix)) {
+                sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("[%s] already contains the object [%s]",
+                        bucket, s3Prefix));
+                S3Object existingObject = conn.getObject(bucket, s3Prefix);
+                String s3PrefixRename = s3Prefix + "." + new SimpleDateFormat("yyyy-MM-dd.HH-mm-ss-SSS")
+                        .format(existingObject.getObjectMetadata().getLastModified());
+                if (!removeExisting) {
+                    sendUpdateInfoMessage(seqId, sampleId, reqId, step, String.format("[%s/%s] being renamed to [%s/%s]",
+                            bucket, s3Prefix, bucket, s3PrefixRename));
+                    if (existingObject.getObjectMetadata().getContentLength() > manager.getConfiguration().getMultipartCopyThreshold()) {
+                        InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucket,
+                                s3PrefixRename);
+                        InitiateMultipartUploadResult initResult = conn.initiateMultipartUpload(initRequest);
+                        long objectSize = existingObject.getObjectMetadata().getContentLength();
+                        long partsize = 1024 * 1024 * partSize;
+                        long bytePosition = 0;
+                        int partNum = 1;
+                        int numParts = (int)(objectSize / partsize);
+                        int notificationStep = 5;
+                        int percentDone = 0;
+                        int nextPercent = percentDone + notificationStep;
+                        List<CopyPartResult> copyResponses = new ArrayList<>();
+                        sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                                String.format("Starting multipart upload (%d parts) to copy [%s/%s] to [%s/%s]",
+                                        numParts, bucket, s3Prefix, bucket, s3PrefixRename));
+                        while (bytePosition < objectSize) {
+                            if ((partNum/numParts) > nextPercent) {
+                                sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                                        String.format("Copying in progress (%d/%d %d%%)",
+                                                partNum, numParts, (partNum/numParts)));
+                                nextPercent = percentDone + notificationStep;
+                            }
+                            long lastByte = Math.min(bytePosition + partSize - 1, objectSize - 1);
+                            CopyPartRequest copyRequest = new CopyPartRequest()
+                                    .withSourceBucketName(bucket)
+                                    .withSourceKey(s3Prefix)
+                                    .withDestinationBucketName(bucket)
+                                    .withDestinationKey(s3PrefixRename)
+                                    .withUploadId(initResult.getUploadId())
+                                    .withFirstByte(bytePosition)
+                                    .withLastByte(lastByte)
+                                    .withPartNumber(partNum++);
+                            copyResponses.add(conn.copyPart(copyRequest));
+                            bytePosition += partSize;
+                        }
+                        logger.trace("Creating multipart upload completion request");
+                        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(
+                                bucket, s3PrefixRename, initResult.getUploadId(), getETags(copyResponses)
+                        );
+                        logger.trace("Completing multipart upload");
+                        conn.completeMultipartUpload(completeRequest);
+                    } else {
+                        CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, s3Prefix, bucket,
+                                s3PrefixRename);
+                        conn.copyObject(copyObjectRequest);
+                    }
+                    sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                            String.format("Existing object [%s/%s] copied successfully to [%s/%s]",
+                                    bucket, s3Prefix, bucket, s3PrefixRename));
+                }
+                sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                        String.format("Deleting existing object [%s/%s]", bucket, s3Prefix));
+                DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(bucket, s3Prefix);
+                conn.deleteObject(deleteObjectRequest);
+                logger.trace("[{}] is ready for upload of [{}]", bucket, s3Prefix);
+            }
+            sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                    String.format("Starting Upload to S3: [%s] => [%s/%s]",
+                            boxed.getAbsolutePath(), bucket, s3Prefix));
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.addUserMetadata("uncompressedSize", String.valueOf(uncompressedSize));
+            metadata.addUserMetadata("partSize", String.valueOf(partSize));
+            PutObjectRequest request = new PutObjectRequest(bucket, s3Prefix, boxed).withMetadata(metadata);
+            request.setGeneralProgressListener(new LoggingProgressListener(seqId, sampleId, reqId, step, boxed.length()));
+            logger.trace("Starting upload to S3");
+            long uploadStartTime = System.currentTimeMillis();
+            Upload transfer = manager.upload(request);
+            UploadResult result = transfer.waitForUploadResult();
+            long uploadEndTime = System.currentTimeMillis();
+            Duration uploadDuration = Duration.of(uploadEndTime - uploadStartTime, ChronoUnit.MILLIS);
+            logger.trace("Upload finished in {}", formatDuration(uploadDuration));
+            String s3Checksum = result.getETag();
+            logger.trace("s3Checksum: {}", result.getETag());
+            String localChecksum;
+            if (s3Checksum.contains("-"))
+                localChecksum = md5t.getMultiCheckSum(toUpload, manager);
+            else
+                localChecksum = md5t.getCheckSum(toUpload);
+            logger.trace("localChecksum: {}", localChecksum);
+            if (!localChecksum.equals(result.getETag()))
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("Checksums don't match [local: %s, S3: %s]", localChecksum, result.getETag()));
+            Files.delete(boxed.toPath());
+            success = localChecksum.equals(result.getETag());
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonServiceException, which means your request made it "
+                                    + "to Amazon S3, but was rejected with an error response for some reason. (" +
+                                    "Error Message: %s, HTTP Status Code: %d, AWS Error Code: %s, Error Type: %s, " +
+                                    "Request ID: %s",
+                            ase.getMessage(), ase.getStatusCode(), ase.getErrorCode(),
+                            ase.getErrorType().toString(), ase.getRequestId()));
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                                    + "a serious internal problem while trying to communicate with S3, (" +
+                                    "Error Message: %s",
+                            ace.getMessage()));
+        } catch (InterruptedException | IOException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("%s:%s", ie.getClass().getCanonicalName(), ie.getMessage()));
+        } finally {
+            try {
+                assert manager != null;
+                manager.shutdownNow();
+            } catch (AssertionError ae) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        "uploadFile : TransferManager was pre-emptively shut down.");
+            }
+        }
+        return success;
+    }
+
+    public boolean downloadBaggedDirectory(String bucket, String s3Prefix, String destinationDirectory,
+                                           String seqId, String sampleId, String reqId, String step) {
+        logger.debug("downloadBaggedDirectory('{}','{}','{}','{}','{}','{}','{}')", bucket, s3Prefix,
+                destinationDirectory, seqId, sampleId, reqId, step);
+        if (!conn.doesBucketExistV2(bucket)) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step, String.format("Bucket [%s] does not exist", bucket));
+            return false;
+        }
+        String objectToDownload = s3Prefix + extension;
+        if (!conn.doesObjectExist(bucket, objectToDownload)) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Bucket [%s] does not contain [%s]", bucket, objectToDownload));
+            return false;
+        }
+        S3Object s3Object = conn.getObject(bucket, objectToDownload);
+        long s3ObjectSize = s3Object.getObjectMetadata().getContentLength();
+        if (!destinationDirectory.endsWith("/"))
+            destinationDirectory += "/";
+        File downloadDir = new File(destinationDirectory);
+        logger.trace("downloadDir.getAbsolutePath(): {}", downloadDir.getAbsolutePath());
+        if (!downloadDir.exists()) {
+            if (!downloadDir.mkdirs()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("Output directory [%s] does not exist and could not be created",
+                                downloadDir.getAbsolutePath()));
+                return false;
+            }
+        }
+        boolean success = false;
+
+        TransferManager manager = null;
+        logger.debug("Building TransferManager");
+        try {
+            String s3Checksum = s3Object.getObjectMetadata().getETag();
+            logger.trace("s3Checksum: {}", s3Checksum);
+            manager = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
+            String outFileName = destinationDirectory + objectToDownload.substring(
+                    objectToDownload.lastIndexOf("/") > -1 ? objectToDownload.lastIndexOf("/") : 0);
+            logger.trace("outFileName: {}", outFileName);
+            File outFile = new File(outFileName);
+            logger.trace("outFile.getAbsolutePath(): {}", outFile.getAbsolutePath());
+            GetObjectRequest request = new GetObjectRequest(bucket, objectToDownload);
+            request.setGeneralProgressListener(new LoggingProgressListener(seqId, sampleId, reqId, step,
+                    s3Object.getObjectMetadata().getContentLength()));
+            sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                    String.format("Initiating download: [%s] => [%s]", objectToDownload, outFile.getAbsolutePath()));
+            Download transfer = manager.download(request, outFile);
+            transfer.waitForCompletion();
+            if (!outFile.exists()) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("[%s] does not exist after download of [%s]",
+                                outFile.getAbsolutePath(), objectToDownload));
+                return false;
+            }
+            sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                    String.format("Verifying download via checksums",
+                            objectToDownload, outFile.getAbsolutePath()));
+            String localChecksum;
+            if (s3Checksum.contains("-"))
+                localChecksum = md5t.getMultiCheckSum(outFile.getAbsolutePath(), manager);
+            else
+                localChecksum = md5t.getCheckSum(outFile.getAbsolutePath());
+            logger.debug("localChecksum: {}", localChecksum);
+            if (!localChecksum.equals(s3Checksum))
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        String.format("Checksums don't match [local: %s, S3: %s]", localChecksum, s3Checksum));
+            success = localChecksum.equals(s3Checksum);
+        } catch (AmazonServiceException ase) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonServiceException, which means your request made it "
+                                    + "to Amazon S3, but was rejected with an error response for some reason. (" +
+                                    "Error Message: %s, HTTP Status Code: %d, AWS Error Code: %s, Error Type: %s, " +
+                                    "Request ID: %s",
+                            ase.getMessage(), ase.getStatusCode(), ase.getErrorCode(),
+                            ase.getErrorType().toString(), ase.getRequestId()));
+        } catch (SdkClientException ace) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("Caught an AmazonClientException, which means the client encountered "
+                                    + "a serious internal problem while trying to communicate with S3, (" +
+                                    "Error Message: %s",
+                            ace.getMessage()));
+        } catch (InterruptedException | IOException ie) {
+            sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                    String.format("%s:%s", ie.getClass().getCanonicalName(), ie.getMessage()));
+        } finally {
+            try {
+                assert manager != null;
+                manager.shutdownNow();
+            } catch (AssertionError ae) {
+                sendUpdateErrorMessage(seqId, sampleId, reqId, step,
+                        "uploadFile : TransferManager was pre-emptively shut down.");
+            }
+        }
+        return success;
+    }
+
     public boolean uploadDirectory(String bucket, String inDir, String outDir) {
         logger.debug("Call to uploadDirectory [bucket = {}, inDir = {}, outDir = {}]", bucket, inDir, outDir);
         boolean wasTransfered = false;
@@ -130,9 +496,13 @@ public class ObjectEngine {
 
         try {
             logger.trace("Building new TransferManager");
-            tx = new TransferManager(conn);
+            tx = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
 
-            logger.trace("Building new TransferManagerConfiguration");
+            /*logger.trace("Building new TransferManagerConfiguration");
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
             logger.trace("Setting up minimum part size");
 
@@ -142,7 +512,7 @@ public class ObjectEngine {
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
             logger.trace("Setting configuration on TransferManager");
-            tx.setConfiguration(tmConfig);
+            tx.setConfiguration(tmConfig);*/
 
             logger.trace("[uploadDir] set to [inDir]");
             File uploadDir = new File(inDir);
@@ -204,9 +574,13 @@ public class ObjectEngine {
 
         try {
             logger.trace("Building new TransferManager");
-            tx = new TransferManager(conn);
+            tx = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
 
-            logger.trace("Building new TransferManagerConfiguration");
+            /*logger.trace("Building new TransferManagerConfiguration");
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
             logger.trace("Setting up minimum part size");
 
@@ -216,7 +590,7 @@ public class ObjectEngine {
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
             logger.trace("Setting configuration on TransferManager");
-            tx.setConfiguration(tmConfig);
+            tx.setConfiguration(tmConfig);*/
 
             logger.trace("[uploadDir] set to [inDir]");
             File uploadDir = new File(inDir);
@@ -278,9 +652,13 @@ public class ObjectEngine {
 
         try {
             logger.trace("Building new TransferManager");
-            tx = new TransferManager(conn);
+            tx = TransferManagerBuilder.standard()
+                    .withS3Client(conn)
+                    .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                    .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                    .build();
 
-            logger.trace("Building new TransferManagerConfiguration");
+            /*logger.trace("Building new TransferManagerConfiguration");
             TransferManagerConfiguration tmConfig = new TransferManagerConfiguration();
             logger.trace("Setting up minimum part size");
 
@@ -290,7 +668,7 @@ public class ObjectEngine {
             // Sets the size threshold in bytes for when to use multipart uploads.
             tmConfig.setMultipartUploadThreshold((long) partSize * 1024 * 1024);
             logger.trace("Setting configuration on TransferManager");
-            tx.setConfiguration(tmConfig);
+            tx.setConfiguration(tmConfig);*/
 
             logger.trace("[uploadDir] set to [inDir]");
             File uploadDir = new File(inDir);
@@ -368,7 +746,11 @@ public class ObjectEngine {
             TransferManager tx = null;
             try {
                 logger.trace("Building new TransferManager");
-                tx = new TransferManager(conn);
+                tx = TransferManagerBuilder.standard()
+                        .withS3Client(conn)
+                        .withMultipartUploadThreshold(1024L * 1024L * partSize)
+                        .withMinimumUploadPartSize(1024L * 1024L * partSize)
+                        .build();
 
                 logger.trace("Starting download timer");
                 long startDownload = System.currentTimeMillis();
@@ -508,7 +890,7 @@ public class ObjectEngine {
         return wasTransfered;
     }
 
-    private Map<String, Long> getlistBucketContents(String bucket, String prefixKey) {
+    public Map<String, Long> getlistBucketContents(String bucket, String prefixKey) {
         if (!prefixKey.endsWith("/"))
             prefixKey = prefixKey + "/";
         logger.debug("Call to listBucketContents [bucket = {}, prefixKey = {}]", bucket, prefixKey);
@@ -820,13 +1202,13 @@ public class ObjectEngine {
 
     public boolean doesBucketExist(String bucket) {
         logger.debug("Call to doesBucketExist [bucket = {}]", bucket);
-        return conn.doesBucketExist(bucket);
+        return conn.doesBucketExistV2(bucket);
     }
 
     public void createBucket(String bucket) {
         logger.debug("Call to createBucket [bucket = {}]", bucket);
         try {
-            if (!conn.doesBucketExist(bucket)) {
+            if (!conn.doesBucketExistV2(bucket)) {
                 Bucket mybucket = conn.createBucket(bucket);
                 logger.debug("Created bucket [{}] ", bucket);
             }
@@ -870,11 +1252,118 @@ public class ObjectEngine {
         }
     }
 
-    public static String humanReadableByteCount(long bytes, boolean si) {
+    private class LoggingProgressListener implements ProgressListener {
+        private final Logger logger = LoggerFactory.getLogger(LoggingProgressListener.class);
+        private int updatePercentStep = 5;
+        private long startTimestamp = 0L;
+        private long lastTimestamp = 0L;
+        private long totalTransferred = 0L;
+        private long lastTransferred = 0L;
+        private long totalBytes = 0L;
+        private int nextUpdate = updatePercentStep;
+        private String seqId;
+        private String sampleId;
+        private String reqId;
+        private String step;
+
+        public LoggingProgressListener(String seqId, String sampleId, String reqId, String step, long totalBytes) {
+            this.startTimestamp = System.currentTimeMillis();
+            this.lastTimestamp = startTimestamp;
+            this.seqId = seqId;
+            this.sampleId = sampleId;
+            this.reqId = reqId;
+            this.step = step;
+            this.totalBytes = totalBytes;
+        }
+
+        @Override
+        public void progressChanged(ProgressEvent progressEvent) {
+            Thread.currentThread().setName("TransferListener");
+            long currentBytesTransferred = progressEvent.getBytesTransferred();
+            this.totalTransferred += currentBytesTransferred;
+            this.lastTransferred += currentBytesTransferred;
+            float currentTransferPercentage = ((float)totalTransferred / (float)totalBytes) * (float)100;
+            if (currentTransferPercentage > (float)nextUpdate - 0.01) {
+                long currentTimestamp = System.currentTimeMillis();
+                sendUpdateInfoMessage(seqId, sampleId, reqId, step,
+                        String.format("Transferring (%s/%s %d%%) at %s",
+                        humanReadableByteCount(totalTransferred, true), humanReadableByteCount(totalBytes, true),
+                        (int)currentTransferPercentage,
+                                humanReadableTransferRate(lastTransferred, currentTimestamp - lastTimestamp)));
+                lastTransferred = 0L;
+                lastTimestamp = currentTimestamp;
+                nextUpdate += updatePercentStep;
+                if (currentTransferPercentage > (float)100)
+                    sendUpdateInfoMessage(seqId, sampleId, reqId, step, "Reassembling parallel transfer file(s)");
+            }
+        }
+    }
+
+    private void sendUpdateInfoMessage(String seqId, String sampleId, String reqId, String step, String message) {
+        logger.info("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.INFO, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("seq_id", seqId);
+        if (sampleId != null) {
+            msgEvent.setParam("sample_id", sampleId);
+            msgEvent.setParam("ssstep", step);
+        } else
+            msgEvent.setParam("sstep", step);
+        if (reqId != null)
+            msgEvent.setParam("req_id", reqId);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    private void sendUpdateErrorMessage(String seqId, String sampleId, String reqId, String step, String message) {
+        logger.error("{}", message);
+        MsgEvent msgEvent = plugin.genGMessage(MsgEvent.Type.ERROR, message);
+        msgEvent.setParam("pathstage", String.valueOf(plugin.pathStage));
+        msgEvent.setParam("error_message", message);
+        msgEvent.setParam("seq_id", seqId);
+        if (sampleId != null) {
+            msgEvent.setParam("sample_id", sampleId);
+            msgEvent.setParam("ssstep", step);
+        } else
+            msgEvent.setParam("sstep", step);
+        if (reqId != null)
+            msgEvent.setParam("req_id", reqId);
+        plugin.sendMsgEvent(msgEvent);
+    }
+
+    // This is a helper function to construct a list of ETags.
+    private static List<PartETag> getETags(List<CopyPartResult> responses) {
+        List<PartETag> etags = new ArrayList<>();
+        for (CopyPartResult response : responses) {
+            etags.add(new PartETag(response.getPartNumber(), response.getETag()));
+        }
+        return etags;
+    }
+
+    private static String humanReadableByteCount(long bytes, boolean si) {
         int unit = si ? 1000 : 1024;
         if (bytes < unit) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(unit));
         String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp-1) + (si ? "" : "i");
         return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
+    }
+
+    private static String humanReadableTransferRate(long transferred, long duration) {
+        float rate = (((float)transferred * (float)1000) * (float)8) / duration;
+        int unit = 1000;
+        if ((int)rate < unit) return String.format("%.1f bps", rate);
+        int exp = (int) (Math.log(rate) / Math.log(unit));
+        String pre = "kMGTPE".charAt(exp - 1) + "";
+        return String.format("%.1f %sb/s", rate / Math.pow(unit, exp), pre);
+    }
+
+    private static String formatDuration(Duration duration) {
+        long seconds = duration.getSeconds();
+        long absSeconds = Math.abs(seconds);
+        String positive = String.format(
+                "%d:%02d:%02d",
+                absSeconds / 3600,
+                (absSeconds % 3600) / 60,
+                absSeconds % 60);
+        return seconds < 0 ? "-" + positive : positive;
     }
 }
