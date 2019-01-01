@@ -9,14 +9,15 @@ public class Executor extends CExecutor {
     private CLogger logger;
     public Executor(Plugin plugin) {
         super(plugin);
+        mainPlugin = plugin;
         logger = new CLogger(Executor.class, plugin.getMsgOutQueue(), plugin.getRegion(), plugin.getAgent(), plugin.getPluginID(), CLogger.Level.Trace);
     }
 
     @Override
     public MsgEvent processExec(MsgEvent msg) {
-        logger.debug("Processing [EXEC] message");
-        logger.trace("Params: " + msg.getParams());
-        if(msg.getParam("pathstage") != null) { //pathstage message
+        logger.trace("Processing [EXEC] message");
+        logger.debug("Params: " + msg.getParams());
+        if (msg.getParam("pathstage") != null) { //pathstage message
             int pathStage;
             try{
                 pathStage = Integer.parseInt(msg.getParam("pathstage"));
@@ -47,6 +48,40 @@ public class Executor extends CExecutor {
 
         }
         return null;
+    }
+
+    @Override
+    public MsgEvent processInfo(MsgEvent msg) {
+        logger.trace("Processing [INFO] message");
+        logger.debug("Params: {}", msg.getParams());
+        String infoType = msg.getParam("info_type");
+        if (infoType == null)
+            msg.setParam("info_result", "You must provied an [info_type] parameter");
+        else {
+            switch (infoType) {
+                case "output":
+                    if (Plugin.objectToFSp != null) {
+                        String lineCountStr = msg.getParam("output_line_count");
+                        if (lineCountStr != null) {
+                            try {
+                                int lineCount = Integer.valueOf(lineCountStr);
+                                msg.setParam("info_result", Plugin.objectToFSp.getOutputTail(lineCount));
+                            } catch (NumberFormatException e) {
+                                msg.setParam("info_result", Plugin.objectToFSp.getOutput());
+                            }
+                        } else {
+                            msg.setParam("info_result", Plugin.objectToFSp.getOutput());
+                        }
+                    } else {
+                        msg.setParam("info_result", "No process is running which contains ouptut on this plugin");
+                    }
+                    break;
+                default:
+                    msg.setParam("info_result", String.format("Info type [%s] not currently supported", infoType));
+                    break;
+            }
+        }
+        return msg;
     }
 
     private void pathStage1 (MsgEvent pme, int pathStage) {

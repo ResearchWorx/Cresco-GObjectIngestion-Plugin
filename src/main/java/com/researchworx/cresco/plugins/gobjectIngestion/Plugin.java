@@ -9,6 +9,13 @@ import com.researchworx.cresco.plugins.gobjectIngestion.folderprocessor.WatchDir
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.Encapsulation;
 import com.researchworx.cresco.plugins.gobjectIngestion.objectstorage.LargeBagVerifier;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -26,8 +33,11 @@ public class Plugin extends CPlugin {
     private String genomicControllerAgent;
     private String genomicControllerPlugin;
 
-    static ObjectFS objectToFSp;
-    static FSObject fStoObjectp;
+    private String processorInstanceID;
+    private boolean isSingleInstance = false;
+
+    public static ObjectFS objectToFSp;
+    public static FSObject fStoObjectp;
 
     public static boolean processorIsActive() {
         return PathProcessorActive;
@@ -46,18 +56,22 @@ public class Plugin extends CPlugin {
     }
 
     public void start() {
-        /*try {
+        try {
             URL instanceIDURL = new URL("http://169.254.169.254/latest/meta-data/instance-id");
             HttpURLConnection conn = (HttpURLConnection) instanceIDURL.openConnection();
+            conn.setConnectTimeout(1000);
+            conn.setReadTimeout(1000);
             conn.setRequestMethod("GET");
             BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String instanceID = in.readLine();
-            logger.info("Instance ID: {}", (instanceID != null) ? instanceID : "NULL");
+            setProcessorInstanceID(in.readLine());
+            logger.info("Instance ID: {}", (getProcessorInstanceID() != null) ? getProcessorInstanceID() : "NULL");
         } catch (ProtocolException e) {
             logger.error("Protocol exception when getting instance ID: {}", e.getMessage());
+        } catch (SocketTimeoutException e) {
+            logger.warn("Connection to local metadata server timed out");
         } catch (IOException e) {
             logger.error("I/O exception when getting instance ID: {}", e.getMessage());
-        }*/
+        }
 
 
         setExec(new Executor(this));
@@ -77,6 +91,7 @@ public class Plugin extends CPlugin {
         genomicControllerRegion = getConfig().getStringParam("genomic_controller_region",getRegion());
         genomicControllerAgent = getConfig().getStringParam("genomic_controller_agent",getAgent());
         genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
+        setIsSingleInstance(getConfig().getBooleanParam("is_single_instance", false));
         Encapsulation.setLogger(this);
         LargeBagVerifier.setLogger(this);
 
@@ -163,6 +178,22 @@ public class Plugin extends CPlugin {
             }
 
         }
+    }
+
+    public void setProcessorInstanceID(String processorInstanceID) {
+        this.processorInstanceID = processorInstanceID;
+    }
+
+    public String getProcessorInstanceID() {
+        return processorInstanceID;
+    }
+
+    public void setIsSingleInstance(boolean isSingleInstance) {
+        this.isSingleInstance = isSingleInstance;
+    }
+
+    public boolean getIsSingleInstance() {
+        return isSingleInstance;
     }
 
     private String getSysInfoPlugin() {
@@ -254,10 +285,11 @@ public class Plugin extends CPlugin {
             me.setParam("dst_region",genomicControllerRegion);
             me.setParam("dst_agent", genomicControllerAgent);
             me.setParam("dst_plugin", genomicControllerPlugin);
+            me.setParam("instance_id", getProcessorInstanceID());
+            me.setParam("is_single_instance", Boolean.toString(getIsSingleInstance()));
             me.setParam("gmsg_type",met.name());
             logger.trace(me.getParams().toString());
-        }
-        catch(Exception ex) {
+        } catch(Exception ex) {
             logger.error(ex.getMessage());
         }
         return me;

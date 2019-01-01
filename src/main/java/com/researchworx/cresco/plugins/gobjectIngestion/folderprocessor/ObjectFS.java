@@ -31,6 +31,7 @@ public class ObjectFS implements Runnable {
     private String pathStage;
     private int pstep;
     private String stagePhase;
+    private StringBuilder output = new StringBuilder();
 
     public ObjectFS(Plugin plugin) {
         this.stagePhase = "uninit";
@@ -50,6 +51,8 @@ public class ObjectFS implements Runnable {
         logger.debug("\"pathstage" + pathStage + "\" --> \"transfer_watch_file\" from config [{}]", transfer_watch_file);
 
         bucket_name = plugin.getConfig().getStringParam("raw_bucket");
+        logger.debug("InstanceID: {}", plugin.getProcessorInstanceID());
+        logger.debug("IsSingleInstance: {}", plugin.getIsSingleInstance());
         /*raw_bucket_name = plugin.getConfig().getStringParam("raw_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"raw_bucket\" from config [{}]", raw_bucket_name);
         clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
@@ -86,7 +89,7 @@ public class ObjectFS implements Runnable {
         }
     }
 
-    public void testBaggedSequenceDownload(String seqId, String reqId, boolean trackPerf) {
+    /*public void testBaggedSequenceDownload(String seqId, String reqId, boolean trackPerf) {
         logger.debug("testBaggedSequenceDownload('{}','{}',{})", seqId, reqId, trackPerf);
         ObjectEngine oe = new ObjectEngine(plugin);
         pstep = 3;
@@ -472,9 +475,9 @@ public class ObjectFS implements Runnable {
             }
         }
         pstep = 2;
-    }
+    }*/
 
-    public void processBaggedSequence(String seqId, String reqId, boolean trackPerf) {
+    /*public void processBaggedSequence(String seqId, String reqId, boolean trackPerf) {
         logger.debug("processBaggedSequence('{}','{}',{})", seqId, reqId, trackPerf);
         ObjectEngine oe = new ObjectEngine(plugin);
         pstep = 3;
@@ -534,12 +537,6 @@ public class ObjectFS implements Runnable {
                 File baggedSequenceFile = new File(workDirName + seqId + ".tar");
                 sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                         String.format("Download successful, unboxing sequence file [%s]", baggedSequenceFile));
-                /*if (!Encapsulation.unBoxIt(baggedSequenceFile)) {
-                    sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
-                            String.format("Failed to unbox sequence file [%s]", baggedSequenceFile));
-                    pstep = 2;
-                    return;
-                }*/
                 if (!Encapsulation.unarchive(baggedSequenceFile, workDir)) {
                     sendUpdateErrorMessage(seqId, null, reqId, String.valueOf(sstep),
                             String.format("Failed to unarchive sequence file [%s]", baggedSequenceFile.getAbsolutePath()));
@@ -815,7 +812,7 @@ public class ObjectFS implements Runnable {
             }
         }
         pstep = 2;
-    }
+    }*/
 
     public void preprocessBaggedSequence(String seqId, String reqId, boolean trackPerf) {
         logger.debug("preprocessBaggedSequence('{}','{}',{})", seqId, reqId, trackPerf);
@@ -835,7 +832,8 @@ public class ObjectFS implements Runnable {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, null, reqId, sstep,
                         "Failed sequence preprocessor initialization");
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             sstep++;
@@ -851,7 +849,8 @@ public class ObjectFS implements Runnable {
                     incoming_directory)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence file");
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             sstep++;
@@ -903,7 +902,8 @@ public class ObjectFS implements Runnable {
                             break;
                     }
                 }
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             sstep++;
@@ -920,7 +920,8 @@ public class ObjectFS implements Runnable {
                     research_bucket_name)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to upload sequence results");
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             sstep++;
@@ -932,7 +933,8 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
-        pstep = 2;
+        if (!plugin.getIsSingleInstance())
+            pstep = 2;
     }
 
     private boolean preprocessBaggedSequenceCheckAndPrepare(String seqId, String reqId, int sstep, String raw_bucket_name,
@@ -1152,7 +1154,8 @@ public class ObjectFS implements Runnable {
             pt = new PerfTracker();
             new Thread(pt).start();
         }
-        StringBuilder output = new StringBuilder();
+        //StringBuilder output = new StringBuilder();
+        output = new StringBuilder();
         Process p;
         try {
             p = Runtime.getRuntime().exec(command);
@@ -1206,6 +1209,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("output_log", output.toString());
             plugin.sendMsgEvent(pse);
             Thread.sleep(2000);
+            output = new StringBuilder();
             sendUpdateInfoMessage(seqId, null, reqId, sstep, "Pipeline has completed");
             Thread.sleep(500);
             Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
@@ -1235,7 +1239,7 @@ public class ObjectFS implements Runnable {
                 if (sampleList != null) {
                     sendUpdateInfoMessage(seqId, null, reqId, String.valueOf(sstep),
                             String.format("Transferring Clinical Results Directory. Sample list: %s", sampleList));
-                    String samples[] = sampleList.split(",");
+                    String[] samples = sampleList.split(",");
                     boolean uploaded = true;
                     for (String sample : samples) {
                         String samplePath = Paths.get(clinicalResultsDir.getAbsolutePath(), sample).toString();
@@ -1365,7 +1369,8 @@ public class ObjectFS implements Runnable {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Failed sample processor initialization");
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             ssstep++;
@@ -1381,7 +1386,8 @@ public class ObjectFS implements Runnable {
                     incoming_directory)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             ssstep++;
@@ -1434,7 +1440,8 @@ public class ObjectFS implements Runnable {
                             break;
                     }
                 }
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             ssstep++;
@@ -1450,7 +1457,8 @@ public class ObjectFS implements Runnable {
             if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload sample results");
-                pstep = 2;
+                if (!plugin.getIsSingleInstance())
+                    pstep = 2;
                 return;
             }
             ssstep++;
@@ -1462,7 +1470,8 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                     String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
-        pstep = 2;
+        if (!plugin.getIsSingleInstance())
+            pstep = 2;
     }
 
     private boolean processBaggedSampleCheckAndPrepare(String seqId, String sampleId, String reqId, int ssstep,
@@ -1679,7 +1688,8 @@ public class ObjectFS implements Runnable {
             pt = new PerfTracker();
             new Thread(pt).start();
         }
-        StringBuilder output = new StringBuilder();
+        //StringBuilder output = new StringBuilder();
+        output = new StringBuilder();
         Process p;
         try {
             p = Runtime.getRuntime().exec(command);
@@ -1735,6 +1745,7 @@ public class ObjectFS implements Runnable {
             pse.setParam("output_log", output.toString());
             plugin.sendMsgEvent(pse);
             Thread.sleep(2000);
+            output = new StringBuilder();
             sendUpdateInfoMessage(seqId, sampleId, reqId, ssstep, "Pipeline has completed");
             Thread.sleep(500);
             Process postClear = Runtime.getRuntime().exec("docker rm " + containerName);
@@ -2997,6 +3008,19 @@ public class ObjectFS implements Runnable {
             logger.error(e.getMessage());
         }
         pstep = 2;
+    }
+
+    public String getOutput() {
+        return output.toString();
+    }
+
+    public String getOutputTail(int nLines) {
+        String[] lines = output.toString().split("\n");
+        StringBuilder ret = new StringBuilder();
+        int start = (lines.length > nLines) ? (lines.length - nLines) : 0;
+        for (int i = start; i < lines.length; i++)
+            ret.append(String.format("%s\n", lines[i]));
+        return ret.toString();
     }
 }
 
