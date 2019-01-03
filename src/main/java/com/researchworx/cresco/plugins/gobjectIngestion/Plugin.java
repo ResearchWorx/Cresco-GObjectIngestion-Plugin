@@ -104,7 +104,7 @@ public class Plugin extends CPlugin {
         sendConfig.setParam("dst_plugin", genomicControllerPlugin);
         sendConfig.setParam("gmsg_type", MsgEvent.Type.INFO.name());
         sendConfig.setParam("pathstage", String.valueOf(pathStage));
-        sendConfig.setParam("pstep", String.valueOf(1));
+        sendConfig.setParam("pstep", String.valueOf(0));                    // Using 0 here to keep the plugin marked as SHUTDOWN
         sendConfig.setParam("ec2_instance_id", getProcessorInstanceID());
         sendConfig.setParam("single_use_instance", Boolean.toString(getIsSingleUseInstance()));
         sendMsgEvent(sendConfig);
