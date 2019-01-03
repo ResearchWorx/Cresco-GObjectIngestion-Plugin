@@ -95,7 +95,7 @@ public class Plugin extends CPlugin {
         Encapsulation.setLogger(this);
         LargeBagVerifier.setLogger(this);
 
-        MsgEvent sendConfig = new MsgEvent(MsgEvent.Type.EXEC,getRegion(),getAgent(),getPluginID(), "Sending Plugin Configuration Info");
+        MsgEvent sendConfig = new MsgEvent(MsgEvent.Type.EXEC, getRegion(), getAgent(), getPluginID(), "Sending Plugin Configuration Info");
         sendConfig.setParam("src_region",getRegion());
         sendConfig.setParam("src_agent",getAgent());
         sendConfig.setParam("src_plugin",getPluginID());
