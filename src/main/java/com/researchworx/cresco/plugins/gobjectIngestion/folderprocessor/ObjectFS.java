@@ -52,7 +52,7 @@ public class ObjectFS implements Runnable {
 
         bucket_name = plugin.getConfig().getStringParam("raw_bucket");
         logger.debug("InstanceID: {}", plugin.getProcessorInstanceID());
-        logger.debug("IsSingleInstance: {}", plugin.getIsSingleInstance());
+        logger.debug("IsSingleInstance: {}", plugin.getIsSingleUseInstance());
         /*raw_bucket_name = plugin.getConfig().getStringParam("raw_bucket");
         logger.debug("\"pathstage" + pathStage + "\" --> \"raw_bucket\" from config [{}]", raw_bucket_name);
         clinical_bucket_name = plugin.getConfig().getStringParam("clinical_bucket");
@@ -832,7 +832,7 @@ public class ObjectFS implements Runnable {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, null, reqId, sstep,
                         "Failed sequence preprocessor initialization");
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -849,7 +849,7 @@ public class ObjectFS implements Runnable {
                     incoming_directory)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to download sequence file");
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -902,7 +902,7 @@ public class ObjectFS implements Runnable {
                             break;
                     }
                 }
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -920,7 +920,7 @@ public class ObjectFS implements Runnable {
                     research_bucket_name)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, null, reqId, sstep, "Failed to upload sequence results");
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -933,7 +933,7 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, null, reqId, sstep,
                     String.format("preprocessBaggedSequence exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
-        if (!plugin.getIsSingleInstance())
+        if (!plugin.getIsSingleUseInstance())
             pstep = 2;
     }
 
@@ -1369,7 +1369,7 @@ public class ObjectFS implements Runnable {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                         "Failed sample processor initialization");
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -1386,7 +1386,7 @@ public class ObjectFS implements Runnable {
                     incoming_directory)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to download sample file");
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -1440,7 +1440,7 @@ public class ObjectFS implements Runnable {
                             break;
                     }
                 }
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -1457,7 +1457,7 @@ public class ObjectFS implements Runnable {
             if (!processBaggedSampleUploadResults(seqId, sampleId, reqId, ssstep, resultsDir, results_bucket_name)) {
                 Thread.sleep(1000);
                 sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep, "Failed to upload sample results");
-                if (!plugin.getIsSingleInstance())
+                if (!plugin.getIsSingleUseInstance())
                     pstep = 2;
                 return;
             }
@@ -1470,7 +1470,7 @@ public class ObjectFS implements Runnable {
             sendUpdateErrorMessage(seqId, sampleId, reqId, ssstep,
                     String.format("processBaggedSample exception encountered - %s", ExceptionUtils.getStackTrace(e)));
         }
-        if (!plugin.getIsSingleInstance())
+        if (!plugin.getIsSingleUseInstance())
             pstep = 2;
     }
 

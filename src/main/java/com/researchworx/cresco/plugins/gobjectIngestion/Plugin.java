@@ -34,7 +34,7 @@ public class Plugin extends CPlugin {
     private String genomicControllerPlugin;
 
     private String processorInstanceID;
-    private boolean isSingleInstance = false;
+    private boolean isSingleUseInstance = false;
 
     public static ObjectFS objectToFSp;
     public static FSObject fStoObjectp;
@@ -56,6 +56,8 @@ public class Plugin extends CPlugin {
     }
 
     public void start() {
+        setExec(new Executor(this));
+
         try {
             URL instanceIDURL = new URL("http://169.254.169.254/latest/meta-data/instance-id");
             HttpURLConnection conn = (HttpURLConnection) instanceIDURL.openConnection();
@@ -72,9 +74,8 @@ public class Plugin extends CPlugin {
         } catch (IOException e) {
             logger.error("I/O exception when getting instance ID: {}", e.getMessage());
         }
+        setIsSingleUseInstance(getConfig().getBooleanParam("single_use_instance", false));
 
-
-        setExec(new Executor(this));
         //logger.setLogLevel(CLogger.Level.Debug);
         logger.trace("Building new ConcurrentLinkedQueue");
         pathQueue = new ConcurrentLinkedQueue<>();
@@ -91,9 +92,29 @@ public class Plugin extends CPlugin {
         genomicControllerRegion = getConfig().getStringParam("genomic_controller_region",getRegion());
         genomicControllerAgent = getConfig().getStringParam("genomic_controller_agent",getAgent());
         genomicControllerPlugin = getConfig().getStringParam("genomic_controller_plugin");
-        setIsSingleInstance(getConfig().getBooleanParam("is_single_instance", false));
         Encapsulation.setLogger(this);
         LargeBagVerifier.setLogger(this);
+
+        MsgEvent sendConfig = new MsgEvent(MsgEvent.Type.EXEC,getRegion(),getAgent(),getPluginID(), "Sending Plugin Configuration Info");
+        sendConfig.setParam("src_region",getRegion());
+        sendConfig.setParam("src_agent",getAgent());
+        sendConfig.setParam("src_plugin",getPluginID());
+        sendConfig.setParam("dst_region",genomicControllerRegion);
+        sendConfig.setParam("dst_agent", genomicControllerAgent);
+        sendConfig.setParam("dst_plugin", genomicControllerPlugin);
+        sendConfig.setParam("gmsg_type", MsgEvent.Type.INFO.name());
+        sendConfig.setParam("pathstage", String.valueOf(pathStage));
+        sendConfig.setParam("pstep", String.valueOf(1));
+        sendConfig.setParam("ec2_instance_id", getProcessorInstanceID());
+        sendConfig.setParam("single_use_instance", Boolean.toString(getIsSingleUseInstance()));
+        sendMsgEvent(sendConfig);
+
+        try {
+            logger.trace("Flushing configuration message");
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
 
         logger.debug("[pathStage] == {}", pathStage);
         logger.info("Building Stage [{}]", pathStage);
@@ -188,12 +209,12 @@ public class Plugin extends CPlugin {
         return processorInstanceID;
     }
 
-    public void setIsSingleInstance(boolean isSingleInstance) {
-        this.isSingleInstance = isSingleInstance;
+    public void setIsSingleUseInstance(boolean isSingleUseInstance) {
+        this.isSingleUseInstance = isSingleUseInstance;
     }
 
-    public boolean getIsSingleInstance() {
-        return isSingleInstance;
+    public boolean getIsSingleUseInstance() {
+        return isSingleUseInstance;
     }
 
     private String getSysInfoPlugin() {
@@ -285,8 +306,8 @@ public class Plugin extends CPlugin {
             me.setParam("dst_region",genomicControllerRegion);
             me.setParam("dst_agent", genomicControllerAgent);
             me.setParam("dst_plugin", genomicControllerPlugin);
-            me.setParam("instance_id", getProcessorInstanceID());
-            me.setParam("is_single_instance", Boolean.toString(getIsSingleInstance()));
+            //me.setParam("ec2_instance_id", getProcessorInstanceID());
+            //me.setParam("single_use_instance", Boolean.toString(getIsSingleUseInstance()));
             me.setParam("gmsg_type",met.name());
             logger.trace(me.getParams().toString());
         } catch(Exception ex) {
